@@ -1,0 +1,22 @@
+{
+  "name": "amparito",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Amparito — agente de venta automatizada de seguros para Colsubsidio. Hackathon Colsubsidio × 30X 2026.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,276 @@
+{
+  "productos": [
+    {
+      "id": "accidentes_personales_metlife",
+      "nombre": "Seguro de Accidentes Personales",
+      "categoria": "personal_familiar",
+      "aseguradora": "MetLife",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["moto", "bici", "trabajo de riesgo", "domicilios", "construccion", "transporte", "deporte", "unico ingreso", "accidente", "obrero", "mensajeria"],
+      "coberturas": ["Muerte accidental", "Incapacidad total o permanente por accidente", "Gastos médicos por accidente", "Renta diaria por hospitalización"],
+      "exclusiones": ["Enfermedades preexistentes", "Actos ilícitos o riñas provocadas", "Deportes extremos profesionales no declarados"],
+      "prima_regla": { "base": 18000, "por_edad": 250, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Prima base mensual más un ajuste por cada año de edad por encima de 30",
+        "consecuencias_no_pago": "Tras 30 días de mora la cobertura se suspende y el siniestro no será cubierto"
+      }
+    },
+    {
+      "id": "vida_panamerican",
+      "nombre": "Seguro de Vida",
+      "categoria": "personal_familiar",
+      "aseguradora": "Pan-American Life",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["hijo", "hija", "bebe", "matrimonio", "hogar", "unico ingreso", "padres mayores", "credito", "hipoteca", "familia", "fallecimiento"],
+      "coberturas": ["Fallecimiento por cualquier causa", "Incapacidad total y permanente", "Enfermedades graves (anticipo)", "Auxilio funerario"],
+      "exclusiones": ["Suicidio durante el primer año", "Enfermedades preexistentes no declaradas"],
+      "prima_regla": { "base": 25000, "por_edad": 400, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Prima base mensual más ajuste por edad; el valor asegurado se define al cotizar",
+        "consecuencias_no_pago": "Tras 30 días de mora la póliza se cancela y se pierde la antigüedad"
+      }
+    },
+    {
+      "id": "salud_bmi",
+      "nombre": "Póliza de Salud",
+      "categoria": "personal_familiar",
+      "aseguradora": "BMI",
+      "estandarizado": false,
+      "requiere_asesoria": true,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["salud", "enfermedad", "hospitalizacion", "cirugia", "medicina prepagada", "hijos salud"],
+      "coberturas": ["Hospitalización y cirugía", "Consultas con especialistas", "Exámenes diagnósticos", "Urgencias"],
+      "exclusiones": ["Preexistencias según declaración", "Tratamientos estéticos", "Periodos de carencia según plan"],
+      "prima_regla": { "base": 120000, "por_edad": 3000, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Depende de edad, grupo familiar y declaración de salud; requiere asesoría personalizada",
+        "consecuencias_no_pago": "Suspensión de servicios médicos tras la mora que defina el contrato"
+      }
+    },
+    {
+      "id": "asistencia_medica_familiar_mundial",
+      "nombre": "Asistencia Médica Familiar",
+      "categoria": "personal_familiar",
+      "aseguradora": "Seguros Mundial",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["familia", "hijos", "padres mayores", "medico en casa", "urgencia menor", "salud basica"],
+      "coberturas": ["Médico a domicilio", "Orientación médica telefónica 24/7", "Traslado en ambulancia", "Descuentos en farmacias"],
+      "exclusiones": ["Cirugías y hospitalización", "Tratamientos de alto costo"],
+      "prima_regla": { "base": 22000, "por_edad": 0, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Tarifa plana mensual por grupo familiar",
+        "consecuencias_no_pago": "Suspensión del servicio de asistencia tras 30 días de mora"
+      }
+    },
+    {
+      "id": "soat_mundial",
+      "nombre": "SOAT",
+      "categoria": "movilidad",
+      "aseguradora": "Seguros Mundial",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "anual",
+      "gatillos_vida": ["carro", "moto", "vehiculo", "soat", "transito", "papeles del carro"],
+      "coberturas": ["Gastos médicos por accidente de tránsito", "Incapacidad permanente", "Muerte y gastos funerarios", "Gastos de transporte de víctimas"],
+      "exclusiones": ["Daños materiales del vehículo", "Responsabilidad civil frente a terceros"],
+      "prima_regla": { "base": 780000, "por_edad": 0, "edad_pivote": 30, "nota": "Tarifa regulada según tipo de vehículo y cilindraje" },
+      "art9": {
+        "forma_calculo": "Tarifa regulada por el Gobierno según tipo de vehículo, cilindraje y modelo",
+        "consecuencias_no_pago": "Circular sin SOAT vigente genera inmovilización y multa"
+      }
+    },
+    {
+      "id": "todo_riesgo_carro_chubb",
+      "nombre": "Seguro Todo Riesgo para Carro",
+      "categoria": "movilidad",
+      "aseguradora": "Chubb",
+      "estandarizado": false,
+      "requiere_asesoria": true,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["carro nuevo", "carro", "choque", "robo carro", "vehiculo familiar"],
+      "coberturas": ["Pérdida total y parcial por daños", "Hurto", "Responsabilidad civil", "Asistencia en carretera"],
+      "exclusiones": ["Conductor sin licencia", "Uso comercial no declarado", "Deducibles según plan"],
+      "prima_regla": { "base": 180000, "por_edad": 1500, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Depende del valor comercial del vehículo, modelo, uso y perfil del conductor; requiere inspección",
+        "consecuencias_no_pago": "Cancelación de la póliza y pérdida de cobertura tras la mora contractual"
+      }
+    },
+    {
+      "id": "moto_asistencia_mundial",
+      "nombre": "Seguro y Asistencia para Moto",
+      "categoria": "movilidad",
+      "aseguradora": "Seguros Mundial",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["moto", "moto nueva", "domicilios", "mensajeria", "robo moto", "accidente moto"],
+      "coberturas": ["Hurto calificado de la moto", "Accidentes personales del conductor", "Asistencia jurídica básica", "Grúa y asistencia en vía"],
+      "exclusiones": ["Daños por competencias o piques", "Conductor sin licencia", "Hurto por descuido comprobado"],
+      "prima_regla": { "base": 35000, "por_edad": 200, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Prima base mensual más ajuste por edad del conductor",
+        "consecuencias_no_pago": "Suspensión de cobertura y asistencias tras 30 días de mora"
+      }
+    },
+    {
+      "id": "bici_patineta_bolivar",
+      "nombre": "Seguro para Bici o Patineta",
+      "categoria": "movilidad",
+      "aseguradora": "Seguros Bolívar",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["bici", "bicicleta", "patineta", "scooter", "ciclovia", "robo bici"],
+      "coberturas": ["Hurto calificado", "Daños por accidente", "Accidentes personales del ciclista", "Responsabilidad civil a terceros"],
+      "exclusiones": ["Uso en competencias", "Hurto sin violencia (descuido)", "Accesorios no declarados"],
+      "prima_regla": { "base": 15000, "por_edad": 0, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Tarifa plana mensual según valor declarado de la bici o patineta",
+        "consecuencias_no_pago": "Suspensión de cobertura tras 30 días de mora"
+      }
+    },
+    {
+      "id": "mascotas_seguro_bolivar",
+      "nombre": "Seguro de Mascotas",
+      "categoria": "mascotas",
+      "aseguradora": "Seguros Bolívar",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["perro", "gato", "mascota", "cachorro", "veterinario", "adopte"],
+      "coberturas": ["Gastos veterinarios por accidente", "Gastos veterinarios por enfermedad", "Responsabilidad civil por daños a terceros", "Auxilio por fallecimiento"],
+      "exclusiones": ["Enfermedades preexistentes", "Mascotas menores de 3 meses o mayores de 9 años al ingreso", "Razas excluidas por norma"],
+      "prima_regla": { "base": 28000, "por_edad": 0, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Tarifa plana mensual por mascota según plan",
+        "consecuencias_no_pago": "Suspensión de la cobertura veterinaria tras 30 días de mora"
+      }
+    },
+    {
+      "id": "mascotas_prepagada_vetplus",
+      "nombre": "Medicina Prepagada para Mascotas",
+      "categoria": "mascotas",
+      "aseguradora": "VetPlus",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["perro", "gato", "mascota", "veterinario frecuente", "vacunas", "control mascota"],
+      "coberturas": ["Consultas veterinarias ilimitadas en red", "Vacunación anual", "Urgencias veterinarias", "Descuentos en cirugías"],
+      "exclusiones": ["Procedimientos estéticos", "Tratamientos fuera de la red VetPlus"],
+      "prima_regla": { "base": 42000, "por_edad": 0, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Tarifa plana mensual por mascota según plan de red",
+        "consecuencias_no_pago": "Suspensión del servicio en red tras 30 días de mora"
+      }
+    },
+    {
+      "id": "hogar_chubb",
+      "nombre": "Seguro de Hogar y Contenidos",
+      "categoria": "hogar",
+      "aseguradora": "Chubb",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["casa nueva", "apartamento", "mudanza", "vivienda", "robo casa", "incendio", "inundacion", "terremoto"],
+      "coberturas": ["Incendio y aliados", "Terremoto", "Hurto de contenidos", "Daños por agua", "Responsabilidad civil familiar"],
+      "exclusiones": ["Desgaste natural", "Daños por falta de mantenimiento", "Objetos de valor no declarados"],
+      "prima_regla": { "base": 45000, "por_edad": 0, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Prima mensual según valor asegurado de estructura y contenidos declarados",
+        "consecuencias_no_pago": "Suspensión de cobertura tras 30 días de mora"
+      }
+    },
+    {
+      "id": "arrendamiento_mundial",
+      "nombre": "Seguro de Arrendamiento",
+      "categoria": "arrendamiento",
+      "aseguradora": "Seguros Mundial",
+      "estandarizado": false,
+      "requiere_asesoria": true,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["arriendo", "arrendar", "inquilino", "propietario", "canon", "inmueble en renta"],
+      "coberturas": ["Canon de arrendamiento en mora", "Servicios públicos e IVA", "Daños al inmueble", "Gastos legales de restitución"],
+      "exclusiones": ["Contratos sin estudio aprobado", "Cánones superiores al cupo aprobado"],
+      "prima_regla": { "base": 0, "por_edad": 0, "edad_pivote": 30, "nota": "Porcentaje del canon; requiere estudio del arrendatario" },
+      "art9": {
+        "forma_calculo": "Porcentaje del canon mensual; sujeto a estudio y aprobación del arrendatario",
+        "consecuencias_no_pago": "Pérdida del amparo del canon y gastos asociados"
+      }
+    },
+    {
+      "id": "exequial_gea",
+      "nombre": "Seguro Exequial",
+      "categoria": "exequial",
+      "aseguradora": "GEA",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["funeral", "exequias", "fallecimiento", "padres mayores", "abuelos", "prevision", "tranquilidad familia"],
+      "coberturas": ["Servicio funerario completo", "Traslados a nivel nacional", "Cofre y sala de velación", "Trámites y asesoría legal del proceso"],
+      "exclusiones": ["Carencia de 6 meses para muerte natural en mayores de 65 años al ingreso"],
+      "prima_regla": { "base": 16000, "por_edad": 300, "edad_pivote": 40 },
+      "art9": {
+        "forma_calculo": "Prima base mensual por grupo familiar más ajuste por integrantes mayores de 40 años",
+        "consecuencias_no_pago": "Suspensión del servicio exequial tras 60 días de mora"
+      }
+    },
+    {
+      "id": "asistencia_viajes_bmi",
+      "nombre": "Asistencia de Viajes",
+      "categoria": "viajes",
+      "aseguradora": "BMI",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "por_viaje",
+      "gatillos_vida": ["viaje", "vacaciones", "exterior", "avion", "visa", "mochilero", "trabajo en el exterior"],
+      "coberturas": ["Gastos médicos en viaje", "Pérdida de equipaje", "Cancelación de viaje", "Repatriación"],
+      "exclusiones": ["Preexistencias", "Deportes extremos no declarados", "Viajes a zonas de conflicto"],
+      "prima_regla": { "base": 95000, "por_edad": 800, "edad_pivote": 60, "nota": "Por viaje de hasta 15 días" },
+      "art9": {
+        "forma_calculo": "Tarifa por viaje según destino, duración y edad del viajero",
+        "consecuencias_no_pago": "Sin pago no se activa la cobertura del viaje"
+      }
+    },
+    {
+      "id": "asistencias_multiples_mundial",
+      "nombre": "Asistencias Múltiples",
+      "categoria": "asistencias",
+      "aseguradora": "Seguros Mundial",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["plomeria", "cerrajeria", "electricista", "imprevistos", "hogar asistencia", "reparaciones"],
+      "coberturas": ["Plomería de emergencia", "Cerrajería", "Electricista", "Vidriería", "Orientación legal telefónica"],
+      "exclusiones": ["Remodelaciones y mantenimiento programado", "Materiales no incluidos"],
+      "prima_regla": { "base": 19000, "por_edad": 0, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Tarifa plana mensual por hogar",
+        "consecuencias_no_pago": "Suspensión de asistencias tras 30 días de mora"
+      }
+    },
+    {
+      "id": "vida_credito_panamerican",
+      "nombre": "Seguro de Vida para Créditos",
+      "categoria": "creditos",
+      "aseguradora": "Pan-American Life",
+      "estandarizado": true,
+      "requiere_asesoria": false,
+      "periodicidad": "mensual",
+      "gatillos_vida": ["credito", "cupo de credito", "deuda", "prestamo", "tarjeta", "desempleo"],
+      "coberturas": ["Saldo de la deuda por fallecimiento", "Incapacidad total y permanente", "Incapacidad temporal", "Desempleo involuntario"],
+      "exclusiones": ["Créditos en mora al momento de la afiliación", "Renuncia voluntaria (en amparo de desempleo)"],
+      "prima_regla": { "base": 9000, "por_edad": 150, "edad_pivote": 30 },
+      "art9": {
+        "forma_calculo": "Prima mensual según saldo del crédito y edad",
+        "consecuencias_no_pago": "El crédito queda sin amparo y la deuda pasa a herederos o codeudores"
+      }
+    }
+  ]
+}
