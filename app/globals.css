@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap");
+/* La fuente Poppins se carga vía <link> en app/layout.tsx (no por @import,
+   para que el CSS aplique aunque la red de fuentes falle). */
 
 /* ===== Identidad Colsubsidio ===== */
 :root {
@@ -207,15 +208,54 @@ a { text-decoration: none; color: inherit; }
 .inputbar button:disabled { opacity: 0.5; cursor: default; }
 .disclaimer { max-width: 760px; margin: 6px auto 0; text-align: center; font-size: 11px; color: var(--gris); }
 
-/* ===== Quick replies (botones de respuesta rápida) ===== */
-.quickbar { position: fixed; bottom: 82px; left: 0; right: 0; }
-.quickbar-inner { max-width: 760px; margin: 0 auto; padding: 0 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+/* ===== Quick replies (botones de respuesta rápida, inline) ===== */
+.qr-row { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; max-width: 92%; }
 .quick {
   background: var(--blanco); border: 1.5px solid var(--azul); color: var(--azul);
   font-weight: 600; font-size: 13.5px; padding: 9px 16px; border-radius: 999px; cursor: pointer;
   font-family: inherit; transition: .15s;
 }
 .quick:hover { background: var(--azul); color: #fff; }
+
+/* ===== Tarjeta de póliza (grande, ancha, con logo de aseguradora) ===== */
+.policycard {
+  align-self: stretch; width: 100%; background: var(--blanco);
+  border: 1px solid var(--borde); border-radius: 20px; padding: 24px 26px;
+  box-shadow: 0 16px 44px rgba(0,0,0,.09); border-top: 5px solid var(--verde);
+}
+.pc-top { display: flex; align-items: center; justify-content: space-between; }
+.pc-badge { background: #e8f5ee; color: var(--verde); font-size: 12.5px; font-weight: 800; padding: 5px 14px; border-radius: 999px; }
+.pc-logo { display: flex; align-items: center; gap: 9px; }
+.pc-mono { width: 34px; height: 34px; border-radius: 9px; color: #fff; font-weight: 800; font-size: 17px; display: flex; align-items: center; justify-content: center; }
+.pc-brand { font-weight: 800; font-size: 18px; letter-spacing: -.3px; }
+.pc-product { margin-top: 18px; font-size: 14px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: .5px; }
+.pc-id { font-size: 34px; font-weight: 800; letter-spacing: -1px; color: var(--tinta); margin-top: 2px; }
+.pc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; padding: 18px 0; border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); }
+.pc-grid > div { display: flex; flex-direction: column; gap: 3px; }
+.pc-grid small { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--gris); font-weight: 600; }
+.pc-grid b { font-size: 15px; font-weight: 700; color: var(--tinta); }
+.pc-grid b span { font-size: 12px; color: var(--gris); font-weight: 500; }
+.pc-grid b.ok { color: var(--verde); }
+.pc-cert-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--gris); margin-bottom: 6px; }
+.policycard .cert { margin-top: 0; }
+@media (max-width: 560px) { .pc-grid { grid-template-columns: repeat(2, 1fr); } .pc-id { font-size: 26px; } }
+
+/* ===== Detalle de cobertura bajo la cotización ===== */
+.card { width: min(470px, 94%); }
+.price-tag { margin-top: 8px; font-size: 12px; color: #8a6d00; background: #fff6c8; display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
+.price-tag.reg { color: #0a5c2e; background: #e8f5ee; }
+.price-note { margin-top: 6px; font-size: 12px; color: var(--gris); }
+.cov { margin-top: 14px; border-top: 1px solid var(--borde); padding-top: 10px; }
+.cov > summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
+.cov > summary::before { content: "▸"; transition: transform .15s; }
+.cov[open] > summary::before { transform: rotate(90deg); }
+.cov-lbl { font-size: 11.5px; font-weight: 700; color: var(--verde); text-transform: uppercase; letter-spacing: .4px; margin-top: 12px; }
+.cov-lbl.no { color: #c0392b; }
+.cov-txt { font-size: 12.5px; color: var(--tinta); margin-top: 3px; line-height: 1.45; }
+.cov ul { margin: 6px 0 0 18px; font-size: 12.5px; }
+.cov li { margin-bottom: 3px; }
+.cov-legal { margin-top: 12px; font-size: 11px; color: var(--gris); font-style: italic; }
+.cov-legal a { color: var(--azul); font-style: normal; font-weight: 600; }
 
 /* ===== Tarjeta de cumplimiento (Art. 9) ===== */
 .card.compliance { border-left-color: var(--azul); width: min(460px, 94%); }

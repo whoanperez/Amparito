@@ -209,6 +209,13 @@ export async function executeTool(
             periodicidad: quote.periodicidad,
             coberturas: quote.coberturas,
             quoteId: quote.quoteId,
+            // Detalle real desplegable bajo la cotización
+            exclusiones: p.exclusiones,
+            forma_calculo: p.art9.forma_calculo,
+            consecuencias: p.art9.consecuencias_no_pago,
+            fuente: p.fuente ?? null,
+            precio_tipo: p.precio_tipo ?? "referencia",
+            nota_precio: p.nota_precio ?? null,
           },
         },
       };

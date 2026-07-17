@@ -45,6 +45,21 @@ const INTERES: Record<string, string> = {
   movilidad: "un seguro para mi vehículo",
 };
 
+// Marca de cada aseguradora aliada (color + nombre corto para el "logo")
+const INSURER: Record<string, { color: string; short: string }> = {
+  "MetLife": { color: "#0090da", short: "MetLife" },
+  "Chubb": { color: "#d31245", short: "Chubb" },
+  "Pan-American Life": { color: "#004a97", short: "PALIG" },
+  "GEA": { color: "#e2231a", short: "GEA" },
+  "Seguros Bolívar": { color: "#00953b", short: "Bolívar" },
+  "VetPlus": { color: "#00a3a1", short: "VetPlus" },
+  "BMI": { color: "#0a3d91", short: "BMI" },
+  "Seguros Mundial": { color: "#e30613", short: "Mundial" },
+};
+function insurerOf(name: string) {
+  return INSURER[name] ?? { color: "#0b62b4", short: name };
+}
+
 // Limpia cualquier markdown que Haiku pudiera dejar (por robustez)
 function clean(t: string): string {
   return t
@@ -77,6 +92,13 @@ export default function Chat({ interes }: { interes?: string | null }) {
   const lastQuote = useRef<string | null>(null);
   const started = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Click en botón rápido -> prellena el texto (editable) y enfoca, NO envía
+  function pickSuggestion(opt: string) {
+    setInput(opt.endsWith(" ") ? opt : opt + " ");
+    setTimeout(() => inputRef.current?.focus(), 30);
+  }
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -160,7 +182,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
       result = { error: "No pudimos emitir en este momento." };
     }
     const elapsed = Date.now() - t0;
-    await new Promise((r) => setTimeout(r, Math.max(0, 5000 - elapsed)));
+    await new Promise((r) => setTimeout(r, Math.max(0, 7000 - elapsed)));
     setProcessing(false);
 
     if (result.event) {
@@ -198,21 +220,19 @@ export default function Chat({ interes }: { interes?: string | null }) {
           )
         )}
 
+        {suggestions.length > 0 && !locked && (
+          <div className="qr-row">
+            {suggestions.map((s) => (
+              <button key={s} className="quick" onClick={() => pickSuggestion(s)}>{s}</button>
+            ))}
+          </div>
+        )}
+
         {activeForm && <DataForm data={activeForm} onSubmit={submitForm} />}
         {processing && <ProcessingCard />}
         {busy && <div className="typing">Amparito está escribiendo…</div>}
         <div ref={endRef} />
       </div>
-
-      {suggestions.length > 0 && !locked && (
-        <div className="quickbar">
-          <div className="quickbar-inner">
-            {suggestions.map((s) => (
-              <button key={s} className="quick" onClick={() => send(s)}>{s}</button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {!activeForm && (
         <div className="inputbar">
@@ -220,6 +240,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
             onSubmit={(e) => { e.preventDefault(); send(input); }}
           >
             <input
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Escríbele a Amparito…"
@@ -272,6 +293,15 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
     setF((p) => ({ ...p, [k]: v }));
   }
 
+  // Autoformato DD/MM/AAAA a medida que se escribe
+  function fechaMask(v: string): string {
+    const d = v.replace(/\D/g, "").slice(0, 8);
+    let out = d.slice(0, 2);
+    if (d.length >= 3) out += "/" + d.slice(2, 4);
+    if (d.length >= 5) out += "/" + d.slice(4, 8);
+    return out;
+  }
+
   function validar(): string | null {
     if (!f.nombre.trim() || f.nombre.trim().split(" ").length < 2)
       return "Escribe tus nombres y apellidos completos.";
@@ -320,10 +350,21 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
 
       <div className="df-row">
         <label>Fecha de nacimiento
-          <input value={f.fechaNacimiento} onChange={(e) => set("fechaNacimiento", e.target.value)} placeholder="DD/MM/AAAA" />
+          <input
+            value={f.fechaNacimiento}
+            onChange={(e) => set("fechaNacimiento", fechaMask(e.target.value))}
+            placeholder="DD/MM/AAAA"
+            inputMode="numeric"
+            maxLength={10}
+          />
         </label>
         <label>Celular
-          <input value={f.celular} onChange={(e) => set("celular", e.target.value)} placeholder="10 dígitos" />
+          <input
+            value={f.celular}
+            onChange={(e) => set("celular", e.target.value.replace(/\D/g, "").slice(0, 10))}
+            placeholder="10 dígitos"
+            inputMode="numeric"
+          />
         </label>
       </div>
 
@@ -347,6 +388,7 @@ function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
 
   if (event.type === "quote") {
+    const regulado = d.precio_tipo === "regulado";
     return (
       <div className="card">
         <h4>Cotización · {String(d.aseguradora)}</h4>
@@ -354,7 +396,28 @@ function EventCard({ event }: { event: UiEvent }) {
           ${Number(d.prima).toLocaleString("es-CO")} <span className="sub">/{String(d.periodicidad).replace("_", " ")}</span>
         </div>
         <div className="sub">{String(d.producto)}</div>
-        <ul>{(d.coberturas as string[]).slice(0, 4).map((c, i) => <li key={i}>{c}</li>)}</ul>
+        <div className={`price-tag ${regulado ? "reg" : ""}`}>
+          {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
+        </div>
+        {d.nota_precio && <div className="price-note">{String(d.nota_precio)}</div>}
+
+        <details className="cov" open>
+          <summary>Qué cubre y qué no cubre</summary>
+          <p className="cov-lbl">Te cubre</p>
+          <ul>{(d.coberturas as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
+          {Array.isArray(d.exclusiones) && d.exclusiones.length > 0 && (
+            <>
+              <p className="cov-lbl no">No te cubre</p>
+              <ul>{(d.exclusiones as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
+            </>
+          )}
+          {d.forma_calculo && (<><p className="cov-lbl">Cómo se calcula lo que pagas</p><p className="cov-txt">{String(d.forma_calculo)}</p></>)}
+          {d.consecuencias && (<><p className="cov-lbl">Si dejas de pagar</p><p className="cov-txt">{String(d.consecuencias)}</p></>)}
+          <p className="cov-legal">
+            Información según la Ley 1328 de 2009 (Art. 9).
+            {d.fuente ? <> · <a href={String(d.fuente)} target="_blank" rel="noreferrer">Ver fuente</a></> : null}
+          </p>
+        </details>
       </div>
     );
   }
@@ -377,15 +440,31 @@ function EventCard({ event }: { event: UiEvent }) {
   }
 
   if (event.type === "policy") {
+    const ins = insurerOf(String(d.aseguradora));
+    const per = String(d.periodicidad).replace("_", " ");
     return (
-      <div className="card policy">
-        <span className="badge">Póliza activa</span>
-        <h4>{String(d.producto)} · {String(d.aseguradora)}</h4>
-        <div className="big">{String(d.policyId)}</div>
-        <div className="sub">
-          Asegurado: {String(d.asegurado)} · Vigencia: {String(d.vigenciaMeses)} meses · $
-          {Number(d.prima).toLocaleString("es-CO")}/{String(d.periodicidad).replace("_", " ")}
+      <div className="policycard">
+        <div className="pc-top">
+          <span className="pc-badge">✓ Póliza activa</span>
+          <div className="pc-logo">
+            <span className="pc-mono" style={{ background: ins.color }}>
+              {ins.short.charAt(0)}
+            </span>
+            <span className="pc-brand" style={{ color: ins.color }}>{ins.short}</span>
+          </div>
         </div>
+
+        <div className="pc-product">{String(d.producto)}</div>
+        <div className="pc-id">{String(d.policyId)}</div>
+
+        <div className="pc-grid">
+          <div><small>Asegurado</small><b>{String(d.asegurado)}</b></div>
+          <div><small>Vigencia</small><b>{String(d.vigenciaMeses)} meses</b></div>
+          <div><small>Pagas</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
+          <div><small>Estado</small><b className="ok">Activa</b></div>
+        </div>
+
+        <div className="pc-cert-label">Certificado digital</div>
         <div className="cert">{String(d.certificado)}</div>
       </div>
     );

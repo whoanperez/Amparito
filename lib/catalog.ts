@@ -20,6 +20,10 @@ export interface Producto {
   exclusiones: string[];
   prima_regla: PrimaRegla;
   art9: { forma_calculo: string; consecuencias_no_pago: string };
+  // Datos de trazabilidad (v2.2): fuente real y tipo de precio
+  fuente?: string;            // URL de la fuente pública de las coberturas
+  precio_tipo?: "referencia" | "regulado"; // "regulado" = tarifa oficial (ej. SOAT)
+  nota_precio?: string;       // aclaración del precio mostrado
 }
 
 const productos: Producto[] = (catalogData as { productos: Producto[] }).productos;
