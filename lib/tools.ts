@@ -66,6 +66,16 @@ export const toolDefinitions: Anthropic.Tool[] = [
     },
   },
   {
+    name: "collect_customer_data",
+    description:
+      "Abre el formulario para que la persona llene sus datos personales y autorice el tratamiento de datos (Ley 1581). Úsala en el Estado 6, después de mostrar los detalles del producto y de que la persona quiera continuar. NO pidas los datos por chat.",
+    input_schema: {
+      type: "object" as const,
+      properties: { productId: { type: "string" } },
+      required: ["productId"],
+    },
+  },
+  {
     name: "issue_policy",
     description:
       "Emite la póliza. SOLO llamar con: información Art. 9 ya mostrada, consentimiento habeas data explícito, datos de contacto confirmados y confirmación de compra.",
@@ -107,7 +117,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
 
 /** Evento estructurado que la UI renderiza como tarjeta. */
 export interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form";
   data: Record<string, unknown>;
 }
 
@@ -201,6 +211,17 @@ export async function executeTool(
             quoteId: quote.quoteId,
           },
         },
+      };
+    }
+
+    case "collect_customer_data": {
+      const p = getProduct(String(input.productId));
+      if (!p) return { result: { error: "Producto no encontrado" } };
+      // Última cotización válida: el frontend usa su propio quoteId guardado,
+      // aquí solo señalamos que se abra el formulario para este producto.
+      return {
+        result: { estado: "FORMULARIO_ABIERTO", instruccion: "El formulario se abrió en pantalla. Espera a que la persona lo complete." },
+        event: { type: "form", data: { productId: p.id, producto: p.nombre, aseguradora: p.aseguradora } },
       };
     }
 

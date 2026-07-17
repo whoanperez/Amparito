@@ -207,6 +207,63 @@ a { text-decoration: none; color: inherit; }
 .inputbar button:disabled { opacity: 0.5; cursor: default; }
 .disclaimer { max-width: 760px; margin: 6px auto 0; text-align: center; font-size: 11px; color: var(--gris); }
 
+/* ===== Quick replies (botones de respuesta rápida) ===== */
+.quickbar { position: fixed; bottom: 82px; left: 0; right: 0; }
+.quickbar-inner { max-width: 760px; margin: 0 auto; padding: 0 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.quick {
+  background: var(--blanco); border: 1.5px solid var(--azul); color: var(--azul);
+  font-weight: 600; font-size: 13.5px; padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  font-family: inherit; transition: .15s;
+}
+.quick:hover { background: var(--azul); color: #fff; }
+
+/* ===== Tarjeta de cumplimiento (Art. 9) ===== */
+.card.compliance { border-left-color: var(--azul); width: min(460px, 94%); }
+.card.compliance .cl-lbl { font-size: 12px; font-weight: 700; color: var(--verde); text-transform: uppercase; letter-spacing: .4px; margin-top: 12px; }
+.card.compliance .cl-lbl.no { color: #c0392b; }
+.card.compliance .cl-txt { font-size: 13px; color: var(--tinta); margin-top: 3px; line-height: 1.45; }
+.card.compliance ul { margin: 6px 0 0 18px; font-size: 13px; }
+.card.compliance .cl-legal { margin-top: 14px; font-size: 11px; color: var(--gris); font-style: italic; }
+
+/* ===== Pantalla de transición ===== */
+.processing {
+  align-self: center; text-align: center; background: var(--blanco); border: 1px solid var(--borde);
+  border-radius: 18px; padding: 30px 34px; width: min(400px, 94%); box-shadow: 0 14px 40px rgba(0,0,0,.08);
+}
+.spinner {
+  width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%;
+  border: 4px solid var(--amarillo-claro); border-top-color: var(--amarillo);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ptext { font-weight: 700; font-size: 16px; color: var(--tinta); }
+.psub { margin-top: 8px; font-size: 12.5px; color: var(--gris); line-height: 1.5; }
+
+/* ===== Formulario de datos ===== */
+.dataform {
+  align-self: stretch; background: var(--blanco); border: 1px solid var(--borde);
+  border-top: 4px solid var(--amarillo); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 12px 34px rgba(0,0,0,.07);
+}
+.df-head .badge { display: inline-block; background: #fff6c8; color: #8a6d00; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.df-head h4 { font-size: 18px; font-weight: 700; margin-top: 8px; }
+.df-head p { font-size: 13px; color: var(--gris); margin-top: 2px; }
+.dataform label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--tinta); }
+.dataform input, .dataform select {
+  border: 1.5px solid var(--borde); border-radius: 10px; padding: 11px 13px; font-size: 14px;
+  font-family: inherit; font-weight: 400; outline: none;
+}
+.dataform input:focus, .dataform select:focus { border-color: var(--azul); }
+.df-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.df-check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; font-size: 12.5px; color: var(--gris); line-height: 1.4; }
+.df-check input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
+.df-err { background: #fdecea; color: #c0392b; font-size: 13px; padding: 10px 12px; border-radius: 8px; }
+.df-submit {
+  background: var(--amarillo); border: none; border-radius: 999px; padding: 14px; font-weight: 800;
+  font-size: 15px; cursor: pointer; color: var(--tinta); font-family: inherit; transition: .15s;
+}
+.df-submit:hover { background: #f5c400; }
+
 /* ============ Responsive ============ */
 @media (max-width: 900px) {
   .hero-inner { grid-template-columns: 1fr; }

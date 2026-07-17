@@ -2,31 +2,31 @@ import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 
 const SERVICIOS = [
-  { t: "Personal y familiar", d: "Protégelos de cualquier evento inesperado." },
-  { t: "Movilidad", d: "Protección para auto, moto, bici y patineta." },
-  { t: "Mascotas", d: "Cobertura veterinaria y emergencias." },
-  { t: "Crédito", d: "Respaldo económico cuando más lo necesitas." },
-  { t: "Hogar", d: "Protege tu vivienda y sus contenidos." },
-  { t: "Exequial y asistencias", d: "Tranquilidad y acompañamiento para tu familia." },
+  { t: "Personal y familiar", d: "Protégelos de cualquier evento inesperado.", s: "personal_familiar" },
+  { t: "Movilidad", d: "Protección para auto, moto, bici y patineta.", s: "movilidad" },
+  { t: "Mascotas", d: "Cobertura veterinaria y emergencias.", s: "mascotas" },
+  { t: "Crédito", d: "Respaldo económico cuando más lo necesitas.", s: "creditos" },
+  { t: "Hogar", d: "Protege tu vivienda y sus contenidos.", s: "hogar" },
+  { t: "Exequial y asistencias", d: "Tranquilidad y acompañamiento para tu familia.", s: "exequial" },
 ];
 
 const SEGUROS = [
-  { ico: "🛡️", n: "Accidentes personales", a: "MetLife" },
-  { ico: "❤️", n: "Vida", a: "Pan-American Life" },
-  { ico: "🩺", n: "Asistencia médica familiar", a: "Seguros Mundial" },
-  { ico: "⚕️", n: "Póliza de salud", a: "BMI" },
-  { ico: "🚗", n: "SOAT", a: "Seguros Mundial" },
-  { ico: "🚙", n: "Todo riesgo carro", a: "Chubb" },
-  { ico: "🏍️", n: "Moto y asistencia", a: "Seguros Mundial" },
-  { ico: "🚲", n: "Bici o patineta", a: "Seguros Bolívar" },
-  { ico: "🐾", n: "Mascotas", a: "Seguros Bolívar" },
-  { ico: "🐶", n: "Prepagada mascotas", a: "VetPlus" },
-  { ico: "🏠", n: "Hogar y contenidos", a: "Chubb" },
-  { ico: "🔑", n: "Arrendamiento", a: "Seguros Mundial" },
-  { ico: "🕊️", n: "Exequial", a: "GEA" },
-  { ico: "✈️", n: "Asistencia de viajes", a: "BMI" },
-  { ico: "🧰", n: "Asistencias múltiples", a: "Seguros Mundial" },
-  { ico: "💳", n: "Seguros para créditos", a: "Pan-American Life" },
+  { ico: "🛡️", n: "Accidentes personales", a: "MetLife", s: "accidentes" },
+  { ico: "❤️", n: "Vida", a: "Pan-American Life", s: "vida" },
+  { ico: "🩺", n: "Asistencia médica familiar", a: "Seguros Mundial", s: "asistencia_medica" },
+  { ico: "⚕️", n: "Póliza de salud", a: "BMI", s: "salud" },
+  { ico: "🚗", n: "SOAT", a: "Seguros Mundial", s: "soat" },
+  { ico: "🚙", n: "Todo riesgo carro", a: "Chubb", s: "carro" },
+  { ico: "🏍️", n: "Moto y asistencia", a: "Seguros Mundial", s: "moto" },
+  { ico: "🚲", n: "Bici o patineta", a: "Seguros Bolívar", s: "bici" },
+  { ico: "🐾", n: "Mascotas", a: "Seguros Bolívar", s: "mascotas" },
+  { ico: "🐶", n: "Prepagada mascotas", a: "VetPlus", s: "prepagada_mascotas" },
+  { ico: "🏠", n: "Hogar y contenidos", a: "Chubb", s: "hogar" },
+  { ico: "🔑", n: "Arrendamiento", a: "Seguros Mundial", s: "arrendamiento" },
+  { ico: "🕊️", n: "Exequial", a: "GEA", s: "exequial" },
+  { ico: "✈️", n: "Asistencia de viajes", a: "BMI", s: "viajes" },
+  { ico: "🧰", n: "Asistencias múltiples", a: "Seguros Mundial", s: "asistencias" },
+  { ico: "💳", n: "Seguros para créditos", a: "Pan-American Life", s: "creditos" },
 ];
 
 const ALIADOS = [
@@ -96,7 +96,7 @@ export default function Home() {
           </div>
           <div className="serv-grid">
             {SERVICIOS.map((s) => (
-              <Link href="/chat" key={s.t} className="serv-item">
+              <Link href={`/chat?interes=${s.s}`} key={s.t} className="serv-item">
                 <h3>{s.t}</h3>
                 <p>{s.d}</p>
                 <div className="serv-arrow">›</div>
@@ -117,7 +117,7 @@ export default function Home() {
           </p>
           <div className="chips">
             {SEGUROS.map((s) => (
-              <Link href="/chat" key={s.n} className="chip">
+              <Link href={`/chat?interes=${s.s}`} key={s.n} className="chip">
                 <div className="ico">{s.ico}</div>
                 <div className="txt">
                   <b>{s.n}</b>
