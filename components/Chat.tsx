@@ -6,11 +6,13 @@ interface UiEvent {
   type: "quote" | "policy" | "escalation" | "compliance" | "form";
   data: Record<string, any>;
 }
+interface Rec { nombre: string; recomendado: boolean; razon: string }
 interface ChatItem {
-  kind: "msg" | "event";
+  kind: "msg" | "event" | "recommend";
   role?: "user" | "assistant";
   text?: string;
   event?: UiEvent;
+  recs?: Rec[];
 }
 interface Contacto {
   nombre: string;
@@ -23,6 +25,16 @@ interface Contacto {
 
 const GREETING =
   "¡Hola! Soy Amparito, tu asistente de seguros de Colsubsidio 😊 Cuéntame: ¿qué cambió en tu vida o qué te tiene pensando en protegerte?";
+
+// Disparadores para quien entra directo (sin venir de un link)
+const STARTERS = [
+  "Compré una moto 🏍️",
+  "Nació mi bebé 👶",
+  "Adopté una mascota 🐶",
+  "Me mudé de casa 🏠",
+  "Voy a viajar ✈️",
+  "Tomé un crédito 💳",
+];
 
 const INTERES: Record<string, string> = {
   moto: "un seguro para mi moto",
@@ -45,7 +57,6 @@ const INTERES: Record<string, string> = {
   movilidad: "un seguro para mi vehículo",
 };
 
-// Marca de cada aseguradora aliada (color + nombre corto para el "logo")
 const INSURER: Record<string, { color: string; short: string }> = {
   "MetLife": { color: "#0090da", short: "MetLife" },
   "Chubb": { color: "#d31245", short: "Chubb" },
@@ -60,7 +71,6 @@ function insurerOf(name: string) {
   return INSURER[name] ?? { color: "#0b62b4", short: name };
 }
 
-// Limpia cualquier markdown que Haiku pudiera dejar (por robustez)
 function clean(t: string): string {
   return t
     .replace(/\*\*(.*?)\*\*/g, "$1")
@@ -68,53 +78,67 @@ function clean(t: string): string {
     .replace(/^#{1,6}\s*/gm, "")
     .replace(/^\s*[-•]\s+/gm, "")
     .replace(/`/g, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-// Extrae quick-replies de una línea "OPCIONES: a | b | c"
-function parseOptions(t: string): { text: string; options: string[] } {
-  const m = t.match(/OPCIONES:\s*(.+)\s*$/im);
-  if (!m) return { text: clean(t), options: [] };
-  const options = m[1].split("|").map((s) => s.trim()).filter(Boolean).slice(0, 4);
-  const text = clean(t.replace(m[0], ""));
-  return { text, options };
+// Extrae texto, quick-replies (OPCIONES) y recomendaciones (RECOMENDACION) del reply
+function parseReply(raw: string): { text: string; options: string[]; recs: Rec[] } {
+  let text = raw;
+  const recs: Rec[] = [];
+  raw.split("\n").forEach((line) => {
+    const mm = line.match(/^\s*RECOMENDACION:\s*(.+)$/i);
+    if (mm) {
+      const parts = mm[1].split("|").map((s) => s.trim());
+      recs.push({
+        nombre: parts[0] || "",
+        recomendado: /recomendad/i.test(parts[1] || ""),
+        razon: parts[2] || "",
+      });
+      text = text.replace(line, "");
+    }
+  });
+  let options: string[] = [];
+  const om = text.match(/OPCIONES:\s*(.+)\s*$/im);
+  if (om) {
+    options = om[1].split("|").map((s) => s.trim()).filter(Boolean).slice(0, 4);
+    text = text.replace(om[0], "");
+  }
+  return { text: clean(text), options, recs };
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export default function Chat({ interes }: { interes?: string | null }) {
-  const [items, setItems] = useState<ChatItem[]>([
-    { kind: "msg", role: "assistant", text: GREETING },
-  ]);
+  const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: GREETING }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [activeForm, setActiveForm] = useState<UiEvent["data"] | null>(null);
-  const [processing, setProcessing] = useState(false);
+  const [processing, setProcessing] = useState<null | "emision" | "reco">(null);
   const lastQuote = useRef<string | null>(null);
   const started = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Click en botón rápido -> prellena el texto (editable) y enfoca, NO envía
-  function pickSuggestion(opt: string) {
-    setInput(opt.endsWith(" ") ? opt : opt + " ");
-    setTimeout(() => inputRef.current?.focus(), 30);
-  }
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [items, busy, activeForm, processing, suggestions]);
 
-  // Disparador desde la landing: auto-enviar el primer mensaje contextual
   useEffect(() => {
     if (started.current) return;
     started.current = true;
     const key = (interes ?? "").toLowerCase();
-    if (key && INTERES[key]) {
-      const first = `Hola Amparito, tengo interés en ${INTERES[key]}.`;
-      setTimeout(() => send(first), 400);
-    }
+    if (key && INTERES[key]) setTimeout(() => send(`Hola Amparito, tengo interés en ${INTERES[key]}.`), 400);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interes]);
+
+  function pickSuggestion(opt: string) {
+    setInput(opt.endsWith(" ") ? opt : opt + " ");
+    setTimeout(() => inputRef.current?.focus(), 30);
+  }
 
   async function send(text: string) {
     const t = text.trim();
@@ -127,48 +151,49 @@ export default function Chat({ interes }: { interes?: string | null }) {
     setBusy(true);
 
     try {
-      const history = next
-        .filter((i) => i.kind === "msg")
-        .map((i) => ({ role: i.role!, content: i.text! }));
-
+      const history = next.filter((i) => i.kind === "msg").map((i) => ({ role: i.role!, content: i.text! }));
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history }),
       });
       const data = (await res.json()) as { reply: string; events: UiEvent[] };
+      const parsed = parseReply(data.reply || "");
 
-      const parsed = parseOptions(data.reply || "");
-      const additions: ChatItem[] = [];
-      if (parsed.text) additions.push({ kind: "msg", role: "assistant", text: parsed.text });
-
+      const eventItems: ChatItem[] = [];
       let openForm: UiEvent["data"] | null = null;
       for (const ev of data.events ?? []) {
         if (ev.type === "quote") lastQuote.current = String(ev.data.quoteId ?? lastQuote.current);
         if (ev.type === "form") { openForm = ev.data; continue; }
-        additions.push({ kind: "event", event: ev });
+        eventItems.push({ kind: "event", event: ev });
       }
 
-      setItems((cur) => [...cur, ...additions]);
+      const msgItems: ChatItem[] = [];
+      if (parsed.text) msgItems.push({ kind: "msg", role: "assistant", text: parsed.text });
+
+      // Si hay recomendaciones -> pantalla de "evaluando opciones" y luego las tarjetas
+      if (parsed.recs.length) {
+        setBusy(false);
+        setProcessing("reco");
+        await sleep(4000);
+        setProcessing(null);
+        setItems((cur) => [...cur, ...msgItems, ...eventItems, { kind: "recommend", recs: parsed.recs }]);
+        return;
+      }
+
+      setItems((cur) => [...cur, ...msgItems, ...eventItems]);
       setSuggestions(parsed.options);
       if (openForm) setActiveForm(openForm);
     } catch {
-      setItems((cur) => [
-        ...cur,
-        { kind: "msg", role: "assistant", text: "Se me trabó la conexión. ¿Intentamos de nuevo?" },
-      ]);
+      setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: "Se me trabó la conexión. ¿Intentamos de nuevo?" }]);
     } finally {
       setBusy(false);
     }
   }
 
-  // ref espejo de items para usarlo dentro de send sin closure viejo
-  const itemsRef = useRef(items);
-  useEffect(() => { itemsRef.current = items; }, [items]);
-
   async function submitForm(contacto: Contacto) {
     setActiveForm(null);
-    setProcessing(true);
+    setProcessing("emision");
     const t0 = Date.now();
     let result: { event?: UiEvent; closing?: string; error?: string } = {};
     try {
@@ -178,28 +203,19 @@ export default function Chat({ interes }: { interes?: string | null }) {
         body: JSON.stringify({ quoteId: lastQuote.current, contacto, consentimiento: true }),
       });
       result = await res.json();
-    } catch {
-      result = { error: "No pudimos emitir en este momento." };
-    }
-    const elapsed = Date.now() - t0;
-    await new Promise((r) => setTimeout(r, Math.max(0, 7000 - elapsed)));
-    setProcessing(false);
-
+    } catch { result = { error: "No pudimos emitir en este momento." }; }
+    await sleep(Math.max(0, 7000 - (Date.now() - t0)));
+    setProcessing(null);
     if (result.event) {
-      setItems((cur) => [
-        ...cur,
-        { kind: "event", event: result.event },
-        { kind: "msg", role: "assistant", text: result.closing ?? "¡Listo, quedaste asegurado!" },
-      ]);
+      setItems((cur) => [...cur, { kind: "event", event: result.event },
+        { kind: "msg", role: "assistant", text: result.closing ?? "¡Listo, quedaste asegurado!" }]);
     } else {
-      setItems((cur) => [
-        ...cur,
-        { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." },
-      ]);
+      setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." }]);
     }
   }
 
-  const locked = busy || processing || !!activeForm;
+  const locked = busy || !!processing || !!activeForm;
+  const showStarters = items.length === 1 && !interes && !locked;
 
   return (
     <div className="chat-shell">
@@ -215,9 +231,22 @@ export default function Chat({ interes }: { interes?: string | null }) {
         {items.map((item, i) =>
           item.kind === "msg" ? (
             <div key={i} className={`msg ${item.role === "user" ? "user" : "bot"}`}>{item.text}</div>
+          ) : item.kind === "recommend" ? (
+            <RecommendCards key={i} recs={item.recs!} onPick={(n) => send(`Quiero el ${n}`)} />
           ) : (
             <EventCard key={i} event={item.event!} />
           )
+        )}
+
+        {showStarters && (
+          <div className="starters">
+            <div className="starters-lbl">O elige por dónde empezar:</div>
+            <div className="starters-row">
+              {STARTERS.map((s) => (
+                <button key={s} className="starter" onClick={() => send(s)}>{s}</button>
+              ))}
+            </div>
+          </div>
         )}
 
         {suggestions.length > 0 && !locked && (
@@ -229,43 +258,51 @@ export default function Chat({ interes }: { interes?: string | null }) {
         )}
 
         {activeForm && <DataForm data={activeForm} onSubmit={submitForm} />}
-        {processing && <ProcessingCard />}
+        {processing && <ProcessingCard variant={processing} />}
         {busy && <div className="typing">Amparito está escribiendo…</div>}
         <div ref={endRef} />
       </div>
 
       {!activeForm && (
         <div className="inputbar">
-          <form
-            onSubmit={(e) => { e.preventDefault(); send(input); }}
-          >
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Escríbele a Amparito…"
-              disabled={locked}
-              autoFocus
-            />
+          <form onSubmit={(e) => { e.preventDefault(); send(input); }}>
+            <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
+              placeholder="Escríbele a Amparito…" disabled={locked} autoFocus />
             <button type="submit" disabled={locked || !input.trim()}>Enviar</button>
           </form>
-          <p className="disclaimer">
-            Amparito es una asistente virtual de Colsubsidio. Tus datos se tratan según la Ley 1581 de 2012.
-          </p>
+          <p className="disclaimer">Amparito es una asistente virtual de Colsubsidio. Tus datos se tratan según la Ley 1581 de 2012.</p>
         </div>
       )}
     </div>
   );
 }
 
-/* ============ Pantalla de transición ("proceso de calidad") ============ */
-function ProcessingCard() {
-  const steps = [
-    "Validando tu información…",
-    "Consultando con la aseguradora…",
-    "Personalizando tu cobertura…",
-    "Generando tu certificado…",
-  ];
+/* ===== Tarjetas de recomendación (con "Recomendado" resaltado) ===== */
+function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string) => void }) {
+  return (
+    <div className="recos">
+      {recs.map((r, i) => (
+        <button key={i} className={`reco ${r.recomendado ? "top" : ""}`} onClick={() => onPick(r.nombre)}>
+          {r.recomendado && <span className="reco-badge">★ Recomendado para ti</span>}
+          <span className="reco-name">{r.nombre}</span>
+          {r.razon && <span className="reco-why">{r.razon}</span>}
+          <span className="reco-cta">Elegir este →</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ===== Pantalla de transición ===== */
+function ProcessingCard({ variant }: { variant: "emision" | "reco" }) {
+  const SETS: Record<string, string[]> = {
+    emision: ["Validando tu información…", "Consultando con la aseguradora…", "Personalizando tu cobertura…", "Generando tu certificado…"],
+    reco: ["Analizando tu situación…", "Comparando coberturas de nuestras aseguradoras…", "Eligiendo lo mejor para tu caso…"],
+  };
+  const steps = SETS[variant];
+  const sub = variant === "reco"
+    ? "Amparito está personalizando tus opciones."
+    : "Estamos personalizando tu seguro con estándar de calidad Colsubsidio.";
   const [i, setI] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setI((x) => (x + 1) % steps.length), 1300);
@@ -276,24 +313,17 @@ function ProcessingCard() {
     <div className="processing">
       <div className="spinner" />
       <div className="ptext">{steps[i]}</div>
-      <div className="psub">Estamos personalizando tu seguro con estándar de calidad Colsubsidio.</div>
+      <div className="psub">{sub}</div>
     </div>
   );
 }
 
-/* ============ Formulario / tabla de datos ============ */
+/* ===== Formulario de datos ===== */
 function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => void }) {
-  const [f, setF] = useState<Contacto>({
-    nombre: "", tipoDocumento: "CC", numeroDocumento: "", fechaNacimiento: "", celular: "", correo: "",
-  });
+  const [f, setF] = useState<Contacto>({ nombre: "", tipoDocumento: "CC", numeroDocumento: "", fechaNacimiento: "", celular: "", correo: "" });
   const [consent, setConsent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  function set<K extends keyof Contacto>(k: K, v: Contacto[K]) {
-    setF((p) => ({ ...p, [k]: v }));
-  }
-
-  // Autoformato DD/MM/AAAA a medida que se escribe
+  function set<K extends keyof Contacto>(k: K, v: Contacto[K]) { setF((p) => ({ ...p, [k]: v })); }
   function fechaMask(v: string): string {
     const d = v.replace(/\D/g, "").slice(0, 8);
     let out = d.slice(0, 2);
@@ -301,28 +331,21 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
     if (d.length >= 5) out += "/" + d.slice(4, 8);
     return out;
   }
-
   function validar(): string | null {
-    if (!f.nombre.trim() || f.nombre.trim().split(" ").length < 2)
-      return "Escribe tus nombres y apellidos completos.";
-    if (f.tipoDocumento !== "PASAPORTE" && !/^\d{5,12}$/.test(f.numeroDocumento))
-      return "El número de documento debe ser solo números.";
-    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(f.fechaNacimiento))
-      return "La fecha debe ir en formato DD/MM/AAAA.";
+    if (!f.nombre.trim() || f.nombre.trim().split(" ").length < 2) return "Escribe tus nombres y apellidos completos.";
+    if (f.tipoDocumento !== "PASAPORTE" && !/^\d{5,12}$/.test(f.numeroDocumento)) return "El número de documento debe ser solo números.";
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(f.fechaNacimiento)) return "La fecha debe ir en formato DD/MM/AAAA.";
     if (!/^\d{10}$/.test(f.celular)) return "El celular debe tener 10 dígitos.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.correo)) return "Escribe un correo válido.";
     if (!consent) return "Necesitas autorizar el tratamiento de tus datos para continuar.";
     return null;
   }
-
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const v = validar();
     if (v) { setErr(v); return; }
-    setErr(null);
-    onSubmit(f);
+    setErr(null); onSubmit(f);
   }
-
   return (
     <form className="dataform" onSubmit={submit}>
       <div className="df-head">
@@ -330,11 +353,9 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
         <h4>Completa tus datos para {String(data.producto)}</h4>
         <p>Es rápido. Con esto emitimos tu póliza al instante.</p>
       </div>
-
       <label>Nombres y apellidos completos
         <input value={f.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej: Juan Camilo Pérez Cuervo" />
       </label>
-
       <div className="df-row">
         <label>Tipo de documento
           <select value={f.tipoDocumento} onChange={(e) => set("tipoDocumento", e.target.value as any)}>
@@ -347,43 +368,28 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
           <input value={f.numeroDocumento} onChange={(e) => set("numeroDocumento", e.target.value)} placeholder="Sin puntos" />
         </label>
       </div>
-
       <div className="df-row">
         <label>Fecha de nacimiento
-          <input
-            value={f.fechaNacimiento}
-            onChange={(e) => set("fechaNacimiento", fechaMask(e.target.value))}
-            placeholder="DD/MM/AAAA"
-            inputMode="numeric"
-            maxLength={10}
-          />
+          <input value={f.fechaNacimiento} onChange={(e) => set("fechaNacimiento", fechaMask(e.target.value))} placeholder="DD/MM/AAAA" inputMode="numeric" maxLength={10} />
         </label>
         <label>Celular
-          <input
-            value={f.celular}
-            onChange={(e) => set("celular", e.target.value.replace(/\D/g, "").slice(0, 10))}
-            placeholder="10 dígitos"
-            inputMode="numeric"
-          />
+          <input value={f.celular} onChange={(e) => set("celular", e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="10 dígitos" inputMode="numeric" />
         </label>
       </div>
-
       <label>Correo electrónico
         <input value={f.correo} onChange={(e) => set("correo", e.target.value)} placeholder="tucorreo@ejemplo.com" />
       </label>
-
       <label className="df-check">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span>Autorizo a Colsubsidio y a la aseguradora el tratamiento de mis datos personales (Ley 1581 de 2012).</span>
       </label>
-
       {err && <div className="df-err">{err}</div>}
       <button type="submit" className="df-submit">Confirmar y asegurarme →</button>
     </form>
   );
 }
 
-/* ============ Tarjetas ============ */
+/* ===== Tarjetas ===== */
 function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
 
@@ -400,17 +406,14 @@ function EventCard({ event }: { event: UiEvent }) {
           {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
         </div>
         {d.nota_precio && <div className="price-note">{String(d.nota_precio)}</div>}
-
         <details className="cov" open>
           <summary>Qué cubre y qué no cubre</summary>
           <p className="cov-lbl">Te cubre</p>
           <ul>{(d.coberturas as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
-          {Array.isArray(d.exclusiones) && d.exclusiones.length > 0 && (
-            <>
-              <p className="cov-lbl no">No te cubre</p>
-              <ul>{(d.exclusiones as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
-            </>
-          )}
+          {Array.isArray(d.exclusiones) && d.exclusiones.length > 0 && (<>
+            <p className="cov-lbl no">No te cubre</p>
+            <ul>{(d.exclusiones as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
+          </>)}
           {d.forma_calculo && (<><p className="cov-lbl">Cómo se calcula lo que pagas</p><p className="cov-txt">{String(d.forma_calculo)}</p></>)}
           {d.consecuencias && (<><p className="cov-lbl">Si dejas de pagar</p><p className="cov-txt">{String(d.consecuencias)}</p></>)}
           <p className="cov-legal">
@@ -447,23 +450,18 @@ function EventCard({ event }: { event: UiEvent }) {
         <div className="pc-top">
           <span className="pc-badge">✓ Póliza activa</span>
           <div className="pc-logo">
-            <span className="pc-mono" style={{ background: ins.color }}>
-              {ins.short.charAt(0)}
-            </span>
+            <span className="pc-mono" style={{ background: ins.color }}>{ins.short.charAt(0)}</span>
             <span className="pc-brand" style={{ color: ins.color }}>{ins.short}</span>
           </div>
         </div>
-
         <div className="pc-product">{String(d.producto)}</div>
         <div className="pc-id">{String(d.policyId)}</div>
-
         <div className="pc-grid">
           <div><small>Asegurado</small><b>{String(d.asegurado)}</b></div>
           <div><small>Vigencia</small><b>{String(d.vigenciaMeses)} meses</b></div>
           <div><small>Pagas</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
           <div><small>Estado</small><b className="ok">Activa</b></div>
         </div>
-
         <div className="pc-cert-label">Certificado digital</div>
         <div className="cert">{String(d.certificado)}</div>
       </div>
@@ -479,6 +477,5 @@ function EventCard({ event }: { event: UiEvent }) {
       </div>
     );
   }
-
   return null;
 }
