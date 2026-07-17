@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import FlowVideo from "./FlowVideo";
 
 interface UiEvent {
   type: "quote" | "policy" | "escalation" | "compliance" | "form";
@@ -8,7 +9,7 @@ interface UiEvent {
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
 interface ChatItem {
-  kind: "msg" | "event" | "recommend";
+  kind: "msg" | "event" | "recommend" | "video";
   role?: "user" | "assistant";
   text?: string;
   event?: UiEvent;
@@ -208,7 +209,8 @@ export default function Chat({ interes }: { interes?: string | null }) {
     setProcessing(null);
     if (result.event) {
       setItems((cur) => [...cur, { kind: "event", event: result.event },
-        { kind: "msg", role: "assistant", text: result.closing ?? "¡Listo, quedaste asegurado!" }]);
+        { kind: "msg", role: "assistant", text: result.closing ?? "¡Listo, quedaste asegurado!" },
+        { kind: "video" }]);
     } else {
       setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." }]);
     }
@@ -233,6 +235,8 @@ export default function Chat({ interes }: { interes?: string | null }) {
             <div key={i} className={`msg ${item.role === "user" ? "user" : "bot"}`}>{item.text}</div>
           ) : item.kind === "recommend" ? (
             <RecommendCards key={i} recs={item.recs!} onPick={(n) => send(`Quiero el ${n}`)} />
+          ) : item.kind === "video" ? (
+            <FlowVideo key={i} />
           ) : (
             <EventCard key={i} event={item.event!} />
           )
