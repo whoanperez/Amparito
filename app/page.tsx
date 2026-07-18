@@ -44,7 +44,11 @@ export default function Home() {
         <div className="hero-inner">
           <div>
             <div className="breadcrumb">
-              Inicio / <b>Seguros y asistencias Colsubsidio</b>
+              <a href="https://www.colsubsidio.com/" target="_blank" rel="noopener noreferrer">Inicio</a>
+              {" / "}
+              <a href="https://www.colsubsidio.com/seguros" target="_blank" rel="noopener noreferrer">Seguros</a>
+              {" / "}
+              <b>Amparito</b>
             </div>
             <h1>Tus seguros a un clic. Ahora sí, de verdad.</h1>
             <p className="lead">
@@ -55,8 +59,8 @@ export default function Home() {
               Hablar con Amparito →
             </Link>
             <div className="hero-meta">
-              <b>24/7</b> · Emisión inmediata en productos estandarizados ·{" "}
-              <b>Respaldado por las aseguradoras aliadas de Colsubsidio</b>
+              <b>24/7</b> · Emisión inmediata en productos estandarizados · Respaldado por
+              las aseguradoras aliadas de Colsubsidio
             </div>
           </div>
 
