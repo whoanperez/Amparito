@@ -4,7 +4,7 @@
  * servidor — los nombres nunca llegan al navegador. NO validado en vivo hasta configurar Turso.
  */
 import { createClient, type Client } from "@libsql/client";
-import { AffiliateGateway, AfiliadoSegmento, norm } from "./gateway";
+import { AffiliateGateway, AfiliadoSegmento, canonSegmento, norm } from "./gateway";
 
 let client: Client | null = null;
 function db(): Client {
@@ -33,7 +33,8 @@ export class TursoAffiliateAdapter implements AffiliateGateway {
     });
     const row = rs.rows[0];
     if (!row) return null;
-    return {
+    // La base guarda las etiquetas crudas del CSV → canonizar al vocabulario del motor.
+    return canonSegmento({
       nombre: String(row.nombre ?? ""),
       genero: str(row.genero),
       rango_edad: str(row.rango_edad),
@@ -41,6 +42,6 @@ export class TursoAffiliateAdapter implements AffiliateGateway {
       grupo_familiar: str(row.grupo_familiar),
       poblacional: str(row.poblacional),
       ciudad: str(row.ciudad),
-    };
+    });
   }
 }

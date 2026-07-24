@@ -31,3 +31,43 @@ export function norm(s: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * El CSV crudo trae el grupo familiar en mayúsculas y con typos ("AFILLIADO SIN GRUPO_FAMILIAR").
+ * El motor (`weights.json`) y el peer-group (`base_stats.json`) usan las etiquetas canónicas, y
+ * `lookupPeer` compara por IGUALDAD ESTRICTA: sin este mapa, un afiliado real nunca encuentra su
+ * celda y el PeerProof desaparece en silencio. Mismo mapa que `data/pipeline/profile_base.py`.
+ */
+const GRUPO_FAMILIAR_CANON: Record<string, string> = {
+  "AFILLIADO SIN GRUPO_FAMILIAR": "Sin grupo familiar",
+  "FAMILIA MONOPARENTAL": "Monoparental",
+  "FAMILIA MONOPARENTAL AMPLIADA": "Monoparental ampliada",
+  "FAMILIA NUCLEAR INTEGRAL": "Nuclear integral",
+  "FAMILIA NUCLEAR AMPLIADA": "Nuclear ampliada",
+  "PAREJA CONYUGAL SIN HIJOS": "Pareja conyugal",
+  "PAREJA CONYUGAL": "Pareja conyugal",
+};
+
+/** Idempotente: un valor ya canónico (como el del sample local) pasa sin cambios. */
+export function canonGrupoFamiliar(raw?: string): string | undefined {
+  const s = (raw ?? "").trim();
+  if (!s) return undefined;
+  return GRUPO_FAMILIAR_CANON[s.toUpperCase()] ?? s;
+}
+
+/** Deja el segmento en el vocabulario del motor. Los vacíos se vuelven `undefined`. */
+export function canonSegmento(seg: AfiliadoSegmento): AfiliadoSegmento {
+  const limpio = (v?: string) => {
+    const s = (v ?? "").trim();
+    return s || undefined;
+  };
+  return {
+    nombre: seg.nombre,
+    genero: limpio(seg.genero),
+    rango_edad: limpio(seg.rango_edad),
+    categoria: limpio(seg.categoria),
+    grupo_familiar: canonGrupoFamiliar(seg.grupo_familiar),
+    poblacional: limpio(seg.poblacional),
+    ciudad: limpio(seg.ciudad),
+  };
+}

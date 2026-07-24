@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
         system +=
           `\n\n## AFILIADO IDENTIFICADO (arranque caliente)\n` +
           `La persona es un afiliado de Colsubsidio que ya inició sesión, así que YA la conoces: salúdala por su primer nombre (${primerNombre}) y arranca caliente CONFIRMANDO su situación, sin volver a preguntar lo que ya sabes. ` +
-          `Su segmento: grupo familiar = ${seg.grupo_familiar ?? "?"}; rango de edad = ${seg.rango_edad ?? "?"}; categoría = ${seg.categoria ?? "?"}; ciudad = ${seg.ciudad ?? "?"}. ` +
+          // Los 4 ejes del peer-group (género, edad, grupo familiar, categoría) van COMPLETOS:
+          // `lookupPeer` exige los 4 para ubicar la celda; si falta uno, no hay PeerProof.
+          `Su segmento: género = ${seg.genero ?? "?"}; grupo familiar = ${seg.grupo_familiar ?? "?"}; rango de edad = ${seg.rango_edad ?? "?"}; categoría = ${seg.categoria ?? "?"}; segmento poblacional = ${seg.poblacional ?? "?"}; ciudad = ${seg.ciudad ?? "?"}. ` +
           `Ejemplo de apertura: "Hola ${primerNombre} 👋, veo que [su situación en palabras cálidas]. ¿Es así?". ` +
           `Al llamar calcular_propension usa estos datos como perfil (no los preguntes de nuevo). Si algo no cuadra, la persona te corrige.`;
       }

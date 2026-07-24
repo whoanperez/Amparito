@@ -4,7 +4,7 @@
  * En el deploy se cambia por el adaptador remoto (Turso/Postgres) — mismo contrato.
  */
 import muestra from "../../data/afiliados_muestra.json";
-import { AffiliateGateway, AfiliadoSegmento, norm } from "./gateway";
+import { AffiliateGateway, AfiliadoSegmento, canonSegmento, norm } from "./gateway";
 
 interface Registro {
   nombre: string;
@@ -31,7 +31,8 @@ export class LocalAffiliateAdapter implements AffiliateGateway {
 }
 
 function toSegmento(r: Registro): AfiliadoSegmento {
-  return {
+  // El sample ya viene canónico; canonizar igual mantiene un solo contrato entre adaptadores.
+  return canonSegmento({
     nombre: r.nombre,
     genero: r.genero,
     rango_edad: r.rango_edad,
@@ -39,5 +40,5 @@ function toSegmento(r: Registro): AfiliadoSegmento {
     grupo_familiar: r.grupo_familiar,
     poblacional: r.poblacional,
     ciudad: r.ciudad,
-  };
+  });
 }

@@ -123,8 +123,30 @@ preguntas. **Siempre opcional:** sin identificarse, todo sigue por el flujo conv
   base a Turso (nombre+ciudad+segmento, bota el resto; índice por nombre). `.env.local.example` documenta Turso.
 - **Datos/PII:** el índice tiene nombres → vive local (sample sintético) o en Turso (acceso solo-backend,
   temporal, coordinado con Colsubsidio). Nunca al repo público. La base se **consulta**, no se embebe.
-- **Verificado:** lookup local OK (Carolina por nombre con/sin tildes), tsc + build limpios. Turso: a validar
-  al crear la BD (código listo).
+
+### Turso EN VIVO con la base completa (24-jul) ✅
+- **1.558.501 afiliados cargados** (de 1.566.028 filas del CSV; 7.499 duplicados nombre+ciudad omitidos),
+  en 4m22s. `load-afiliados.ts` usa `INSERT` multi-fila (2.000 filas × 10 statements por batch): medido
+  **8.500 filas/s** contra **~1.000 filas/s** con un INSERT por fila (25 min → 3 min).
+- **Lookup: 97–355 ms**, `EXPLAIN QUERY PLAN` confirma `SEARCH USING INDEX idx_afiliados_nombre`
+  (sin escaneo de 1,5M filas → latencia baja y cuota de lecturas contenida).
+- **Dos fallos silenciosos encontrados y corregidos** al conectar la base real (el sample sintético los
+  ocultaba porque ya venía con etiquetas canónicas):
+  1. **Vocabulario crudo vs. canónico.** La base trae `"FAMILIA MONOPARENTAL"`, `"AFILLIADO SIN
+     GRUPO_FAMILIAR"`; el motor (`weights.json`) y las 194 celdas de `base_stats.json` usan
+     `"Monoparental"`, `"Sin grupo familiar"`. `lookupPeer` compara por **igualdad estricta**
+     (`peer.ts:39`) ⇒ ningún afiliado real encontraba su celda y **el PeerProof desaparecía sin error**.
+     Fix: `canonSegmento()` / `canonGrupoFamiliar()` en `gateway.ts` (mismo mapa que
+     `data/pipeline/profile_base.py:36-44`, idempotente), aplicado en **ambos** adaptadores.
+  2. **Género ausente en el arranque caliente.** `/api/chat` inyectaba grupo familiar, edad, categoría y
+     ciudad — pero no el género, y el peer-group exige los **4 ejes**. Fix: el prompt pasa los 4 completos
+     (+ poblacional).
+- **Gate nuevo:** `scripts/check-afiliados.ts` — end-to-end `BD → gateway → Perfil → motor`, corre igual
+  contra el sample local y contra Turso. Verifica lookup sin tildes, que el segmento llegue canónico
+  (falla si sobrevive una etiqueta EN MAYÚSCULAS) y que el motor recomiende + ubique la celda de peer.
+  **GATE OK en las dos fuentes.** Ejemplo real: `F · 20-35 · cat A · Monoparental` → Vida #1, peer 83.569.
+- **Verificado:** los dos gates preexistentes (motor + offline) siguen OK, `tsc` limpio, `next build`
+  compila (9 rutas). `.env.local` (gitignoreado) tiene las credenciales; hay que ponerlas también en Vercel.
 
 ## Bloque 4 — Voz Gemini Live, 100% detrás de un feature flag APAGADO  ✅🔒 (construido, sin validar en vivo)
 **Decisión (usuario):** Gemini Live (voz real-time de Google), como en los docs. Gemini es el cerebro de
