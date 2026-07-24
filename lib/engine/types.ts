@@ -39,12 +39,16 @@ export interface Perfil {
 
 // --- Forma de data/weights.json (subconjunto que consume el motor) ---
 
-export interface Senal {
+/** Condición de match reutilizable (la comparten las señales y los requisitos de posesión). */
+export interface Matcher {
   feature: string;
   en?: string[];
   op?: ">=" | ">" | "<=" | "<" | "==";
   valor?: number;
   es?: boolean | string;
+}
+
+export interface Senal extends Matcher {
   peso: number;
   razon: string;
   fuente?: string;
@@ -60,6 +64,8 @@ export interface Redundancia {
 export interface ProductoWeights {
   linea: string;
   requiere_asesoria: boolean;
+  /** Gate de posesión: si está presente y NINGUNA condición se cumple, el producto no se considera. */
+  requiere?: Matcher[];
   "señales": Senal[];
   redundancia?: Redundancia[];
   nota?: string;

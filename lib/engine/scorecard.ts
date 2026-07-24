@@ -12,7 +12,7 @@ import { lookupPeer } from "./peer";
 import {
   Perfil,
   PropensionResult,
-  Senal,
+  Matcher,
   ProductoWeights,
   WeightsFile,
   Recomendacion,
@@ -42,7 +42,7 @@ function resolveFeature(perfil: Perfil, feature: string): unknown {
   return (perfil as Record<string, unknown>)[feature];
 }
 
-function senalAplica(perfil: Perfil, s: Senal): boolean {
+function senalAplica(perfil: Perfil, s: Matcher): boolean {
   const val = resolveFeature(perfil, s.feature);
   if (val === PRIOR) return true;
   if (val === undefined || val === null) return false;
@@ -88,6 +88,9 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
   const scored: Scored[] = Object.entries(weights.productos)
     // Guarda: solo productos con entrada real en el catálogo (evita crashes por id huérfano).
     .filter(([id]) => getProduct(id) !== undefined)
+    // Gate de posesión: un producto que exige una posesión (carro, vivienda, moto…) NO se considera
+    // si el perfil no declara ninguna. Evita ofrecer "Todo Riesgo Carro" a quien no tiene carro.
+    .filter(([, w]) => !w.requiere?.length || w.requiere.some((r) => senalAplica(perfil, r)))
     .map(([id, w]) => {
       let score = 0;
       let hasRealSignal = false;

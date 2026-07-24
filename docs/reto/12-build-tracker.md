@@ -143,10 +143,12 @@ Decisiones del usuario: contraste = versión ligera secuencial; extras = timing/
 **Gate Ronda 2:** ✅ `test-propension.ts` OK · `tsc` limpio · `next build` compila · dump confirma (Mascotas
 fuera de descartados, peer con guarda n≥1000).
 
-**Hallazgo abierto (próxima ronda, no en alcance de esta):** productos que requieren una posesión
-(Todo Riesgo Carro, Hogar) disparan por el señal débil de `SEGMENTO_POBLACIONAL` y aparecen como
-descartados aunque la persona no tenga carro/vivienda. Fix futuro: en `weights.json`, condicionar esos
-productos a la posesión (`enriquecido.tiene_vehiculo`/`vivienda`), no solo a la capacidad poblacional.
+**Hallazgo RESUELTO (24-jul):** gate de posesión. Nuevo campo `requiere` en `weights.json` (tipo `Matcher[]`,
+OR: basta una posesión) + filtro en `scorecard.ts`. Un producto que exige una posesión no se considera si
+el perfil no la declara. Aplicado a Todo Riesgo Carro (carro), Hogar (vivienda propia|marca), Moto (moto),
+Bici/Patineta (bici|patineta), Asistencias Múltiples (vivienda). Los boosters (poblacional, grupo familiar)
+siguen aplicando solo entre quienes sí tienen la posesión. Verificado: descartados de las 3 personas ya no
+muestran Carro/Hogar/Bici sin posesión; moto_asistencia sí aparece para Andrés (tiene moto). Gate + build OK.
 
 ---
 
