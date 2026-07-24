@@ -141,6 +141,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
   const lastQuote = useRef<string | null>(null);
   const started = useRef(false);
   const offlineCancel = useRef(false);
+  const afiliadoRef = useRef<{ nombre: string; ciudad: string } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
@@ -199,7 +200,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, afiliado: afiliadoRef.current ?? undefined }),
       });
       const data = (await res.json()) as { reply: string; events: UiEvent[] };
       const parsed = parseReply(data.reply || "");
@@ -349,6 +350,12 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
             <button className="pf-talk" onClick={() => inputRef.current?.focus()}>
               Prefiero contarte con mis palabras →
             </button>
+            {!offline && (
+              <AfiliadoEntry
+                disabled={locked}
+                onEnter={(nombre, ciudad) => { afiliadoRef.current = { nombre, ciudad }; send("Hola"); }}
+              />
+            )}
             <div className="pf-jurado">
               <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
               <div className="pf-jurado-row">
@@ -516,6 +523,33 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
       </label>
       {err && <div className="df-err">{err}</div>}
       <button type="submit" className="df-submit">Confirmar y asegurarme →</button>
+    </form>
+  );
+}
+
+/* ===== Entrada de afiliado (arranque caliente) — opcional, nunca obliga a identificarse ===== */
+function AfiliadoEntry({ onEnter, disabled }: { onEnter: (nombre: string, ciudad: string) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  if (!open) {
+    return (
+      <button className="afil-toggle" onClick={() => setOpen(true)} disabled={disabled}>
+        🪪 Soy afiliado de Colsubsidio
+      </button>
+    );
+  }
+  return (
+    <form
+      className="afil-form"
+      onSubmit={(e) => { e.preventDefault(); if (nombre.trim()) onEnter(nombre.trim(), ciudad.trim()); }}
+    >
+      <div className="afil-lbl">Como ya te conocemos, arrancamos rápido 💛 ¿Tu nombre y ciudad?</div>
+      <div className="afil-row">
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" autoFocus />
+        <input value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad" />
+        <button type="submit" disabled={!nombre.trim()}>Entrar</button>
+      </div>
     </form>
   );
 }

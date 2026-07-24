@@ -1,0 +1,8 @@
+[
+  { "nombre": "Carolina Ramírez López", "ciudad": "Soacha", "genero": "F", "rango_edad": "36 a 45 años", "categoria": "A", "grupo_familiar": "Monoparental", "poblacional": "Medio" },
+  { "nombre": "Andrés Gómez Ruiz", "ciudad": "Bogotá", "genero": "M", "rango_edad": "20 a 35 años", "categoria": "A", "grupo_familiar": "Sin grupo familiar", "poblacional": "Medio" },
+  { "nombre": "Jaime Ortiz Vega", "ciudad": "Bogotá", "genero": "M", "rango_edad": "Mayor de 55 años", "categoria": "B", "grupo_familiar": "Pareja conyugal", "poblacional": "Medio" },
+  { "nombre": "María Fernanda Torres", "ciudad": "Medellín", "genero": "F", "rango_edad": "36 a 45 años", "categoria": "A", "grupo_familiar": "Nuclear integral", "poblacional": "Medio" },
+  { "nombre": "Luis Alberto Peña", "ciudad": "Cali", "genero": "M", "rango_edad": "46 a 55 años", "categoria": "B", "grupo_familiar": "Nuclear ampliada", "poblacional": "Alto" },
+  { "nombre": "Valentina Ríos", "ciudad": "Bogotá", "genero": "F", "rango_edad": "20 a 35 años", "categoria": "A", "grupo_familiar": "Sin grupo familiar", "poblacional": "Joven" }
+]

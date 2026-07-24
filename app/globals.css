@@ -307,6 +307,17 @@ a { text-decoration: none; color: inherit; }
 .pf-jurado-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .pf-persona { background: var(--oscuro); color: #fff; border: none; border-radius: 999px; font-weight: 600; font-size: 13px; padding: 8px 15px; cursor: pointer; font-family: inherit; transition: .15s; }
 .pf-persona:hover { background: #000; transform: translateY(-1px); }
+/* Entrada de afiliado (arranque caliente) */
+.afil-toggle { margin-top: 14px; background: var(--blanco); border: 1.5px solid var(--azul); color: var(--azul); border-radius: 999px; font-weight: 600; font-size: 13.5px; padding: 9px 17px; cursor: pointer; font-family: inherit; transition: .15s; }
+.afil-toggle:hover { background: #f2f8ff; }
+.afil-toggle:disabled { opacity: .5; cursor: default; }
+.afil-form { margin-top: 14px; background: var(--blanco); border: 1px solid var(--borde); border-left: 4px solid var(--azul); border-radius: 12px; padding: 14px 16px; }
+.afil-lbl { font-size: 13.5px; color: var(--tinta); margin-bottom: 10px; font-weight: 600; }
+.afil-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.afil-row input { flex: 1; min-width: 130px; border: 1.5px solid var(--borde); border-radius: 10px; padding: 10px 13px; font-size: 14px; font-family: inherit; outline: none; }
+.afil-row input:focus { border-color: var(--azul); }
+.afil-row button { background: var(--amarillo); border: none; border-radius: 10px; padding: 0 20px; font-weight: 800; font-size: 14px; cursor: pointer; color: var(--tinta); font-family: inherit; }
+.afil-row button:disabled { opacity: .5; cursor: default; }
 @media (max-width: 560px) { .pf-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* ===== Tarjetas de recomendación ===== */

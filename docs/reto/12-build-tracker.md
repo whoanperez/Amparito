@@ -110,6 +110,22 @@ proteger?" 👪🏍️🐶🏠💳✈️ + "Prefiero contarte con mis palabras".
 `ya_cubierto` (verde) del GapsLedger + Descartados + verbalización en el prompt (Estado 3).
 - [x] 3.1 · entrada pull-first (`PROTEGER` + `.pf-*`) · [x] 3.2 · anti-venta como momento visible
 
+## Arranque caliente por afiliado (el foso) — usa la base real, sin filtrar nombres
+Cuando un afiliado se identifica (por **nombre + ciudad**, porque nadie conoce su SERIE), Amparito busca
+su **segmento real** y arranca caliente ("veo que eres cabeza de hogar con un hijo, ¿es así?"), saltándose
+preguntas. **Siempre opcional:** sin identificarse, todo sigue por el flujo conversacional (default completo).
+- `lib/afiliados/gateway.ts` (contrato `lookup(nombre,ciudad)→segmento` + `norm`) · `local-adapter.ts`
+  (sample sintético `data/afiliados_muestra.json`, dev) · `turso-adapter.ts` (Turso, deploy) · `index.ts`
+  (elige por `TURSO_DATABASE_URL`).
+- `/api/chat` acepta `afiliado {nombre,ciudad}` → busca **en el servidor** (los nombres nunca llegan al
+  navegador) → inyecta el segmento como contexto de arranque caliente.
+- UI: entrada "Soy afiliado" (nombre+ciudad) en el pull-first. `scripts/load-afiliados.ts` carga TODA la
+  base a Turso (nombre+ciudad+segmento, bota el resto; índice por nombre). `.env.local.example` documenta Turso.
+- **Datos/PII:** el índice tiene nombres → vive local (sample sintético) o en Turso (acceso solo-backend,
+  temporal, coordinado con Colsubsidio). Nunca al repo público. La base se **consulta**, no se embebe.
+- **Verificado:** lookup local OK (Carolina por nombre con/sin tildes), tsc + build limpios. Turso: a validar
+  al crear la BD (código listo).
+
 ## Bloque 4 — Voz Gemini Live, 100% detrás de un feature flag APAGADO  ✅🔒 (construido, sin validar en vivo)
 **Decisión (usuario):** Gemini Live (voz real-time de Google), como en los docs. Gemini es el cerebro de
 voz, configurado con nuestro system prompt + las mismas tools (function calling) → mismas capacidades que

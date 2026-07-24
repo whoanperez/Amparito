@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { SYSTEM_PROMPT } from "@/lib/prompts";
 import { toolDefinitions, executeTool, UiEvent } from "@/lib/tools";
+import { getAffiliateGateway } from "@/lib/afiliados";
 
 export const maxDuration = 60;
 
@@ -16,11 +17,28 @@ const MAX_TOOL_ROUNDS = 8;
  */
 export async function POST(req: NextRequest) {
   try {
-    const { messages } = (await req.json()) as {
+    const { messages, afiliado } = (await req.json()) as {
       messages: { role: "user" | "assistant"; content: string }[];
+      afiliado?: { nombre?: string; ciudad?: string };
     };
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "messages requerido" }, { status: 400 });
+    }
+
+    // Arranque caliente: si llega un afiliado identificado, buscamos su segmento en el servidor
+    // (los nombres nunca llegan al navegador) y se lo damos a Amparito como contexto.
+    let system = SYSTEM_PROMPT;
+    if (afiliado?.nombre) {
+      const seg = await getAffiliateGateway().lookup(afiliado.nombre, afiliado.ciudad);
+      if (seg) {
+        const primerNombre = seg.nombre.split(" ")[0];
+        system +=
+          `\n\n## AFILIADO IDENTIFICADO (arranque caliente)\n` +
+          `La persona es un afiliado de Colsubsidio que ya inició sesión, así que YA la conoces: salúdala por su primer nombre (${primerNombre}) y arranca caliente CONFIRMANDO su situación, sin volver a preguntar lo que ya sabes. ` +
+          `Su segmento: grupo familiar = ${seg.grupo_familiar ?? "?"}; rango de edad = ${seg.rango_edad ?? "?"}; categoría = ${seg.categoria ?? "?"}; ciudad = ${seg.ciudad ?? "?"}. ` +
+          `Ejemplo de apertura: "Hola ${primerNombre} 👋, veo que [su situación en palabras cálidas]. ¿Es así?". ` +
+          `Al llamar calcular_propension usa estos datos como perfil (no los preguntes de nuevo). Si algo no cuadra, la persona te corrige.`;
+      }
     }
 
     const client = new Anthropic(); // usa ANTHROPIC_API_KEY del entorno
@@ -34,7 +52,7 @@ export async function POST(req: NextRequest) {
     let response = await client.messages.create({
       model: MODEL,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system,
       tools: toolDefinitions,
       messages: convo,
     });
@@ -65,7 +83,7 @@ export async function POST(req: NextRequest) {
       response = await client.messages.create({
         model: MODEL,
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system,
         tools: toolDefinitions,
         messages: convo,
       });
