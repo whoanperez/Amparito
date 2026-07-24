@@ -1,0 +1,60 @@
+{
+  "_meta": {
+    "descripcion": "Matriz DERIVADA de eventos de vida: RANGO_EDAD × SEGMENTO_GRUPO_FAMILIAR → momento vital probable → productos gatillados. Materializa la variable 'evento de vida' que el brief pide y el CSV no trae; se infiere de variables reales de la base y se confirma en conversación (inferido→confirmado).",
+    "regla": "Toda inferencia se marca como 'estimado' hasta que la conversación la confirme. 'Sin grupo familiar' NO implica soltero sin dependientes (puede haber familia no declarada) → siempre preguntar antes de descartar.",
+    "ids_producto": "Alineados a data/catalog.json (16 productos reales)."
+  },
+  "matriz": [
+    {
+      "rango_edad": ["20 a 35 años", "Menor de 19 años"],
+      "grupo_familiar": ["Sin grupo familiar"],
+      "evento": "Independencia / movilidad urbana (primer empleo, se mueve en moto o bici)",
+      "productos": ["accidentes_personales_metlife", "moto_asistencia_mundial", "bici_patineta_bolivar", "mascotas_seguro_bolivar"],
+      "nota": "Menos dependientes → prioriza protegerse a sí mismo y sus activos. NO empujar Vida salvo que declare dependientes."
+    },
+    {
+      "rango_edad": ["20 a 35 años", "36 a 45 años"],
+      "grupo_familiar": ["Pareja conyugal"],
+      "evento": "Formación de hogar / primer hijo probable",
+      "productos": ["vida_panamerican", "hogar_chubb", "mascotas_seguro_bolivar", "asistencia_medica_familiar_mundial"]
+    },
+    {
+      "rango_edad": ["20 a 35 años", "36 a 45 años", "46 a 55 años"],
+      "grupo_familiar": ["Monoparental", "Monoparental ampliada"],
+      "evento": "Cabeza de hogar / único ingreso (máxima exposición si falta)",
+      "productos": ["vida_panamerican", "accidentes_personales_metlife", "asistencia_medica_familiar_mundial"],
+      "nota": "Segmento de mayor necesidad (23,5% de la base). Un solo proveedor = proteger el ingreso es prioridad #1."
+    },
+    {
+      "rango_edad": ["36 a 45 años", "46 a 55 años"],
+      "grupo_familiar": ["Nuclear integral", "Nuclear ampliada"],
+      "evento": "Hijos en crecimiento (colegio → universidad)",
+      "productos": ["vida_panamerican", "asistencia_medica_familiar_mundial", "hogar_chubb", "mascotas_seguro_bolivar"]
+    },
+    {
+      "rango_edad": ["46 a 55 años"],
+      "grupo_familiar": ["Pareja conyugal", "Nuclear integral"],
+      "evento": "Consolidación patrimonial / hijos saliendo del hogar",
+      "productos": ["hogar_chubb", "vida_panamerican", "exequial_gea", "asistencias_multiples_mundial"]
+    },
+    {
+      "rango_edad": ["Mayor de 55 años"],
+      "grupo_familiar": ["Sin grupo familiar", "Monoparental", "Monoparental ampliada", "Nuclear integral", "Nuclear ampliada", "Pareja conyugal"],
+      "evento": "Previsión / adultos mayores a cargo",
+      "productos": ["exequial_gea", "asistencia_medica_familiar_mundial", "asistencias_multiples_mundial"],
+      "nota": "Refuerzo si marca DROGUERIA=SI (señal de salud). Exequial cubre a todo el grupo familiar."
+    }
+  ],
+  "gatillos_conversacionales": {
+    "descripcion": "Slots que el LLM llena en la conversación para ascender inferido→confirmado y re-puntuar el scorecard en vivo. NO se pre-fabrican.",
+    "slots": [
+      {"slot": "tiene_vehiculo", "valores": ["carro", "moto", "bici", "patineta", "ninguno"], "gatilla": ["soat_mundial", "todo_riesgo_carro_chubb", "moto_asistencia_mundial", "bici_patineta_bolivar"]},
+      {"slot": "tiene_mascota", "valores": ["perro", "gato", "no"], "gatilla": ["mascotas_seguro_bolivar", "mascotas_prepagada_vetplus"]},
+      {"slot": "vivienda", "valores": ["propia", "arriendo", "familiar"], "gatilla": ["hogar_chubb", "arrendamiento_mundial"]},
+      {"slot": "dependientes", "tipo": "numero", "gatilla": ["vida_panamerican", "asistencia_medica_familiar_mundial"]},
+      {"slot": "tiene_credito", "valores": ["si", "no"], "gatilla": ["vida_credito_panamerican"]},
+      {"slot": "viaja", "valores": ["si", "no"], "gatilla": ["asistencia_viajes_bmi"]},
+      {"slot": "coberturas_ya_existentes", "tipo": "lista", "uso": "detectar redundancia → anti-venta"}
+    ]
+  }
+}

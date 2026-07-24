@@ -1,0 +1,156 @@
+{
+  "_meta": {
+    "descripcion": "Scorecard aditivo, explicable y versionado ('GAM hecho a mano'). El motor calcula score(perfil, producto) = Σ señales_que_aplican − redundancia, y aplica el gate de asequibilidad. Las 'razon' son los reason codes que el LLM REDACTA (nunca inventa). No es ML: el CSV no tiene etiqueta de compra, por eso los pesos son lógica documentada + priors citados, no aprendidos.",
+    "version": "0.1",
+    "como_derivamos_los_pesos": "Necesidad base = magnitud de la exposición del perfil (a quién protege el producto). Evento = señal de momento vital (data/eventos_vida.json). Refuerzo = marca de consumo real (solo el ~10% la tiene; nunca es eje). Priors externos = frecuencias reales citadas. Gate = asequibilidad por CATEGORIA (nunca recomendar por encima del bolsillo).",
+    "ids_producto": "Alineados a data/catalog.json."
+  },
+  "priors_externos": [
+    {"clave": "prob_mascota_hogar", "valor": 0.67, "fuente": "DANE Encuesta Multipropósito 2024 (67% de hogares con mascota)", "uso": "prior de propensión a Mascotas cuando no hay marca de consumo; se confirma en conversación"},
+    {"clave": "penetracion_seguros_pib", "valor": 0.0329, "fuente": "Fasecolda 2024", "uso": "contexto de baja cultura aseguradora (narrativa)"},
+    {"clave": "razon_no_compra_autoexclusion", "valor": 0.34, "fuente": "Superfinanciera / El Tiempo", "uso": "justifica la prueba social peer-group ('esto sí es para gente como tú')"}
+  ],
+  "gate_affordability": {
+    "_nota": "Nunca recomendar una prima por encima del bolsillo. Cat A = menor ingreso (76% de la base). El gate no elimina productos caros, pero prioriza los de prima baja y activa el framing de micro-compromiso ('empieza por lo esencial desde $X').",
+    "A": {"tier": "esencial", "prioriza_prima_baja": true, "framing": "micro-compromiso ('desde ... al día')"},
+    "B": {"tier": "intermedio", "prioriza_prima_baja": false},
+    "C": {"tier": "amplio", "prioriza_prima_baja": false},
+    "(vacío)": {"tier": "esencial", "prioriza_prima_baja": true}
+  },
+  "productos": {
+    "vida_panamerican": {
+      "linea": "personal_familiar", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "SEGMENTO_GRUPO_FAMILIAR", "en": ["Monoparental", "Monoparental ampliada"], "peso": 45, "razon": "Eres el sostén de un hogar monoparental: si te faltas, nadie más cubre el ingreso"},
+        {"feature": "SEGMENTO_GRUPO_FAMILIAR", "en": ["Nuclear integral", "Nuclear ampliada", "Pareja conyugal"], "peso": 35, "razon": "Hay personas que dependen de tu ingreso"},
+        {"feature": "enriquecido.dependientes", "op": ">=", "valor": 1, "peso": 25, "razon": "Tienes dependientes que protegerías"},
+        {"feature": "RANGO_EDAD", "en": ["36 a 45 años", "46 a 55 años"], "peso": 10, "razon": "Etapa de mayores responsabilidades familiares"}
+      ],
+      "redundancia": [{"si_tiene": "vida", "peso": -100, "razon": "Ya cuentas con un seguro de vida"}]
+    },
+    "accidentes_personales_metlife": {
+      "linea": "personal_familiar", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.tiene_vehiculo", "en": ["moto", "bici", "patineta"], "peso": 40, "razon": "Te mueves en moto/bici: mayor exposición a accidentes"},
+        {"feature": "SEGMENTO_GRUPO_FAMILIAR", "en": ["Sin grupo familiar"], "peso": 25, "razon": "Sin dependientes, tu prioridad es protegerte a ti"},
+        {"feature": "RANGO_EDAD", "en": ["20 a 35 años", "Menor de 19 años"], "peso": 15, "razon": "Perfil joven, activo y en movimiento"}
+      ],
+      "redundancia": [{"si_tiene": "accidentes", "peso": -100, "razon": "Ya tienes cobertura de accidentes"}]
+    },
+    "asistencia_medica_familiar_mundial": {
+      "linea": "personal_familiar", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "SEGMENTO_GRUPO_FAMILIAR", "en": ["Nuclear integral", "Nuclear ampliada", "Monoparental", "Monoparental ampliada"], "peso": 30, "razon": "Una familia se beneficia de médico a domicilio y orientación 24/7"},
+        {"feature": "RANGO_EDAD", "en": ["Mayor de 55 años"], "peso": 20, "razon": "A mayor edad, más valor la asistencia médica cercana"},
+        {"feature": "marca.DROGUERIA", "es": "SI", "peso": 12, "razon": "Usas droguería con frecuencia: señal de cuidado de salud", "fuente": "marca de consumo real"}
+      ],
+      "redundancia": []
+    },
+    "salud_bmi": {
+      "linea": "personal_familiar", "requiere_asesoria": true,
+      "señales": [
+        {"feature": "enriquecido.necesidad_salud", "es": true, "peso": 25, "razon": "Manifestaste una necesidad de salud"},
+        {"feature": "SEGMENTO_POBLACIONAL", "en": ["Alto", "Medio"], "peso": 10, "razon": "Perfil con capacidad para plan de salud"}
+      ],
+      "redundancia": [], "nota": "Requiere asesoría → el flujo escala a humano, no cierra solo."
+    },
+    "soat_mundial": {
+      "linea": "movilidad", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.tiene_vehiculo", "en": ["carro", "moto"], "peso": 50, "razon": "Es obligatorio para tu vehículo"}
+      ],
+      "redundancia": [{"si_tiene": "soat", "peso": -100, "razon": "Ya tienes SOAT vigente"}]
+    },
+    "todo_riesgo_carro_chubb": {
+      "linea": "movilidad", "requiere_asesoria": true,
+      "señales": [
+        {"feature": "enriquecido.tiene_vehiculo", "en": ["carro"], "peso": 35, "razon": "Proteges un carro contra choque y robo"},
+        {"feature": "SEGMENTO_POBLACIONAL", "en": ["Alto", "Medio"], "peso": 10, "razon": "Patrimonio vehicular a proteger"}
+      ],
+      "redundancia": [], "nota": "Requiere validación de vehículo → asesoría."
+    },
+    "moto_asistencia_mundial": {
+      "linea": "movilidad", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.tiene_vehiculo", "en": ["moto"], "peso": 45, "razon": "Tienes moto: robo, asistencia y grúa"},
+        {"feature": "RANGO_EDAD", "en": ["20 a 35 años"], "peso": 10, "razon": "La moto es el medio más común en tu segmento"}
+      ],
+      "redundancia": []
+    },
+    "bici_patineta_bolivar": {
+      "linea": "movilidad", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.tiene_vehiculo", "en": ["bici", "patineta"], "peso": 45, "razon": "Proteges tu bici/patineta contra robo y daño"},
+        {"feature": "SEGMENTO_GRUPO_FAMILIAR", "en": ["Sin grupo familiar"], "peso": 10, "razon": "Joven urbano con activos propios"}
+      ],
+      "redundancia": []
+    },
+    "mascotas_seguro_bolivar": {
+      "linea": "mascotas", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.tiene_mascota", "en": ["perro", "gato"], "peso": 45, "razon": "Tienes mascota: responsabilidad civil y urgencias"},
+        {"feature": "prior.prob_mascota_hogar", "peso": 12, "razon": "6 de cada 10 hogares en Colombia tienen mascota", "fuente": "DANE 2024", "nota": "prior; se confirma en conversación"},
+        {"feature": "marca.PISCILAGO", "es": "SI", "peso": 8, "razon": "Perfil familiar/recreativo"}
+      ],
+      "redundancia": [{"si_tiene": "mascota", "peso": -100, "razon": "Ya aseguraste a tu mascota"}]
+    },
+    "mascotas_prepagada_vetplus": {
+      "linea": "mascotas", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.mascota_veterinario_frecuente", "es": true, "peso": 40, "razon": "Tu mascota va seguido al veterinario: medicina prepagada conviene"},
+        {"feature": "enriquecido.tiene_mascota", "en": ["perro", "gato"], "peso": 20, "razon": "Cobertura integral para tu mascota"}
+      ],
+      "redundancia": []
+    },
+    "hogar_chubb": {
+      "linea": "hogar", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.vivienda", "en": ["propia"], "peso": 45, "razon": "Tienes vivienda propia: protege estructura y contenido (incluye terremoto)"},
+        {"feature": "marca.VIVIENDA", "es": "SI", "peso": 20, "razon": "Registras servicio de vivienda con Colsubsidio", "fuente": "marca de consumo real"},
+        {"feature": "SEGMENTO_GRUPO_FAMILIAR", "en": ["Nuclear integral", "Pareja conyugal", "Nuclear ampliada"], "peso": 10, "razon": "Un hogar con patrimonio que cuidar"}
+      ],
+      "redundancia": [{"si_tiene": "hogar", "peso": -100, "razon": "Ya tienes tu hogar asegurado"}]
+    },
+    "arrendamiento_mundial": {
+      "linea": "arrendamiento", "requiere_asesoria": true,
+      "señales": [
+        {"feature": "enriquecido.vivienda", "en": ["arriendo"], "peso": 30, "razon": "Respaldo ante impagos si arriendas tu propiedad"}
+      ],
+      "redundancia": [], "nota": "Requiere asesoría → escala."
+    },
+    "exequial_gea": {
+      "linea": "exequial", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "RANGO_EDAD", "en": ["Mayor de 55 años"], "peso": 35, "razon": "Cobertura funeraria, prima baja, cubre a todo el grupo familiar"},
+        {"feature": "SEGMENTO_GRUPO_FAMILIAR", "en": ["Monoparental ampliada", "Nuclear ampliada"], "peso": 20, "razon": "Tienes adultos mayores a cargo"},
+        {"feature": "marca.DROGUERIA", "es": "SI", "peso": 10, "razon": "Señal de cuidado de salud en el hogar"}
+      ],
+      "redundancia": [{"si_tiene": "exequial", "peso": -100, "razon": "Ya tienes cobertura exequial con Colsubsidio"}]
+    },
+    "asistencia_viajes_bmi": {
+      "linea": "viajes", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.viaja", "es": true, "peso": 35, "razon": "Viajas: asistencia médica y urgencias en el exterior"},
+        {"feature": "marca.AGENCIAS", "es": "SI", "peso": 20, "razon": "Usas agencias de viaje de Colsubsidio", "fuente": "marca de consumo real"},
+        {"feature": "marca.HOTELES", "es": "SI", "peso": 15, "razon": "Señal de consumo de viajes"}
+      ],
+      "redundancia": []
+    },
+    "asistencias_multiples_mundial": {
+      "linea": "asistencias", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.vivienda", "en": ["propia", "arriendo"], "peso": 25, "razon": "Plomería, cerrajería y auxilios para imprevistos del hogar"},
+        {"feature": "RANGO_EDAD", "en": ["Mayor de 55 años"], "peso": 12, "razon": "Asistencias 24/7 dan tranquilidad"}
+      ],
+      "redundancia": []
+    },
+    "vida_credito_panamerican": {
+      "linea": "creditos", "requiere_asesoria": false,
+      "señales": [
+        {"feature": "enriquecido.tiene_credito", "es": true, "peso": 40, "razon": "Respalda tus cuotas ante fallecimiento o incapacidad"},
+        {"feature": "marca.VIVIENDA", "es": "SI", "peso": 12, "razon": "Señal de crédito de vivienda con Colsubsidio"}
+      ],
+      "redundancia": []
+    }
+  }
+}
