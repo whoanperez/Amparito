@@ -1,0 +1,143 @@
+# 12 — Build tracker (Amparito+) · el QUÉ, el CÓMO y el control
+
+> **Documento vivo de ejecución.** El QUÉ (qué construimos) y el CÓMO (cómo lo construimos), con un
+> checklist por bloque y una bitácora al final. Se actualiza en cada avance. Deriva del
+> [guion](./07-guion-demo.md), el [PRD](./08-prd.md) y el [contrato de tools](./11-contrato-tools.md).
+> Estados: ⬜ pendiente · 🔨 en curso · ✅ hecho · ⏸️ pospuesto.
+
+## Contexto de trabajo (decidido)
+- **Somos autónomos**, en la rama `feature/amparito-plus`. Sin coordinar con terceros, sin cronograma de
+  hackathon. Decidimos y construimos nosotros. (El "contrato para Juan" queda como registro de diseño.)
+- **Alcance v1:** Bloques **1 + 2 + 3**. La **voz (Bloque 4) se pospone** a una segunda pasada.
+- **Orden de construcción:** **motor primero (de adentro hacia afuera).** Validamos el 25% por API con
+  las 3 personas del guion **antes** de montar UI.
+- **Regla de oro (guardrail):** el **motor calcula**, el **LLM redacta** los reason codes. El LLM nunca
+  inventa prima, cobertura ni razón fuera de las que da el motor.
+- **PII:** cero. Todo corre sobre `data/*.json` derivados sin PII.
+
+## El QUÉ — los 4 injertos sobre Amparito
+Amparito ya trae (reuso, no tocamos): flujo end-to-end, cotización determinista, catálogo vivo,
+cumplimiento en servidor → eso ya cubre **Flujo 20%**. Nosotros construimos el 45% diferencial:
+
+| Bloque | Qué | Peso | Estado |
+|---|---|:--:|:--:|
+| **1** | Motor de propensión explicable (scorecard → ranking + reason codes + descartados) | **25%** | ✅ |
+| **2** | Capa visual del porqué (`PropensionCard`: WhyThis · GapsLedger · PeerProof · Descartados) | **15%** + | ✅ |
+| **3** | Pull-first + anti-venta (entrada tappable + "te digo que NO" visible) | **20%**+**20%** | ✅ |
+| **4** | Voz Gemini Live | bonus | ⏸️ |
+
+---
+
+## CÓMO · Bloque 1 — Motor de propensión (empezamos aquí)
+
+**Enfoque:** motor puro y determinista en `lib/engine/`, testeado con 3 fixtures (las personas del
+guion) por consola/API, antes de tocar UI. Reemplaza el matcher de `lib/catalog.ts` en el flujo de
+recomendación (convive con `recommend_products` como fallback).
+
+**Contrato de entrada — `Perfil` estructurado** (los namespaces salen de `weights.json`):
+```ts
+interface Perfil {
+  GENERO?: "F" | "M";
+  RANGO_EDAD?: string;               // "20 a 35 años" | "36 a 45 años" | "Mayor de 55 años" | ...
+  CATEGORIA?: "A" | "B" | "C" | "";
+  SEGMENTO_GRUPO_FAMILIAR?: string;  // "Monoparental" | "Nuclear integral" | "Pareja conyugal" | "Sin grupo familiar" | ...
+  SEGMENTO_POBLACIONAL?: string;     // "Alto" | "Medio" | "Bajo"
+  enriquecido?: {                    // de la conversación
+    dependientes?: number; tiene_vehiculo?: string[]; tiene_mascota?: string[];
+    vivienda?: "propia" | "arriendo"; necesidad_salud?: boolean; viaja?: boolean;
+    tiene_credito?: boolean; mascota_veterinario_frecuente?: boolean;
+  };
+  marca?: Record<string, "SI" | "NO">;  // DROGUERIA, VIVIENDA, AGENCIAS, HOTELES, PISCILAGO (~10% la tiene)
+  ya_cubierto?: string[];            // ["exequial","vida","soat",...] → dispara redundancia + ledger + anti-venta
+}
+```
+
+**Algoritmo** (por cada producto en `weights.productos`):
+1. Sumar `peso` de cada `señal` que aplica; matchers: `en` (∈ lista / intersección si el feature es
+   array), `op`+`valor` (numérico), `es` (igualdad, `true` o `"SI"`). Recolectar su `razon` → reason codes.
+2. Señales `prior.*` siempre aplican su peso (tasa base), marcadas como *prior* + fuente.
+3. `redundancia`: si `ya_cubierto` incluye `si_tiene` → suma el peso (−100) y marca el producto como
+   **ya cubierto** (sale de recomendaciones, entra al `ledger.ya_cubierto` = anti-venta).
+4. Gate de asequibilidad por `CATEGORIA`: cat A → prioriza prima baja (desempate) + activa framing
+   "desde $X al día". Productos `requiere_asesoria: true` → se marcan (no cierran solos; escalan).
+5. Ordenar por score desc. Top 2 con score>0 → `recomendaciones`. Los demás con señal → `descartados`
+   con `motivo`.
+
+**Contrato de salida — `PropensionResult`** (única fuente de verdad; el LLM lo verbaliza):
+```ts
+interface PropensionResult {
+  recomendaciones: Array<{ id; nombre; aseguradora; linea; score; reason_codes: string[]; requiere_asesoria }>;
+  descartados: Array<{ id; nombre; motivo }>;
+  ledger: { riesgos_hoy: string[]; ya_cubierto: Array<{ producto; via; razon }> };
+  peer?: { fraccion: string; descripcion: string; n: number; pct: number; accion: string };
+}
+```
+- `riesgos_hoy` = reason codes del #1 (las exposiciones que justifican la recomendación).
+- `peer` = lookup en `base_stats.peer_groups.celdas` (194 celdas por GÉNERO×EDAD×GRUPO_FAMILIAR×CATEGORÍA)
+  → `n` y `pct` reales del segmento. (Ej. Carolina: F·36-45·Monoparental·A.)
+
+**Archivos:**
+- `lib/engine/types.ts` — `Perfil`, `PropensionResult`, tipos de señal.
+- `lib/engine/scorecard.ts` — `calcularPropension(perfil): PropensionResult` (motor puro).
+- `lib/engine/peer.ts` — lookup de peer-group en `base_stats`.
+- `lib/engine/fixtures.ts` — las 3 personas del guion como `Perfil` (Andrés/Carolina/Jaime).
+- `lib/tools.ts` — nueva tool `calcular_propension` + `event.type` `"propension"` + `UiEvent` union.
+- `lib/prompts.ts` — Estado 3 usa `calcular_propension` (deja `recommend_products` como fallback).
+- `scripts/test-propension.ts` — corre las 3 fixtures e imprime el resultado (gate de validación).
+
+**Checklist Bloque 1:** ✅ COMPLETO
+- [x] 1.1 · `lib/engine/types.ts` (Perfil + PropensionResult)
+- [x] 1.2 · `lib/engine/scorecard.ts` (motor: señales, redundancia, gate, ranking, descartados)
+- [x] 1.3 · `lib/engine/peer.ts` (peer-group lookup)
+- [x] 1.4 · `lib/engine/fixtures.ts` (3 personas)
+- [x] 1.5 · `scripts/test-propension.ts` + correrlo → **GATE OK** (las 3 personas cumplen)
+- [x] 1.6 · tool `calcular_propension` en `lib/tools.ts` + `UiEvent` `"propension"`
+- [x] 1.7 · `lib/prompts.ts` Estado 3 → `calcular_propension` (+ verbaliza anti-venta si hay ya_cubierto)
+- [x] 1.8 · `npx tsc --noEmit` limpio (tras `npm install`)
+
+---
+
+## CÓMO · Bloque 2 — Capa visual del porqué  ✅ COMPLETO
+`PropensionCard` en `components/Chat.tsx` renderiza `event.type === "propension"` con 4 sub-bloques:
+**WhyThis** (✓ + reason_codes del #1) · **GapsLedger** (2 columnas riesgos_hoy vs ya_cubierto) ·
+**PeerProof** (peer.n/pct/descripcion — framing honesto "hay N como tú") · **Descartados** (`<details>`).
+Estilos `.propcard/.pp-*` en `app/globals.css` reusando los tokens del diseño.
+- [x] 2.1 · `PropensionCard` (4 sub-bloques) · [x] 2.2 · estilos · [x] 2.3 · enganche (via `EventCard`, el loop ya lo empuja)
+
+## CÓMO · Bloque 3 — Pull-first + anti-venta  ✅ COMPLETO
+Entrada `pullfirst` en `Chat.tsx` (reemplaza el bloque `starters`): tarjetas grandes "¿Qué quieres
+proteger?" 👪🏍️🐶🏠💳✈️ + "Prefiero contarte con mis palabras". Anti-venta visible = columna
+`ya_cubierto` (verde) del GapsLedger + Descartados + verbalización en el prompt (Estado 3).
+- [x] 3.1 · entrada pull-first (`PROTEGER` + `.pf-*`) · [x] 3.2 · anti-venta como momento visible
+
+## Bloque 4 — Voz Gemini Live  ⏸️ pospuesto (segunda pasada)
+
+---
+
+## Gates de validación (cómo sabemos que va bien)
+**Gate del motor (fin de Bloque 1)** — correr las 3 fixtures y confirmar:
+- **Andrés** (28, moto, sin grupo familiar) → top = accidentes/movilidad; **Vida NO recomendada** (anti-venta 1).
+- **Carolina** (39, monoparental, 1 hijo, cat A) → top = `vida_panamerican`; reason codes de sostén/dependientes; peer real (F·36-45·Monoparental·A).
+- **Jaime** (58, pareja, `ya_cubierto:["exequial"]`) → `exequial` en `ledger.ya_cubierto` (anti-venta 2); Vida (incapacidad) recomendada.
+
+**Gate de UI (fin de Bloque 2-3):** las 3 personas producen tarjetas visiblemente distintas end-to-end en el navegador.
+
+---
+
+## Bitácora (append-only — qué hicimos y cuándo)
+- **24-jul-2026** — Arreglado el guion (Vida y Ahorro → productos reales). Escrito el contrato de tools.
+  Consolidada la doc del reto en `docs/reto/` (sin PII, commit local `6dd8c17`). Cerrado el QUÉ y el CÓMO;
+  creado este tracker.
+- **24-jul-2026** — **Bloque 1 COMPLETO.** Motor `lib/engine/*` (types, scorecard, peer, fixtures) +
+  `scripts/test-propension.ts` → **GATE OK** (Andrés: Vida NO / Carolina: Vida #1 + peer 62.459 real /
+  Jaime: Exequial ya-cubierto). Tool `calcular_propension` + `UiEvent "propension"` en `lib/tools.ts`;
+  `lib/prompts.ts` Estado 3 usa el motor y verbaliza anti-venta. `npm install` + `tsc --noEmit` limpio.
+  Rigor: PeerProof reporta el tamaño REAL del segmento (no una fracción de compra inventada — la base no
+  tiene etiqueta de compra).
+- **24-jul-2026** — **Bloques 2 y 3 COMPLETOS.** `PropensionCard` (WhyThis+GapsLedger+PeerProof+Descartados)
+  + estilos `.propcard/.pp-*`; entrada pull-first `.pf-*` que reemplaza los starters; anti-venta visible en
+  la columna "Ya cubierto" + prompt. `npx tsc --noEmit` limpio y **`npm run build` compila** (7 páginas).
+  Sin API key en el entorno → validación conversacional en vivo queda para el usuario con su key; se dejó un
+  **review visual** (artifact) con la salida real del motor para las 3 personas. Scripts de apoyo:
+  `scripts/test-propension.ts` (gate) y `scripts/dump-propension.ts` (export).
+  **Alcance v1 (Bloques 1+2+3) COMPLETO.** Siguiente opcional: Bloque 4 (voz) o pulir personas/copys.

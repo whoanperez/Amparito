@@ -2,11 +2,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getCatalog, getProduct, recommendProducts } from "./catalog";
 import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
+import { calcularPropension } from "./engine/scorecard";
+import { Perfil } from "./engine/types";
 
 /**
- * Definición de las 6 tools que el orquestador expone a Claude Haiku.
- * Los handlers son la ÚNICA fuente de verdad de datos de producto:
- * el modelo nunca inventa precios ni coberturas.
+ * Definición de las tools que el orquestador expone a Claude Haiku.
+ * Los handlers son la ÚNICA fuente de verdad de datos de producto y de
+ * propensión: el modelo nunca inventa precios, coberturas ni razones.
  */
 export const toolDefinitions: Anthropic.Tool[] = [
   {
@@ -33,6 +35,55 @@ export const toolDefinitions: Anthropic.Tool[] = [
         },
       },
       required: ["perfil", "gatillos"],
+    },
+  },
+  {
+    name: "calcular_propension",
+    description:
+      "Motor de propensión explicable. Dado el perfil de vida del afiliado (estructurado), devuelve el ranking de seguros con sus reason codes, los productos descartados con su razón, el ledger de brechas (riesgos hoy vs lo que ya tiene = anti-venta) y la prueba social del segmento real. USAR en el Estado 3 ANTES de recomendar, en vez de recommend_products. El motor calcula; tú solo redactas las razones que devuelve (nunca inventes razones nuevas).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        perfil: {
+          type: "object",
+          description: "Perfil de vida del afiliado, llenado con lo que se sepa de la conversación.",
+          properties: {
+            GENERO: { type: "string", enum: ["F", "M"] },
+            RANGO_EDAD: {
+              type: "string",
+              enum: ["Menor de 19 años", "20 a 35 años", "36 a 45 años", "46 a 55 años", "Mayor de 55 años"],
+              description: "Rango de edad; mapéalo desde la edad que cuente la persona.",
+            },
+            CATEGORIA: { type: "string", enum: ["A", "B", "C"], description: "Categoría Colsubsidio (A=menor ingreso)." },
+            SEGMENTO_GRUPO_FAMILIAR: {
+              type: "string",
+              enum: ["Sin grupo familiar", "Monoparental", "Monoparental ampliada", "Nuclear integral", "Nuclear ampliada", "Pareja conyugal"],
+              description: "Composición del hogar. Ej: mamá/papá soltero con hijos = Monoparental; pareja sin hijos = Pareja conyugal; solo = Sin grupo familiar.",
+            },
+            SEGMENTO_POBLACIONAL: { type: "string", enum: ["Alto", "Medio", "Bajo"] },
+            enriquecido: {
+              type: "object",
+              description: "Señales de vida detectadas en la conversación.",
+              properties: {
+                dependientes: { type: "number", description: "Cuántas personas dependen de su ingreso." },
+                tiene_vehiculo: { type: "array", items: { type: "string", enum: ["moto", "carro", "bici", "patineta"] } },
+                tiene_mascota: { type: "array", items: { type: "string", enum: ["perro", "gato"] } },
+                vivienda: { type: "string", enum: ["propia", "arriendo"] },
+                necesidad_salud: { type: "boolean" },
+                viaja: { type: "boolean" },
+                tiene_credito: { type: "boolean" },
+                mascota_veterinario_frecuente: { type: "boolean" },
+              },
+            },
+            ya_cubierto: {
+              type: "array",
+              items: { type: "string", enum: ["exequial", "vida", "soat", "hogar", "accidentes", "mascota"] },
+              description: "Coberturas que la persona YA tiene (dispara el anti-venta: no se le vuelve a vender).",
+            },
+          },
+        },
+      },
+      required: ["perfil"],
     },
   },
   {
@@ -117,7 +168,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
 
 /** Evento estructurado que la UI renderiza como tarjeta. */
 export interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension";
   data: Record<string, unknown>;
 }
 
@@ -157,6 +208,16 @@ export async function executeTool(
         result: recs.length
           ? { recomendaciones: recs }
           : { recomendaciones: [], nota: "Ningún producto coincide con la situación descrita. Sé honesta al respecto." },
+      };
+    }
+
+    case "calcular_propension": {
+      const perfil = (input.perfil ?? {}) as Perfil;
+      const prop = calcularPropension(perfil);
+      // El resultado que ve el modelo (para redactar) y el evento que ve la UI son el mismo objeto.
+      return {
+        result: prop,
+        event: { type: "propension", data: prop as unknown as Record<string, unknown> },
       };
     }
 

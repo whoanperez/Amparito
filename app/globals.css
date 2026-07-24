@@ -272,16 +272,24 @@ a { text-decoration: none; color: inherit; }
 .fv-replay { display: block; width: 100%; padding: 12px; background: #000; color: #fff; border: none; cursor: pointer; font-weight: 700; font-size: 14px; font-family: inherit; }
 .fv-replay:hover { background: #1c1c1c; }
 
-/* ===== Disparadores de inicio (entrada directa) ===== */
-.starters { align-self: flex-start; margin-top: 6px; max-width: 96%; }
-.starters-lbl { font-size: 12.5px; color: var(--gris); margin-bottom: 8px; font-weight: 500; }
-.starters-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.starter {
-  background: var(--amarillo-claro); border: 1.5px solid var(--amarillo); color: var(--tinta);
-  font-weight: 600; font-size: 14px; padding: 10px 16px; border-radius: 999px; cursor: pointer;
+/* ===== Entrada pull-first ("¿Qué quieres proteger?") ===== */
+.pullfirst { align-self: stretch; width: 100%; margin-top: 6px; }
+.pf-q { font-size: 16px; font-weight: 700; color: var(--tinta); margin-bottom: 12px; }
+.pf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pf-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 10px;
+  background: var(--blanco); border: 1.5px solid var(--borde); border-radius: 14px; cursor: pointer;
   font-family: inherit; transition: .15s;
 }
-.starter:hover { background: var(--amarillo); }
+.pf-card:hover { border-color: var(--amarillo); background: #fffdf3; box-shadow: 0 8px 22px rgba(245,196,0,.15); transform: translateY(-2px); }
+.pf-ico { font-size: 30px; line-height: 1; }
+.pf-t { font-size: 13.5px; font-weight: 600; color: var(--tinta); }
+.pf-talk {
+  margin-top: 12px; background: none; border: none; color: var(--azul); font-weight: 600;
+  font-size: 13.5px; cursor: pointer; font-family: inherit; padding: 4px 0;
+}
+.pf-talk:hover { text-decoration: underline; }
+@media (max-width: 560px) { .pf-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* ===== Tarjetas de recomendación ===== */
 .recos { align-self: flex-start; width: min(430px, 94%); display: flex; flex-direction: column; gap: 10px; margin-top: 2px; }
@@ -296,6 +304,50 @@ a { text-decoration: none; color: inherit; }
 .reco-name { font-size: 15.5px; font-weight: 700; color: var(--tinta); }
 .reco-why { font-size: 13px; color: var(--gris); line-height: 1.4; }
 .reco-cta { font-size: 12.5px; font-weight: 700; color: var(--azul); margin-top: 4px; }
+
+/* ===== Tarjeta de propensión (WhyThis + GapsLedger + PeerProof + Descartados) ===== */
+.propcard {
+  align-self: flex-start; width: min(470px, 94%); background: var(--blanco);
+  border: 1px solid var(--borde); border-top: 5px solid var(--azul); border-radius: 16px;
+  padding: 18px 20px; box-shadow: 0 12px 34px rgba(0,0,0,.07);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.pp-head .pp-eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--azul); }
+.pp-title { font-size: 17px; font-weight: 700; color: var(--tinta); margin-top: 2px; }
+
+.pp-why { background: #fffdf3; border: 1px solid var(--amarillo); border-radius: 12px; padding: 14px; }
+.pp-why-top { display: flex; align-items: center; gap: 10px; }
+.pp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--verde); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex-shrink: 0; }
+.pp-why-top b { font-size: 15px; font-weight: 700; display: block; color: var(--tinta); }
+.pp-why-top small { font-size: 12px; color: var(--gris); }
+.pp-reasons { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.pp-reasons li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.4; color: var(--tinta); }
+.pp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); margin-top: 6px; flex-shrink: 0; }
+
+.pp-ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pp-col { border-radius: 12px; padding: 12px 14px; }
+.pp-col.risk { background: #fdecea; }
+.pp-col.cov { background: #e8f5ee; }
+.pp-col-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+.pp-col.risk .pp-col-lbl { color: #c0392b; }
+.pp-col.cov .pp-col-lbl { color: var(--verde); }
+.pp-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pp-col li { font-size: 12.5px; line-height: 1.35; color: var(--tinta); padding-left: 15px; position: relative; }
+.pp-col.risk li::before { content: "!"; position: absolute; left: 0; color: #c0392b; font-weight: 800; }
+.pp-col.cov li::before { content: "✓"; position: absolute; left: 0; color: var(--verde); font-weight: 800; }
+.pp-empty { font-size: 12.5px; color: var(--gris); }
+
+.pp-peer { background: var(--gris-suave); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.45; color: var(--tinta); }
+.pp-peer b { color: var(--azul); font-weight: 800; }
+
+.pp-disc { border-top: 1px solid var(--borde); padding-top: 12px; }
+.pp-disc > summary { cursor: pointer; font-weight: 700; font-size: 13px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
+.pp-disc > summary::before { content: "▸"; transition: transform .15s; }
+.pp-disc[open] > summary::before { transform: rotate(90deg); }
+.pp-disc ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.pp-disc li { font-size: 12.5px; line-height: 1.4; color: var(--gris); }
+.pp-disc li b { color: var(--tinta); }
+@media (max-width: 560px) { .pp-ledger { grid-template-columns: 1fr; } }
 
 /* ===== Detalle de cobertura bajo la cotización ===== */
 .card { width: min(470px, 94%); }

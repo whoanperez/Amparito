@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import FlowVideo from "./FlowVideo";
 
 interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension";
   data: Record<string, any>;
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
@@ -27,14 +27,14 @@ interface Contacto {
 const GREETING =
   "¡Hola! Soy Amparito, tu asistente de seguros de Colsubsidio 😊 Cuéntame: ¿qué cambió en tu vida o qué te tiene pensando en protegerte?";
 
-// Disparadores para quien entra directo (sin venir de un link)
-const STARTERS = [
-  "Compré una moto 🏍️",
-  "Nació mi bebé 👶",
-  "Adopté una mascota 🐶",
-  "Me mudé de casa 🏠",
-  "Voy a viajar ✈️",
-  "Tomé un crédito 💳",
+// Entrada pull-first: tarjetas grandes "¿Qué quieres proteger?" (reemplaza la caja vacía)
+const PROTEGER = [
+  { ico: "👪", t: "Mi familia", msg: "Quiero proteger a mi familia" },
+  { ico: "🏍️", t: "Mi movilidad", msg: "Quiero proteger mi moto o mi carro" },
+  { ico: "🐶", t: "Mi mascota", msg: "Quiero proteger a mi mascota" },
+  { ico: "🏠", t: "Mi hogar", msg: "Quiero proteger mi hogar" },
+  { ico: "💳", t: "Mi crédito", msg: "Tengo un crédito que quiero respaldar" },
+  { ico: "✈️", t: "Un viaje", msg: "Voy a viajar y quiero asistencia" },
 ];
 
 const INTERES: Record<string, string> = {
@@ -243,13 +243,19 @@ export default function Chat({ interes }: { interes?: string | null }) {
         )}
 
         {showStarters && (
-          <div className="starters">
-            <div className="starters-lbl">O elige por dónde empezar:</div>
-            <div className="starters-row">
-              {STARTERS.map((s) => (
-                <button key={s} className="starter" onClick={() => send(s)}>{s}</button>
+          <div className="pullfirst">
+            <div className="pf-q">¿Qué quieres proteger?</div>
+            <div className="pf-grid">
+              {PROTEGER.map((p) => (
+                <button key={p.t} className="pf-card" onClick={() => send(p.msg)}>
+                  <span className="pf-ico">{p.ico}</span>
+                  <span className="pf-t">{p.t}</span>
+                </button>
               ))}
             </div>
+            <button className="pf-talk" onClick={() => inputRef.current?.focus()}>
+              Prefiero contarte con mis palabras →
+            </button>
           </div>
         )}
 
@@ -393,9 +399,87 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
   );
 }
 
+/* ===== Tarjeta de propensión (el porqué: WhyThis + GapsLedger + PeerProof + Descartados) ===== */
+function PropensionCard({ data }: { data: Record<string, any> }) {
+  const recs = (data.recomendaciones ?? []) as Array<{ nombre: string; aseguradora: string; reason_codes: string[] }>;
+  const descartados = (data.descartados ?? []) as Array<{ nombre: string; motivo: string }>;
+  const riesgos = (data.ledger?.riesgos_hoy ?? []) as string[];
+  const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
+  const peer = data.peer as { descripcion: string; n: number; pct: number } | null;
+  const top = recs[0];
+
+  return (
+    <div className="propcard">
+      <div className="pp-head">
+        <span className="pp-eyebrow">Por qué esto es para ti</span>
+        <div className="pp-title">Así analicé tu protección</div>
+      </div>
+
+      {/* WhyThis — el porqué del #1, con sus reason codes */}
+      {top && (
+        <div className="pp-why">
+          <div className="pp-why-top">
+            <span className="pp-check">✓</span>
+            <div>
+              <b>{top.nombre}</b>
+              <small>{top.aseguradora}</small>
+            </div>
+          </div>
+          <ul className="pp-reasons">
+            {top.reason_codes.map((r, i) => (
+              <li key={i}><span className="pp-dot" />{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* GapsLedger — riesgos hoy vs lo que ya tiene (anti-venta) */}
+      <div className="pp-ledger">
+        <div className="pp-col risk">
+          <div className="pp-col-lbl">Riesgos hoy</div>
+          {riesgos.length ? (
+            <ul>{riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul>
+          ) : (
+            <p className="pp-empty">—</p>
+          )}
+        </div>
+        <div className="pp-col cov">
+          <div className="pp-col-lbl">Ya cubierto</div>
+          {yaCubierto.length ? (
+            <ul>{yaCubierto.map((c, i) => <li key={i}>{c.producto}</li>)}</ul>
+          ) : (
+            <p className="pp-empty">Nada aún</p>
+          )}
+        </div>
+      </div>
+
+      {/* PeerProof — tamaño REAL del segmento (honesto, sin fracción de compra inventada) */}
+      {peer && peer.n > 0 && (
+        <div className="pp-peer">
+          <b>{peer.n.toLocaleString("es-CO")}</b> afiliados como tú ({peer.descripcion}) — el {peer.pct}% de la base de Colsubsidio. No estás solo en esto.
+        </div>
+      )}
+
+      {/* Descartados — la pregunta de segundo orden: por qué NO lo otro */}
+      {descartados.length > 0 && (
+        <details className="pp-disc">
+          <summary>Ver qué NO te recomendé y por qué</summary>
+          <ul>
+            {descartados.map((x, i) => (
+              <li key={i}><b>{x.nombre}:</b> {x.motivo}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 /* ===== Tarjetas ===== */
 function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
+
+  if (event.type === "propension") return <PropensionCard data={d} />;
 
   if (event.type === "quote") {
     const regulado = d.precio_tipo === "regulado";
