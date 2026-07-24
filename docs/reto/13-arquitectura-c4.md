@@ -109,18 +109,20 @@ flowchart TB
 ### v2 · Amparito+ (todo lo de v1, **+** lo azul)
 ```mermaid
 flowchart TB
-  chatui["Chat UI (+ pull-first · proactivo<br/>· selector de persona jurado)"]
+  chatui["Chat UI (pull-first · proactivo · selector jurado<br/>tono generacional · botón asesor humano)"]
   orq["Orquestador (loop tool-use)"]
-  toolsN["8 tools (+ calcular_propension)"]
-  motor["MOTOR DE PROPENSIÓN<br/>scorecard · peer · gate posesión<br/>gate asequibilidad · reason codes"]
+  toolsN["9 tools (+ calcular_propension<br/>+ calcular_impacto_ingreso)"]
+  motor["MOTOR DE PROPENSIÓN<br/>scorecard · peer · gates · reason codes"]
   prop["weights · base_stats · eventos_vida"]
   card["PropensionCard<br/>WhyThis · GapsLedger · PeerProof<br/>Descartados · anti-venta (héroe)"]
-  voz["Voz Gemini Live<br/>useGeminiLive · geminiTools · guard<br/>(feature flag APAGADO)"]
-  off["Modo offline<br/>scripts · player (?offline=1)"]
-  base["Base v1: matcher(fallback) · catalog<br/>cumplimiento · gateway mock · issue"]
+  impacto["Calculadora de impacto<br/>ImpactoCard (gasto→protección)"]
+  voz["Voz Gemini Live (flag APAGADO)"]
+  off["Modo offline (?offline=1)"]
+  base["Base v1: matcher(fallback) · catalog<br/>cotización 3 capas · cumplimiento · issue"]
 
   chatui --> orq --> toolsN
   toolsN --> motor --> prop
+  toolsN --> impacto --> chatui
   toolsN --> base
   motor --> card --> chatui
   voz -.-> toolsN
@@ -129,7 +131,7 @@ flowchart TB
   classDef base fill:#eef1f5,stroke:#9aa3b2,color:#1d1d1f;
   classDef nuevo fill:#dbeafe,stroke:#0067b1,color:#00344f,stroke-width:2px;
   class chatui,orq base;
-  class toolsN,motor,prop,card,voz,off nuevo;
+  class toolsN,motor,prop,card,impacto,voz,off nuevo;
 ```
 
 ---
@@ -140,10 +142,14 @@ flowchart TB
 | **Recomendación** | Matcher por palabras clave (`recommend_products`) | **Motor de propensión** explicable (scorecard + reason codes + gates) — `recommend_products` queda de fallback |
 | **Datos** | `catalog.json` | + `weights.json` · `base_stats.json` · `eventos_vida.json` (usados por el motor) |
 | **UI del porqué** | Tarjetas de cotización/póliza/cumplimiento | + **PropensionCard** (WhyThis · GapsLedger · PeerProof · Descartados · anti-venta héroe) |
+| **Emoción (gasto→protección)** | — | + **calculadora de impacto de ingreso** + **ImpactoCard** + reframe (prompt) |
+| **Generación** | Un solo tono | + **tono adaptativo** por señales (<30 / 30-45 / +50) sin preguntar la edad |
+| **Letra menuda** | Todo abierto de golpe | + **disclosure en 3 capas** (síntesis visible = Art.9; términos completos a un clic) |
+| **Confianza (+50)** | — | + botón **"que me llame un asesor"** (reusa `escalate_to_human`) |
 | **Entrada** | Caja de chat + starters | + **pull-first** ("¿Qué quieres proteger?") + **momento proactivo** + **selector de persona (jurado)** |
 | **Voz** | — | **Gemini Live** tras feature flag apagado (`/api/live-token`, `/api/tool`, `lib/voice`) |
 | **Robustez demo** | Depende de la red | + **modo offline** (`?offline=1`) end-to-end + auto-fallback |
-| **Tools** | 7 | 8 (+ `calcular_propension`) |
+| **Tools** | 7 | 9 (+ `calcular_propension`, `calcular_impacto_ingreso`) |
 | **Backend del chat** | `/api/chat`, `/api/issue` | **intactos** (todo lo nuevo es aditivo) |
 
 ## Archivos por versión

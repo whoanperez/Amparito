@@ -36,16 +36,20 @@ Live**. Pesos del jurado: Propensión 25% · Variación 20% · Flujo 20% · Inno
   - `data/eventos_vida.json` — matriz edad × grupo familiar → evento vital → productos.
   - `.gitignore` bloquea el CSV crudo (PII).
 
-## ⬜ Qué falta (en orden)
-1. **Tarea 0 (humana, urgente):** acordar con **whoanperez** el nombre de rama, el **contrato de tools**
-   (firma de `calcular_propension` + nuevos `UiEvent`) y no pisar `lib/prompts.ts`. *Antes de tocar código.*
-   → **Borrador listo:** [`11-contrato-tools.md`](./11-contrato-tools.md) (firma exacta, división de trabajo
-   y checklist para la reunión, grafado sobre el código real de Amparito). Falta la reunión con Juan.
-2. **Motor scorecard** en `lib/` que lea los 3 JSON → ranking + **reason codes** + descartes con razón.
-3. **Tool `calcular_propension(perfil)`** en `lib/tools.ts` (reemplaza el matcher de keywords).
-4. **Componentes** `WhyThis` · `GapsLedger` · `PeerProof` + **entrada pull-first** + **anti-venta**.
-5. **Voz Gemini Live** (2º front) — solo si el flujo chat+pantalla ya corre end-to-end.
-6. **Personas demo** afinadas + ensayo del guion + README < 2 min.
+## ✅ Desarrollo del alcance: COMPLETO (24-jul)
+Todo construido y verificado en build (bitácora detallada en [`12-build-tracker.md`](./12-build-tracker.md)):
+motor de propensión explicable · capa visual del porqué · pull-first/proactivo/selector jurado · anti-venta ·
+gate de posesión · **voz Gemini Live** (tras feature flag apagado) · **modo demo offline** end-to-end ·
+**calculadora de impacto + reframe gasto→protección** (Tier 1) · **tono generacional + disclosure en 3 capas
++ botón de asesor humano** (Tier 2). README de arranque <2 min: hecho.
+**PR #1 MERGEADO a `main`** (todo Amparito+ base); **Tier 1 + Tier 2 en el PR #2** (abierto).
+
+## ⬜ Qué falta de verdad (en orden)
+1. **🔑 Validar EN VIVO** con `ANTHROPIC_API_KEY` (+ `GEMINI_API_KEY` para la voz). Casi todo el Tier 1/2 vive
+   en el prompt → *build OK no garantiza el comportamiento del modelo*; habrá que afinar el prompt un par de
+   vueltas con lo que se vea. **Es el pendiente #1** y necesita las keys.
+2. **Ensayo del pitch** (×10) + **video de respaldo** del demo.
+3. **Merge del PR #2** (decisión del equipo).
 
 ## Decisiones abiertas / pendientes de confirmar
 - [x] ~~**Ajustar el guion:** mencionaba "Vida y Ahorro"~~ → **resuelto (24-jul)**. El guion ahora usa

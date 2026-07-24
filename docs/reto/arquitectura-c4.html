@@ -174,17 +174,19 @@ flowchart TB
       <div class="ba-h v2">v2 · Amparito+</div>
       <div class="canvas"><pre class="mermaid">
 flowchart TB
-  chatui2["Chat UI + pull-first<br/>proactivo · selector jurado"]
+  chatui2["Chat UI · pull-first · proactivo<br/>selector jurado · tono generacional<br/>· botón asesor"]
   orq2["Orquestador (loop tool-use)"]
-  toolsN["8 tools (+ calcular_propension)"]
+  toolsN["9 tools (+ propensión<br/>+ impacto de ingreso)"]
   motor["MOTOR DE PROPENSIÓN<br/>scorecard · peer · gates"]
   prop["weights · base_stats"]
   card["PropensionCard<br/>WhyThis · GapsLedger<br/>PeerProof · anti-venta"]
+  impacto["Calculadora impacto<br/>ImpactoCard (gasto→protección)"]
   voz["Voz Gemini Live<br/>(flag APAGADO)"]
   off["Modo offline<br/>?offline=1"]
-  base["Base v1<br/>matcher(fallback) · catalog<br/>cumplimiento · mock · issue"]
+  base["Base v1<br/>matcher(fallback) · catalog<br/>cotización 3 capas · mock · issue"]
   chatui2 --> orq2 --> toolsN
   toolsN --> motor --> prop
+  toolsN --> impacto --> chatui2
   toolsN --> base
   motor --> card --> chatui2
   voz -.-> toolsN
@@ -192,7 +194,7 @@ flowchart TB
   classDef base fill:#eef1f5,stroke:#9aa3b2,color:#1d1d1f;
   classDef nuevo fill:#dbeafe,stroke:#0067b1,color:#00344f,stroke-width:2px;
   class chatui2,orq2,base base;
-  class toolsN,motor,prop,card,voz,off nuevo;
+  class toolsN,motor,prop,card,impacto,voz,off nuevo;
       </pre></div>
     </div>
   </div>
@@ -205,10 +207,14 @@ flowchart TB
       <tr><td>Recomendación</td><td class="v1c">Matcher por palabras clave</td><td><b>Motor de propensión</b> (scorecard + reason codes + gates)</td></tr>
       <tr><td>Datos</td><td class="v1c"><code>catalog.json</code></td><td>+ <code>weights</code> · <code>base_stats</code> · <code>eventos_vida</code></td></tr>
       <tr><td>UI del porqué</td><td class="v1c">Cotización / póliza / cumplimiento</td><td>+ <b>PropensionCard</b> (WhyThis · GapsLedger · PeerProof · anti-venta)</td></tr>
+      <tr><td>Emoción (gasto→protección)</td><td class="v1c">—</td><td>+ <b>calculadora de impacto de ingreso</b> + ImpactoCard + reframe</td></tr>
+      <tr><td>Generación</td><td class="v1c">Un solo tono</td><td>+ <b>tono adaptativo</b> por señales (&lt;30 / 30-45 / +50), sin preguntar edad</td></tr>
+      <tr><td>Letra menuda</td><td class="v1c">Todo abierto de golpe</td><td>+ <b>disclosure en 3 capas</b> (síntesis visible = Art.9; términos a un clic)</td></tr>
+      <tr><td>Confianza (+50)</td><td class="v1c">—</td><td>+ botón <b>"que me llame un asesor"</b></td></tr>
       <tr><td>Entrada</td><td class="v1c">Caja de chat + starters</td><td>+ <b>pull-first</b> + <b>proactivo</b> + <b>selector jurado</b></td></tr>
       <tr><td>Voz</td><td class="v1c">—</td><td><b>Gemini Live</b> tras feature flag apagado</td></tr>
       <tr><td>Robustez demo</td><td class="v1c">Depende de la red</td><td>+ <b>modo offline</b> end-to-end + auto-fallback</td></tr>
-      <tr><td>Tools</td><td class="v1c">7</td><td>8 (+ <code>calcular_propension</code>)</td></tr>
+      <tr><td>Tools</td><td class="v1c">7</td><td>9 (+ <code>calcular_propension</code>, <code>calcular_impacto_ingreso</code>)</td></tr>
       <tr><td>Backend del chat</td><td class="v1c"><code>/api/chat</code>, <code>/api/issue</code></td><td><b>intactos</b> — todo lo nuevo es aditivo</td></tr>
     </tbody>
   </table>
