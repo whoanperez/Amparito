@@ -235,6 +235,13 @@ muestran Carro/Hogar/Bici sin posesión; moto_asistencia sí aparece para André
   nota de munición regulatoria en el guion. D) Modo jurado: selector de personas (Andrés/Carolina/Jaime) en
   `/chat` + spinners convertidos en "teatro de explicabilidad" (pasos reales del motor). tsc + gate + build OK.
   Veredicto del panel: **proyecto de podio**; los flancos de cifras quedaron cerrados.
+- **24-jul-2026** — **Modo demo offline (RNF-1) — la última pieza de desarrollo.** `/chat?offline=1` (o
+  auto-fallback si la API en vivo falla) reproduce las 3 personas end-to-end **sin red**: las frases de
+  Amparito son guionizadas (`lib/demo/scripts.ts`) pero las tarjetas (propensión, cotización, póliza+cert)
+  las produce `executeTool` en LOCAL — mismo motor + gateway mock del vivo, cero duplicación. Player en
+  `lib/demo/player.ts` (dynamic import → fuera del bundle normal). `import type Anthropic` en tools.ts saca
+  el SDK del cliente. En modo normal (`/chat`) todo idéntico. Verificado: `scripts/test-offline.ts` →
+  propensión+cotización+póliza OK; tsc + build limpios. **Todo el desarrollo del alcance está COMPLETO.**
 - **24-jul-2026** — **RONDA 2 COMPLETA** (ajustes del panel de 3 expertos, 13 tareas R1–R13). Rigor: guion
   sin el "8 de 10" inventado + prueba social = tamaño real; PeerProof con guarda n≥1000; prior de mascotas
   ya no rankea solo; desempate determinista; `SEGMENTO_POBLACIONAL` alineado a la base. Robustez: guardas

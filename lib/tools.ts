@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import { getCatalog, getProduct, recommendProducts } from "./catalog";
 import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";

@@ -64,9 +64,9 @@ const INTERES: Record<string, string> = {
 // Modo jurado: perfiles del demo listos para que el jurado los pruebe solo (autogestión).
 // Cada apertura le da a Amparito lo justo para perfilar y correr el motor en vivo.
 const PERSONAS_DEMO = [
-  { n: "Andrés, 28", msg: "Hola, soy Andrés, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
-  { n: "Carolina, 39", msg: "Hola, soy Carolina, tengo 39 años, soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
-  { n: "Jaime, 58", msg: "Hola, soy Jaime, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
+  { key: "Andres", n: "Andrés, 28", msg: "Hola, soy Andrés, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
+  { key: "Carolina", n: "Carolina, 39", msg: "Hola, soy Carolina, tengo 39 años, soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
+  { key: "Jaime", n: "Jaime, 58", msg: "Hola, soy Jaime, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
 ];
 
 // Momento proactivo (timing/canal): Amparito abre la conversación tras un evento de vida real
@@ -128,9 +128,9 @@ function parseReply(raw: string): { text: string; options: string[]; recs: Rec[]
   return { text: clean(text), options, recs };
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-export default function Chat({ interes, evento }: { interes?: string | null; evento?: string | null }) {
+export default function Chat({ interes, evento, offline }: { interes?: string | null; evento?: string | null; offline?: boolean }) {
   const proactivo = (evento && EVENTOS[evento.toLowerCase()]) || null;
   const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: proactivo ?? GREETING }]);
   const [input, setInput] = useState("");
@@ -140,6 +140,7 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
   const [processing, setProcessing] = useState<null | "emision" | "reco">(null);
   const lastQuote = useRef<string | null>(null);
   const started = useRef(false);
+  const offlineCancel = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
@@ -168,6 +169,8 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [items, busy, activeForm, processing, suggestions]);
 
+  useEffect(() => () => { offlineCancel.current = true; }, []); // cancela el demo offline al desmontar
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
@@ -181,9 +184,9 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
     setTimeout(() => inputRef.current?.focus(), 30);
   }
 
-  async function send(text: string) {
+  async function send(text: string, opts?: { silentFail?: boolean }): Promise<boolean> {
     const t = text.trim();
-    if (!t || busy || processing) return;
+    if (!t || busy || processing) return false;
     setInput("");
     setSuggestions([]);
 
@@ -219,17 +222,57 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
         await sleep(2500);
         setProcessing(null);
         setItems((cur) => [...cur, ...msgItems, ...eventItems, { kind: "recommend", recs: parsed.recs }]);
-        return;
+        return true;
       }
 
       setItems((cur) => [...cur, ...msgItems, ...eventItems]);
       setSuggestions(parsed.options);
       if (openForm) setActiveForm(openForm);
+      return true;
     } catch {
-      setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: "Se me trabó la conexión. ¿Intentamos de nuevo?" }]);
+      // silentFail: quien llama maneja el fallo (ej. cae al demo offline) sin mostrar el aviso.
+      if (!opts?.silentFail) {
+        setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: "Se me trabó la conexión. ¿Intentamos de nuevo?" }]);
+      }
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  // --- Demo offline (RNF-1) — reproduce el guion local sin red ---
+  async function runOffline(key: string, startFrom = 0) {
+    if (busy || processing) return;
+    setSuggestions([]);
+    setInput("");
+    offlineCancel.current = false;
+    setBusy(true);
+    try {
+      const [{ playDemo }, { DEMO_SCRIPTS }] = await Promise.all([
+        import("@/lib/demo/player"),
+        import("@/lib/demo/scripts"),
+      ]);
+      const beats = DEMO_SCRIPTS[key]?.slice(startFrom);
+      if (!beats?.length) return;
+      await playDemo(beats, {
+        addMsg: (role, text) => setItems((cur) => [...cur, { kind: "msg", role, text }]),
+        addEvent: (event) => setItems((cur) => [...cur, { kind: "event", event: { type: event.type as UiEvent["type"], data: event.data } }]),
+        addRecommend: (recs) => setItems((cur) => [...cur, { kind: "recommend", recs }]),
+        sleep,
+        cancelled: () => offlineCancel.current,
+      });
+    } catch {
+      setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: "No pude cargar el demo offline." }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startPersona(p: { key: string; msg: string }) {
+    if (offline) { runOffline(p.key); return; }
+    // En vivo: intenta la API; si falla, cae al guion local (el saludo ya se agregó → salta la beat 0).
+    const ok = await send(p.msg, { silentFail: true });
+    if (!ok) runOffline(p.key, 1);
   }
 
   async function submitForm(contacto: Contacto) {
@@ -265,7 +308,7 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
         <div className="avatar">A</div>
         <div>
           <h2>Amparito</h2>
-          <div className="status">● En línea — 24/7, sin esperas</div>
+          <div className="status">{offline ? "● Modo demo offline — sin conexión, todo local" : "● En línea — 24/7, sin esperas"}</div>
         </div>
       </div>
 
@@ -300,7 +343,7 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
               <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
               <div className="pf-jurado-row">
                 {PERSONAS_DEMO.map((p) => (
-                  <button key={p.n} className="pf-persona" onClick={() => send(p.msg)}>{p.n}</button>
+                  <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
                 ))}
               </div>
             </div>
@@ -336,8 +379,9 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
               </button>
             )}
             <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
-              placeholder="Escríbele a Amparito…" disabled={locked} autoFocus />
-            <button type="submit" disabled={locked || !input.trim()}>Enviar</button>
+              placeholder={offline ? "Modo demo offline — prueba un perfil de arriba ↑" : "Escríbele a Amparito…"}
+              disabled={locked || !!offline} autoFocus />
+            <button type="submit" disabled={locked || !!offline || !input.trim()}>Enviar</button>
           </form>
           <p className="disclaimer">Amparito es la asistente virtual de seguros de Colsubsidio (comercializador; la aseguradora aliada emite y asume el riesgo). Verás coberturas, exclusiones y forma de pago antes de decidir (Ley 1328/2009, Art. 9) y tus datos se tratan con tu autorización (Ley 1581/2012). Vinculación simplificada bajo SARLAFT.</p>
         </div>
