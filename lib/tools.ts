@@ -60,7 +60,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
               enum: ["Sin grupo familiar", "Monoparental", "Monoparental ampliada", "Nuclear integral", "Nuclear ampliada", "Pareja conyugal"],
               description: "Composición del hogar. Ej: mamá/papá soltero con hijos = Monoparental; pareja sin hijos = Pareja conyugal; solo = Sin grupo familiar.",
             },
-            SEGMENTO_POBLACIONAL: { type: "string", enum: ["Alto", "Medio", "Bajo"] },
+            SEGMENTO_POBLACIONAL: { type: "string", enum: ["Básico", "Medio", "Joven", "Alto"] },
             enriquecido: {
               type: "object",
               description: "Señales de vida detectadas en la conversación.",

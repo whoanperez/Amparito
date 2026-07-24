@@ -315,13 +315,19 @@ a { text-decoration: none; color: inherit; }
 .pp-head .pp-eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--azul); }
 .pp-title { font-size: 17px; font-weight: 700; color: var(--tinta); margin-top: 2px; }
 
+/* Anti-venta como héroe: banner oscuro, honesto, imposible de no ver (el momento wow) */
+.pp-antiventa { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: #fff; border-radius: 12px; padding: 14px 16px; }
+.pp-av-ico { font-size: 26px; line-height: 1; flex-shrink: 0; }
+.pp-antiventa b { display: block; font-size: 15px; font-weight: 800; }
+.pp-antiventa span { display: block; font-size: 13.5px; color: #d9dbe0; margin-top: 2px; line-height: 1.4; }
+
 .pp-why { background: #fffdf3; border: 1px solid var(--amarillo); border-radius: 12px; padding: 14px; }
 .pp-why-top { display: flex; align-items: center; gap: 10px; }
 .pp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--verde); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex-shrink: 0; }
 .pp-why-top b { font-size: 15px; font-weight: 700; display: block; color: var(--tinta); }
 .pp-why-top small { font-size: 12px; color: var(--gris); }
 .pp-reasons { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.pp-reasons li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.4; color: var(--tinta); }
+.pp-reasons li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.45; color: var(--tinta); }
 .pp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); margin-top: 6px; flex-shrink: 0; }
 
 .pp-ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -332,20 +338,20 @@ a { text-decoration: none; color: inherit; }
 .pp-col.risk .pp-col-lbl { color: #c0392b; }
 .pp-col.cov .pp-col-lbl { color: var(--verde); }
 .pp-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.pp-col li { font-size: 12.5px; line-height: 1.35; color: var(--tinta); padding-left: 15px; position: relative; }
+.pp-col li { font-size: 14px; line-height: 1.4; color: var(--tinta); padding-left: 16px; position: relative; }
 .pp-col.risk li::before { content: "!"; position: absolute; left: 0; color: #c0392b; font-weight: 800; }
 .pp-col.cov li::before { content: "✓"; position: absolute; left: 0; color: var(--verde); font-weight: 800; }
 .pp-empty { font-size: 12.5px; color: var(--gris); }
 
-.pp-peer { background: var(--gris-suave); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.45; color: var(--tinta); }
+.pp-peer { background: var(--gris-suave); border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.5; color: var(--tinta); }
 .pp-peer b { color: var(--azul); font-weight: 800; }
 
 .pp-disc { border-top: 1px solid var(--borde); padding-top: 12px; }
-.pp-disc > summary { cursor: pointer; font-weight: 700; font-size: 13px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
+.pp-disc > summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
 .pp-disc > summary::before { content: "▸"; transition: transform .15s; }
 .pp-disc[open] > summary::before { transform: rotate(90deg); }
 .pp-disc ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.pp-disc li { font-size: 12.5px; line-height: 1.4; color: var(--gris); }
+.pp-disc li { font-size: 13.5px; line-height: 1.45; color: var(--gris); }
 .pp-disc li b { color: var(--tinta); }
 @media (max-width: 560px) { .pp-ledger { grid-template-columns: 1fr; } }
 

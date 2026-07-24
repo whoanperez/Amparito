@@ -77,6 +77,7 @@ interface Scored {
   score: number;
   reasons: Array<{ razon: string; peso: number }>;
   yaCubierto?: { razon: string };
+  hasRealSignal: boolean; // ¿aplicó alguna señal que NO sea un prior (tasa base)?
 }
 
 export function calcularPropension(perfil: Perfil): PropensionResult {
@@ -84,25 +85,30 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
   const gate = weights.gate_affordability[cat] ?? weights.gate_affordability["(vacío)"];
   const primaBajaPrimero = Boolean(gate?.prioriza_prima_baja);
 
-  const scored: Scored[] = Object.entries(weights.productos).map(([id, w]) => {
-    let score = 0;
-    const reasons: Array<{ razon: string; peso: number }> = [];
-    for (const s of w["señales"]) {
-      if (senalAplica(perfil, s)) {
-        score += s.peso;
-        reasons.push({ razon: s.razon, peso: s.peso });
+  const scored: Scored[] = Object.entries(weights.productos)
+    // Guarda: solo productos con entrada real en el catálogo (evita crashes por id huérfano).
+    .filter(([id]) => getProduct(id) !== undefined)
+    .map(([id, w]) => {
+      let score = 0;
+      let hasRealSignal = false;
+      const reasons: Array<{ razon: string; peso: number }> = [];
+      for (const s of w["señales"]) {
+        if (senalAplica(perfil, s)) {
+          score += s.peso;
+          reasons.push({ razon: s.razon, peso: s.peso });
+          if (!s.feature.startsWith("prior.")) hasRealSignal = true;
+        }
       }
-    }
-    let yaCubierto: { razon: string } | undefined;
-    for (const r of w.redundancia ?? []) {
-      if ((perfil.ya_cubierto ?? []).includes(r.si_tiene)) {
-        score += r.peso;
-        yaCubierto = { razon: r.razon };
+      let yaCubierto: { razon: string } | undefined;
+      for (const r of w.redundancia ?? []) {
+        if ((perfil.ya_cubierto ?? []).includes(r.si_tiene)) {
+          score += r.peso;
+          yaCubierto = { razon: r.razon };
+        }
       }
-    }
-    reasons.sort((a, b) => b.peso - a.peso);
-    return { id, w, score, reasons, yaCubierto };
-  });
+      reasons.sort((a, b) => b.peso - a.peso);
+      return { id, w, score, reasons, yaCubierto, hasRealSignal };
+    });
 
   // Anti-venta: productos cuya redundancia disparó → salen del ranking, van al ledger.
   const yaCubiertoList: YaCubierto[] = scored
@@ -113,14 +119,18 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
 
   const ordenar = (a: Scored, b: Scored) => {
     if (b.score !== a.score) return b.score - a.score;
-    // Desempate: cat A prioriza prima baja (gate de asequibilidad).
-    if (primaBajaPrimero) return primaBase(a.id) - primaBase(b.id);
-    return 0;
+    // Desempate 1: cat A prioriza prima baja (gate de asequibilidad).
+    if (primaBajaPrimero) {
+      const d = primaBase(a.id) - primaBase(b.id);
+      if (d !== 0) return d;
+    }
+    // Desempate final: estable y determinista (nunca depende del orden del JSON).
+    return a.id.localeCompare(b.id);
   };
 
-  // Recomendaciones: con señal, no ya-cubierto, que cierran solas (no requieren asesoría).
+  // Recomendaciones: con señal REAL (no solo un prior), no ya-cubierto, que cierran solas.
   const recomendaciones: Recomendacion[] = scored
-    .filter((x) => !x.yaCubierto && x.score > 0 && !x.w.requiere_asesoria)
+    .filter((x) => !x.yaCubierto && x.score > 0 && x.hasRealSignal && !x.w.requiere_asesoria)
     .sort(ordenar)
     .slice(0, MAX_RECOMENDACIONES)
     .map((x) => {
@@ -139,9 +149,10 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
   const recIds = new Set(recomendaciones.map((r) => r.id));
   const topNombre = recomendaciones[0]?.nombre;
 
-  // Descartados: tuvieron señal pero no entraron al top → con motivo honesto.
+  // Descartados: tuvieron señal REAL pero no entraron al top → con motivo honesto.
+  // (Un producto empujado solo por un prior —ej. Mascotas por la tasa DANE— no se lista.)
   const descartados: Descartado[] = scored
-    .filter((x) => !x.yaCubierto && x.score > 0 && !recIds.has(x.id))
+    .filter((x) => !x.yaCubierto && x.score > 0 && x.hasRealSignal && !recIds.has(x.id))
     .sort(ordenar)
     .slice(0, MAX_DESCARTADOS)
     .map((x) => ({ id: x.id, nombre: getProduct(x.id)!.nombre, motivo: motivoDescarte(x, topNombre) }));

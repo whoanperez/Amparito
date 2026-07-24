@@ -31,7 +31,7 @@ export interface Perfil {
   RANGO_EDAD?: string; // "20 a 35 años" | "36 a 45 años" | "46 a 55 años" | "Mayor de 55 años" | "Menor de 19 años"
   CATEGORIA?: Categoria;
   SEGMENTO_GRUPO_FAMILIAR?: string; // "Monoparental" | "Nuclear integral" | "Pareja conyugal" | "Sin grupo familiar" | ...
-  SEGMENTO_POBLACIONAL?: string; // "Alto" | "Medio" | "Bajo"
+  SEGMENTO_POBLACIONAL?: string; // valores reales de la base: "Básico" | "Medio" | "Joven" | "Alto"
   enriquecido?: PerfilEnriquecido;
   marca?: Record<string, "SI" | "NO">; // DROGUERIA, VIVIENDA, AGENCIAS, HOTELES, PISCILAGO
   ya_cubierto?: string[]; // coberturas que YA tiene: "exequial" | "vida" | "soat" | "hogar" | "accidentes" | "mascota"

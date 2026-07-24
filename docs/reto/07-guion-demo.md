@@ -37,8 +37,9 @@ ha construido. Esto es Amparito."*
   personas · sin respaldo si faltas" · columna derecha "Ya cubierto: —".
 - **WhyThis + recomendación:** Seguro de Vida (Pan-American), *desde $12.000/mes (~$400/día)* con reason
   codes visibles: *"● Eres el único ingreso de tu hogar · ● Tienes 1 hijo menor · ● Categoría A → plan esencial"*.
-- **Prueba social (mata la autoexclusión):** *"8 de cada 10 afiliadas como tú —mujer, 36-45,
-  monoparental— eligieron proteger su ingreso primero."*
+- **Prueba social (mata la autoexclusión), honesta y trazable:** *"No estás sola: hay **62.459 afiliadas
+  como tú** —mujer, 36-45, monoparental, categoría A— en la base de Colsubsidio."* (Es el tamaño **real**
+  del segmento; NO afirmamos una tasa de compra: la base no tiene etiqueta de compra. Dato = `base_stats`.)
 
 ### 1:10–1:35 · El "¿y por qué NO?" (pregunta de segundo orden)
 - Presentador toca **"ver descartados"**: Amparito muestra por qué NO le ofreció Salud (BMI) ni Hogar:
@@ -47,12 +48,13 @@ ha construido. Esto es Amparito."*
 → Este beat responde la pregunta exacta del jurado ("¿por qué a ella esto y no lo otro?") **antes de que
   la hagan**.
 
-### 1:35–2:05 · Contraste lado a lado (variación por perfil, mostrada no contada)
-- Pantalla partida: **Andrés (28, moto)** vs **Carolina (39, mamá)**. Se corre el motor en vivo y las
-  reason codes **se voltean** ante los ojos del jurado:
-  - Andrés → Accidentes Personales + Movilidad. **Anti-venta 1:** *"Andrés, no te vendo un Seguro de
-    Vida: nadie depende hoy de tu ingreso. Con lo tuyo, basta protegerte a ti."*
-  - Carolina → Vida. La misma máquina, dos vidas, dos respuestas honestas.
+### 1:35–2:05 · Contraste secuencial (variación por perfil, mostrada no contada)
+- **Una máquina, dos vidas, dos respuestas.** Corremos las dos personas **una tras otra** (no pantalla
+  partida — la variación se ve igual y no dependemos de un componente que puede fallar en vivo):
+  - Primero **Andrés (28, moto)** → Accidentes Personales + Movilidad. **Anti-venta 1:** *"Andrés, no te
+    vendo un Seguro de Vida: nadie depende hoy de tu ingreso. Con lo tuyo, basta protegerte a ti."*
+  - Luego **Carolina (39, mamá)** → Vida. El presentador lo nombra: *"Misma máquina, mismo motor — dos
+    vidas, dos respuestas honestas."* Las reason codes **se voltean** ante el jurado.
 
 ### 2:05–2:35 · Persona C (Jaime) — anti-venta por el ledger + cierre
 - Jaime (58) pide "un seguro para mi familia". Amparito, con el arranque caliente:
@@ -71,6 +73,13 @@ humano."*
 
 ---
 
+## Bonus · Momento proactivo (timing/canal — el diferencial que casi nadie muestra)
+Beat corto y opcional (si sobra tiempo, o como cierre del modo jurado). Abrimos `/chat?evento=credito_vivienda`
+y **Amparito habla primero**, sin que la persona pida nada: *"Vi que hace poco tomaste un crédito de
+vivienda con Colsubsidio. Podríamos proteger tu hogar y lo que estás pagando. ¿Te cuento cómo?"*
+→ Muestra que Colsubsidio no solo es un canal que espera: **llega en el momento correcto del ciclo de
+vida** apalancando su dato único. Es innovación de canal sin depender de voz. (También `?evento=bebe`.)
+
 ## Modo jurado (el movimiento de mayor recompensa)
 Tras el guion, **entregamos el control**: el jurado teclea/habla lo que quiera (ej. "seguro de hogar",
 "SOAT", un perfil raro). El sistema responde desde el catálogo completo. Esto demuestra la **autogestión
@@ -82,7 +91,7 @@ total** (criterio explícito del brief) que casi ningún equipo se atreve a most
 - **Voz (Gemini Live) = bonus:** si falla latencia/ruido, se degrada a chat+tarjetas sin romper el flujo.
 - **Cero PII en pantalla:** `SERIE` y segmento, nunca `NOMBRE_COMPLETO` real (los nombres del demo son
   sintéticos).
-- **Contraste lado a lado** grabado en video de respaldo por si el switch en vivo falla.
+- **Contraste secuencial** (Andrés→Carolina) grabado en video de respaldo por si la red del salón falla.
 
 ## Qué debe existir para que este guion corra (lista mínima → alimenta el [backlog](./09-backlog.md))
 Entrada pull-first · arranque caliente por `SERIE` · motor de propensión con **reason codes** · **ledger

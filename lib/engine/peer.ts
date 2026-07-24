@@ -22,6 +22,10 @@ const peerGroups = (baseStats as unknown as {
 const EJES = peerGroups.ejes;
 const CELDAS = peerGroups.celdas;
 
+// Umbral mínimo para afirmar prueba social: 91/194 celdas tienen n<1000 (min real = 1).
+// Con un segmento diminuto, "hay 3 afiliadas como tú" no vence la autoexclusión: la calla.
+const MIN_N = 1000;
+
 export function lookupPeer(perfil: Perfil): Peer | null {
   const clave: Record<string, string | undefined> = {
     GENERO: perfil.GENERO,
@@ -33,7 +37,7 @@ export function lookupPeer(perfil: Perfil): Peer | null {
   if (EJES.some((e) => !clave[e])) return null;
 
   const celda = CELDAS.find((c) => EJES.every((e) => c.grupo[e] === clave[e]));
-  if (!celda) return null;
+  if (!celda || celda.n < MIN_N) return null;
 
   return { descripcion: describir(perfil), n: celda.n, pct: celda.pct };
 }

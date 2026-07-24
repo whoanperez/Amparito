@@ -58,6 +58,15 @@ const INTERES: Record<string, string> = {
   movilidad: "un seguro para mi vehículo",
 };
 
+// Momento proactivo (timing/canal): Amparito abre la conversación tras un evento de vida real
+// que Colsubsidio ya conoce. Es el diferencial de canal — llegar en el momento correcto.
+const EVENTOS: Record<string, string> = {
+  credito_vivienda:
+    "Hola, soy Amparito 👋 Vi que hace poco tomaste un crédito de vivienda con Colsubsidio. Se me ocurre algo: podríamos proteger tu hogar y lo que estás pagando, por si pasa un imprevisto. ¿Te cuento cómo, sin compromiso?",
+  bebe:
+    "Hola, soy Amparito 👋 Me contaron que llegó un bebé a tu familia, ¡felicitaciones! En este momento muchas familias piensan en proteger su ingreso, por si algún día faltan. ¿Miramos juntos qué te conviene?",
+};
+
 const INSURER: Record<string, { color: string; short: string }> = {
   "MetLife": { color: "#0090da", short: "MetLife" },
   "Chubb": { color: "#d31245", short: "Chubb" },
@@ -110,8 +119,9 @@ function parseReply(raw: string): { text: string; options: string[]; recs: Rec[]
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export default function Chat({ interes }: { interes?: string | null }) {
-  const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: GREETING }]);
+export default function Chat({ interes, evento }: { interes?: string | null; evento?: string | null }) {
+  const proactivo = (evento && EVENTOS[evento.toLowerCase()]) || null;
+  const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: proactivo ?? GREETING }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -176,7 +186,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
       if (parsed.recs.length) {
         setBusy(false);
         setProcessing("reco");
-        await sleep(4000);
+        await sleep(2500);
         setProcessing(null);
         setItems((cur) => [...cur, ...msgItems, ...eventItems, { kind: "recommend", recs: parsed.recs }]);
         return;
@@ -205,7 +215,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
       });
       result = await res.json();
     } catch { result = { error: "No pudimos emitir en este momento." }; }
-    await sleep(Math.max(0, 7000 - (Date.now() - t0)));
+    await sleep(Math.max(0, 3000 - (Date.now() - t0)));
     setProcessing(null);
     if (result.event) {
       setItems((cur) => [...cur, { kind: "event", event: result.event },
@@ -217,7 +227,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
   }
 
   const locked = busy || !!processing || !!activeForm;
-  const showStarters = items.length === 1 && !interes && !locked;
+  const showStarters = items.length === 1 && !interes && !proactivo && !locked;
 
   return (
     <div className="chat-shell">
@@ -295,7 +305,8 @@ function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string
         <button key={i} className={`reco ${r.recomendado ? "top" : ""}`} onClick={() => onPick(r.nombre)}>
           {r.recomendado && <span className="reco-badge">★ Recomendado para ti</span>}
           <span className="reco-name">{r.nombre}</span>
-          {r.razon && <span className="reco-why">{r.razon}</span>}
+          {/* El porqué del #1 ya vive en la PropensionCard; aquí solo lo mostramos para las opciones. */}
+          {!r.recomendado && r.razon && <span className="reco-why">{r.razon}</span>}
           <span className="reco-cta">Elegir este →</span>
         </button>
       ))}
@@ -415,6 +426,17 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
         <div className="pp-title">Así analicé tu protección</div>
       </div>
 
+      {/* Anti-venta como HÉROE — el momento honesto que gana confianza */}
+      {yaCubierto.length > 0 && (
+        <div className="pp-antiventa">
+          <span className="pp-av-ico">✋</span>
+          <div>
+            <b>No te lo vendo de nuevo.</b>
+            <span>{yaCubierto.map((c) => c.razon).join(" · ")}.</span>
+          </div>
+        </div>
+      )}
+
       {/* WhyThis — el porqué del #1, con sus reason codes */}
       {top && (
         <div className="pp-why">
@@ -456,14 +478,14 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
       {/* PeerProof — tamaño REAL del segmento (honesto, sin fracción de compra inventada) */}
       {peer && peer.n > 0 && (
         <div className="pp-peer">
-          <b>{peer.n.toLocaleString("es-CO")}</b> afiliados como tú ({peer.descripcion}) — el {peer.pct}% de la base de Colsubsidio. No estás solo en esto.
+          No estás solo: hay <b>{peer.n.toLocaleString("es-CO")}</b> afiliados en tu mismo segmento ({peer.descripcion}) dentro de Colsubsidio.
         </div>
       )}
 
       {/* Descartados — la pregunta de segundo orden: por qué NO lo otro */}
       {descartados.length > 0 && (
-        <details className="pp-disc">
-          <summary>Ver qué NO te recomendé y por qué</summary>
+        <details className="pp-disc" open>
+          <summary>Por qué NO te recomendé lo demás</summary>
           <ul>
             {descartados.map((x, i) => (
               <li key={i}><b>{x.nombre}:</b> {x.motivo}</li>

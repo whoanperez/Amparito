@@ -114,6 +114,42 @@ proteger?" 👪🏍️🐶🏠💳✈️ + "Prefiero contarte con mis palabras".
 
 ---
 
+## RONDA 2 · Ajustes del panel de 3 expertos (UX · estrategia · rigor técnico)
+Panel convocado 24-jul. Coincidencias fuertes (varios expertos): dato "8 de 10" inventado (honestidad),
+anti-venta enterrada (momento wow), modo jurado frágil, prior mascotas para todos, poblacional roto.
+Decisiones del usuario: contraste = versión ligera secuencial; extras = timing/canal + consolidar tarjeta.
+
+**Tanda 1 · Rigor & honestidad**
+- [x] R1 · Guion: quitar "8 de cada 10 eligieron" → prueba social = tamaño real del segmento (`07-guion-demo.md`)
+- [x] R2 · PeerProof: guarda `n≥1000` en `peer.ts`; copy honesto (segmento, no tasa de compra) en la card
+- [x] R3 · Prior mascotas: un producto con SOLO señales `prior.*` no entra al ranking ni a descartados (`scorecard.ts`)
+- [x] R4 · Desempate determinista (prima → id) para todos, no solo cat A (`scorecard.ts`)
+- [x] R5 · `SEGMENTO_POBLACIONAL`: enum real Básico/Medio/Joven/Alto (`types.ts`, `tools.ts` schema)
+
+**Tanda 2 · Robustez modo jurado**
+- [x] R6 · Guardas anti-crash: `getProduct` seguro en `scorecard.ts`; peer degrada sin romper (ya guardado)
+- [x] R7 · Score 0 → el prompt pide 1 dato de enriquecimiento en vez de callar (`prompts.ts`)
+
+**Tanda 3 · UX del demo**
+- [x] R8 · Anti-venta a HÉROE: banner "✋ No te vendo X" fuera del colapsable + descartados abierto por defecto
+- [x] R9 · Tipografía legible en la propcard (reason codes/ledger/peer/descartados ~14px)
+- [x] R10 · Bajar spinners (reco 4s→2.5s, emisión 7s→3s) (`Chat.tsx`)
+
+**Tanda 4 · Extras (aprobados)**
+- [x] R11 · Consolidar tarjeta: quitar la duplicación (reason codes en la propcard; RecommendCards = solo selección)
+- [x] R12 · Momento timing/canal: apertura proactiva por evento de vida (`?evento=` → Chat.tsx) + beat en el guion
+- [x] R13 · Contraste ligero secuencial: reescribir el beat 1:35–2:05 del guion (Andrés→Carolina, "misma máquina")
+
+**Gate Ronda 2:** ✅ `test-propension.ts` OK · `tsc` limpio · `next build` compila · dump confirma (Mascotas
+fuera de descartados, peer con guarda n≥1000).
+
+**Hallazgo abierto (próxima ronda, no en alcance de esta):** productos que requieren una posesión
+(Todo Riesgo Carro, Hogar) disparan por el señal débil de `SEGMENTO_POBLACIONAL` y aparecen como
+descartados aunque la persona no tenga carro/vivienda. Fix futuro: en `weights.json`, condicionar esos
+productos a la posesión (`enriquecido.tiene_vehiculo`/`vivienda`), no solo a la capacidad poblacional.
+
+---
+
 ## Gates de validación (cómo sabemos que va bien)
 **Gate del motor (fin de Bloque 1)** — correr las 3 fixtures y confirmar:
 - **Andrés** (28, moto, sin grupo familiar) → top = accidentes/movilidad; **Vida NO recomendada** (anti-venta 1).
@@ -141,3 +177,9 @@ proteger?" 👪🏍️🐶🏠💳✈️ + "Prefiero contarte con mis palabras".
   **review visual** (artifact) con la salida real del motor para las 3 personas. Scripts de apoyo:
   `scripts/test-propension.ts` (gate) y `scripts/dump-propension.ts` (export).
   **Alcance v1 (Bloques 1+2+3) COMPLETO.** Siguiente opcional: Bloque 4 (voz) o pulir personas/copys.
+- **24-jul-2026** — **RONDA 2 COMPLETA** (ajustes del panel de 3 expertos, 13 tareas R1–R13). Rigor: guion
+  sin el "8 de 10" inventado + prueba social = tamaño real; PeerProof con guarda n≥1000; prior de mascotas
+  ya no rankea solo; desempate determinista; `SEGMENTO_POBLACIONAL` alineado a la base. Robustez: guardas
+  anti-crash; score 0 pide 1 dato. UX: **anti-venta a HÉROE** (banner oscuro), tipografía a 14px, spinners
+  4s→2.5s / 7s→3s, tarjeta de recomendación sin duplicar el porqué. Extras: **momento proactivo**
+  (`?evento=credito_vivienda`/`bebe`) + contraste secuencial en el guion. Gate OK, tsc limpio, build compila.
