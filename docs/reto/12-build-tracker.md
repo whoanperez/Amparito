@@ -24,7 +24,7 @@ cumplimiento en servidor → eso ya cubre **Flujo 20%**. Nosotros construimos el
 | **1** | Motor de propensión explicable (scorecard → ranking + reason codes + descartados) | **25%** | ✅ |
 | **2** | Capa visual del porqué (`PropensionCard`: WhyThis · GapsLedger · PeerProof · Descartados) | **15%** + | ✅ |
 | **3** | Pull-first + anti-venta (entrada tappable + "te digo que NO" visible) | **20%**+**20%** | ✅ |
-| **4** | Voz Gemini Live | bonus | ⏸️ |
+| **4** | Voz Gemini Live (construida, **detrás de flag APAGADO**) | bonus | ✅🔒 |
 
 ---
 
@@ -110,7 +110,46 @@ proteger?" 👪🏍️🐶🏠💳✈️ + "Prefiero contarte con mis palabras".
 `ya_cubierto` (verde) del GapsLedger + Descartados + verbalización en el prompt (Estado 3).
 - [x] 3.1 · entrada pull-first (`PROTEGER` + `.pf-*`) · [x] 3.2 · anti-venta como momento visible
 
-## Bloque 4 — Voz Gemini Live  ⏸️ pospuesto (segunda pasada)
+## Bloque 4 — Voz Gemini Live, 100% detrás de un feature flag APAGADO  ✅🔒 (construido, sin validar en vivo)
+**Decisión (usuario):** Gemini Live (voz real-time de Google), como en los docs. Gemini es el cerebro de
+voz, configurado con nuestro system prompt + las mismas tools (function calling) → mismas capacidades que
+el chat. **Prime directive: no dañar nada.** Flag apagado (default) ⇒ comportamiento byte-idéntico; el
+chat Haiku, `/api/chat`, `/api/issue` y el motor NO se tocan.
+
+**Arquitectura (resuelve 2 restricciones reales):**
+- **Vercel no soporta WS server** → el navegador se conecta **directo** a Gemini Live (WSS de Google).
+- **No exponer la key** → tokens efímeros: `/api/live-token` mintea un token corto con `GEMINI_API_KEY`
+  (server-only, NO `NEXT_PUBLIC`); el cliente se conecta con el token. Seguro + Vercel-compatible.
+- Las **function calls** de Gemini se ejecutan vía `/api/tool` (stateless) que reusa `executeTool` — misma
+  fuente de verdad que el chat (sin duplicar lógica de producto/motor). Los eventos (tarjetas) se reusan.
+
+**CÓMO (todo aditivo y gated):**
+- `lib/flags.ts` — `voiceEnabled = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"` (OFF por defecto).
+- `lib/voice/geminiTools.ts` — mapea `toolDefinitions` (formato Anthropic) → `functionDeclarations` (Gemini).
+- `app/api/live-token/route.ts` — mintea token efímero (server, `GEMINI_API_KEY`). 404/disabled si flag off.
+- `app/api/tool/route.ts` — POST stateless: corre `executeTool(name,input)` → `{result, event}`. Solo voz.
+- `lib/voice/useGeminiLive.ts` — hook: fetch token → WS a Gemini Live → captura mic (PCM16 16kHz base64) →
+  streaming → recibe audio (24kHz) + function calls → bridge a `/api/tool` → reproduce audio. **Inerte si
+  `enabled=false`** (no conecta, no pide mic). Feature-detected, SSR-safe.
+- `components/Chat.tsx` — botón de voz SOLO si `voiceEnabled`; transcript → items del chat; eventos → EventCard.
+- `app/globals.css` — estilos del control de voz.
+- `.env.local.example` — `ANTHROPIC_API_KEY` + `GEMINI_API_KEY` (server) + `NEXT_PUBLIC_VOICE_ENABLED=false`.
+
+**Invariante de seguridad:** flag OFF ⇒ no se renderiza el control de voz, el hook no conecta ni pide micrófono,
+las rutas `/api/live-token` y `/api/tool` responden deshabilitado. `next build` compila con el flag apagado;
+gate del motor sigue OK. **No probable en vivo hasta tener `GEMINI_API_KEY` + `ANTHROPIC_API_KEY`** → se
+valida al prender el flag.
+
+**Checklist Bloque 4:**
+- [x] V1 · `lib/flags.ts` (feature flag, OFF por defecto)
+- [x] V2 · `lib/voice/geminiTools.ts` (tools Anthropic → Gemini functionDeclarations)
+- [x] V3 · `app/api/tool/route.ts` (ejecuta executeTool; gated)
+- [x] V4 · `app/api/live-token/route.ts` (token efímero; gated)
+- [x] V5 · `lib/voice/useGeminiLive.ts` (hook: WS + audio + function-call bridge; inerte si off)
+- [x] V6 · `components/Chat.tsx` (control de voz gated + transcript + eventos)
+- [x] V7 · `app/globals.css` (estilos del control de voz)
+- [x] V8 · `.env.local.example` (keys + flag)
+- [x] V9 · docs (tracker + nota en el guion) + verificación (tsc + build flag OFF + gate + inercia) + commit
 
 ---
 
@@ -179,6 +218,13 @@ muestran Carro/Hogar/Bici sin posesión; moto_asistencia sí aparece para André
   **review visual** (artifact) con la salida real del motor para las 3 personas. Scripts de apoyo:
   `scripts/test-propension.ts` (gate) y `scripts/dump-propension.ts` (export).
   **Alcance v1 (Bloques 1+2+3) COMPLETO.** Siguiente opcional: Bloque 4 (voz) o pulir personas/copys.
+- **24-jul-2026** — **Fix del hallazgo** (gate de posesión) + **Bloque 4 (voz Gemini Live) CONSTRUIDO detrás
+  de feature flag APAGADO.** Arquitectura: cliente↔Gemini directo (Vercel no soporta WS server), token
+  efímero vía `/api/live-token` (key server-only), function-calls vía `/api/tool` (reusa `executeTool`),
+  hook `useGeminiLive` (SDK `@google/genai` en dynamic import → fuera del bundle si el flag está off).
+  Mismas tools + prompt que el chat (sin duplicar el cerebro). `.env.local.example` documenta las keys.
+  Con el flag apagado: byte-idéntico al chat actual (verificado: tsc + build OK, botón no se renderiza,
+  SDK no carga). **NO validado en vivo** — falta `GEMINI_API_KEY` + `ANTHROPIC_API_KEY`; se valida al prender.
 - **24-jul-2026** — **RONDA 2 COMPLETA** (ajustes del panel de 3 expertos, 13 tareas R1–R13). Rigor: guion
   sin el "8 de 10" inventado + prueba social = tamaño real; PeerProof con guarda n≥1000; prior de mascotas
   ya no rankea solo; desempate determinista; `SEGMENTO_POBLACIONAL` alineado a la base. Robustez: guardas

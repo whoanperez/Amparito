@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import FlowVideo from "./FlowVideo";
+import { voiceEnabled } from "@/lib/flags";
+import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 
 interface UiEvent {
   type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension";
@@ -14,6 +16,7 @@ interface ChatItem {
   text?: string;
   event?: UiEvent;
   recs?: Rec[];
+  voice?: boolean; // ítem generado por la voz (para fusionar transcripts consecutivos)
 }
 interface Contacto {
   nombre: string;
@@ -133,6 +136,25 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
+
+  // --- Voz (Bloque 4) — inerte si el flag está apagado ---
+  const pushVoiceText = useCallback((role: "user" | "assistant", text: string) => {
+    setItems((cur) => {
+      const last = cur[cur.length - 1];
+      if (last && last.kind === "msg" && last.role === role && last.voice) {
+        const copy = cur.slice();
+        copy[copy.length - 1] = { ...last, text: (last.text ?? "") + text };
+        return copy;
+      }
+      return [...cur, { kind: "msg", role, text, voice: true }];
+    });
+  }, []);
+  const voice = useGeminiLive({
+    enabled: voiceEnabled,
+    onUserText: (t) => pushVoiceText("user", t),
+    onBotText: (t) => pushVoiceText("assistant", t),
+    onEvent: (ev) => setItems((cur) => [...cur, { kind: "event", event: { type: ev.type as UiEvent["type"], data: ev.data } }]),
+  });
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -286,6 +308,17 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
       {!activeForm && (
         <div className="inputbar">
           <form onSubmit={(e) => { e.preventDefault(); send(input); }}>
+            {voiceEnabled && voice.supported && (
+              <button
+                type="button"
+                className={`voicebtn ${voice.status}`}
+                onClick={() => (voice.status === "idle" || voice.status === "error" ? voice.start() : voice.stop())}
+                title="Hablar con Amparito por voz"
+                aria-label="Hablar con Amparito por voz"
+              >
+                {voice.status === "connecting" ? "…" : voice.status === "listening" ? "⏹" : "🎤"}
+              </button>
+            )}
             <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
               placeholder="Escríbele a Amparito…" disabled={locked} autoFocus />
             <button type="submit" disabled={locked || !input.trim()}>Enviar</button>

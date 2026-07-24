@@ -88,7 +88,9 @@ total** (criterio explícito del brief) que casi ningún equipo se atreve a most
 ## Redes de seguridad (pre-mortem del demo)
 - **Camino crítico 100% local**, sin depender de red en vivo. Respuestas de las 3 personas-guion
   **pre-cacheadas** por si el LLM o la red del salón fallan.
-- **Voz (Gemini Live) = bonus:** si falla latencia/ruido, se degrada a chat+tarjetas sin romper el flujo.
+- **Voz (Gemini Live) = bonus, tras feature flag:** construida pero **apagada por defecto**
+  (`NEXT_PUBLIC_VOICE_ENABLED`). Se prende solo para validar/demostrar (requiere `GEMINI_API_KEY`); si falla
+  latencia/ruido, se apaga el flag y el flujo sigue en chat+tarjetas sin romperse. Ver `docs/reto/12-build-tracker.md`.
 - **Cero PII en pantalla:** `SERIE` y segmento, nunca `NOMBRE_COMPLETO` real (los nombres del demo son
   sintéticos).
 - **Contraste secuencial** (Andrés→Carolina) grabado en video de respaldo por si la red del salón falla.
