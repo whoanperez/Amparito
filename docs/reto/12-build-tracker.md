@@ -110,6 +110,44 @@ proteger?" 👪🏍️🐶🏠💳✈️ + "Prefiero contarte con mis palabras".
 `ya_cubierto` (verde) del GapsLedger + Descartados + verbalización en el prompt (Estado 3).
 - [x] 3.1 · entrada pull-first (`PROTEGER` + `.pf-*`) · [x] 3.2 · anti-venta como momento visible
 
+## Arranque caliente por afiliado (el foso) — usa la base real, sin filtrar nombres
+Cuando un afiliado se identifica (por **nombre + ciudad**, porque nadie conoce su SERIE), Amparito busca
+su **segmento real** y arranca caliente ("veo que eres cabeza de hogar con un hijo, ¿es así?"), saltándose
+preguntas. **Siempre opcional:** sin identificarse, todo sigue por el flujo conversacional (default completo).
+- `lib/afiliados/gateway.ts` (contrato `lookup(nombre,ciudad)→segmento` + `norm`) · `local-adapter.ts`
+  (sample sintético `data/afiliados_muestra.json`, dev) · `turso-adapter.ts` (Turso, deploy) · `index.ts`
+  (elige por `TURSO_DATABASE_URL`).
+- `/api/chat` acepta `afiliado {nombre,ciudad}` → busca **en el servidor** (los nombres nunca llegan al
+  navegador) → inyecta el segmento como contexto de arranque caliente.
+- UI: entrada "Soy afiliado" (nombre+ciudad) en el pull-first. `scripts/load-afiliados.ts` carga TODA la
+  base a Turso (nombre+ciudad+segmento, bota el resto; índice por nombre). `.env.local.example` documenta Turso.
+- **Datos/PII:** el índice tiene nombres → vive local (sample sintético) o en Turso (acceso solo-backend,
+  temporal, coordinado con Colsubsidio). Nunca al repo público. La base se **consulta**, no se embebe.
+
+### Turso EN VIVO con la base completa (24-jul) ✅
+- **1.558.501 afiliados cargados** (de 1.566.028 filas del CSV; 7.499 duplicados nombre+ciudad omitidos),
+  en 4m22s. `load-afiliados.ts` usa `INSERT` multi-fila (2.000 filas × 10 statements por batch): medido
+  **8.500 filas/s** contra **~1.000 filas/s** con un INSERT por fila (25 min → 3 min).
+- **Lookup: 97–355 ms**, `EXPLAIN QUERY PLAN` confirma `SEARCH USING INDEX idx_afiliados_nombre`
+  (sin escaneo de 1,5M filas → latencia baja y cuota de lecturas contenida).
+- **Dos fallos silenciosos encontrados y corregidos** al conectar la base real (el sample sintético los
+  ocultaba porque ya venía con etiquetas canónicas):
+  1. **Vocabulario crudo vs. canónico.** La base trae `"FAMILIA MONOPARENTAL"`, `"AFILLIADO SIN
+     GRUPO_FAMILIAR"`; el motor (`weights.json`) y las 194 celdas de `base_stats.json` usan
+     `"Monoparental"`, `"Sin grupo familiar"`. `lookupPeer` compara por **igualdad estricta**
+     (`peer.ts:39`) ⇒ ningún afiliado real encontraba su celda y **el PeerProof desaparecía sin error**.
+     Fix: `canonSegmento()` / `canonGrupoFamiliar()` en `gateway.ts` (mismo mapa que
+     `data/pipeline/profile_base.py:36-44`, idempotente), aplicado en **ambos** adaptadores.
+  2. **Género ausente en el arranque caliente.** `/api/chat` inyectaba grupo familiar, edad, categoría y
+     ciudad — pero no el género, y el peer-group exige los **4 ejes**. Fix: el prompt pasa los 4 completos
+     (+ poblacional).
+- **Gate nuevo:** `scripts/check-afiliados.ts` — end-to-end `BD → gateway → Perfil → motor`, corre igual
+  contra el sample local y contra Turso. Verifica lookup sin tildes, que el segmento llegue canónico
+  (falla si sobrevive una etiqueta EN MAYÚSCULAS) y que el motor recomiende + ubique la celda de peer.
+  **GATE OK en las dos fuentes.** Ejemplo real: `F · 20-35 · cat A · Monoparental` → Vida #1, peer 83.569.
+- **Verificado:** los dos gates preexistentes (motor + offline) siguen OK, `tsc` limpio, `next build`
+  compila (9 rutas). `.env.local` (gitignoreado) tiene las credenciales; hay que ponerlas también en Vercel.
+
 ## Bloque 4 — Voz Gemini Live, 100% detrás de un feature flag APAGADO  ✅🔒 (construido, sin validar en vivo)
 **Decisión (usuario):** Gemini Live (voz real-time de Google), como en los docs. Gemini es el cerebro de
 voz, configurado con nuestro system prompt + las mismas tools (function calling) → mismas capacidades que
@@ -242,6 +280,23 @@ muestran Carro/Hogar/Bici sin posesión; moto_asistencia sí aparece para André
   `lib/demo/player.ts` (dynamic import → fuera del bundle normal). `import type Anthropic` en tools.ts saca
   el SDK del cliente. En modo normal (`/chat`) todo idéntico. Verificado: `scripts/test-offline.ts` →
   propensión+cotización+póliza OK; tsc + build limpios. **Todo el desarrollo del alcance está COMPLETO.**
+- **24-jul-2026** — **Panel de comportamiento (3 expertos + web) → Tier 1 "hacer sentir la protección".**
+  El equipo de seguros pidió menos tecnificación, más emoción, y reframe "gasto→protección". Los 3 expertos
+  convergen: la aversión a la pérdida fija el foco en la PRIMA (pérdida presente), no en el patrimonio; el
+  giro es mover el foco a **el ingreso familiar**. Construido: (1) **calculadora de impacto de ingreso** —
+  `lib/engine/impacto.ts` + tool `calcular_impacto_ingreso` + `UiEvent "impacto"` + `ImpactoCard` (cálida,
+  cuidado no miedo, con nota de referencia y control del usuario); (2) **reframe en `prompts.ts`**: regla de
+  gasto→protección ("menos que un tinto al día"), resumen emocional antes del consentimiento, consentimiento
+  como "confirmar tu protección", framing de cuidado. Se añadió el beat de impacto al guion offline de
+  Carolina (el momento emocional del demo). tsc + gates (motor + offline con impacto) + build OK.
+  Docs C4 (markdown+HTML) también en el repo. (PR #1 MERGEADO a main; Tier 1 en PR #2.)
+- **24-jul-2026** — **Tier 2 "quitar el miedo a la letra menuda + hablar como cada generación".**
+  (1) **Tono adaptativo por generación** en `prompts.ts` (sección 2b): detecta señales de lenguaje y ajusta
+  registro/ejemplos/calidez sin preguntar la edad (<30 informal+anécdota; 30-45 aspiracional; +50 cálido+
+  respaldo+ofrecer asesor). (2) **Disclosure en 3 capas** en la tarjeta de cotización: síntesis "cubre/no
+  cubre" SIEMPRE visible (cumple Art.9) + "Ver términos completos" colapsado (antes todo abierto). (3) **Botón
+  "Que me llame un asesor"** en el encabezado (reusa escalate_to_human) — puente híbrido para la desconfianza
+  de +50. tsc + gates + build OK. Todo en la rama del PR #2.
 - **24-jul-2026** — **RONDA 2 COMPLETA** (ajustes del panel de 3 expertos, 13 tareas R1–R13). Rigor: guion
   sin el "8 de 10" inventado + prueba social = tamaño real; PeerProof con guarda n≥1000; prior de mascotas
   ya no rankea solo; desempate determinista; `SEGMENTO_POBLACIONAL` alineado a la base. Robustez: guardas

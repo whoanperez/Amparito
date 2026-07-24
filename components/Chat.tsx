@@ -6,7 +6,7 @@ import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 
 interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto";
   data: Record<string, any>;
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
@@ -141,6 +141,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
   const lastQuote = useRef<string | null>(null);
   const started = useRef(false);
   const offlineCancel = useRef(false);
+  const afiliadoRef = useRef<{ nombre: string; ciudad: string } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
@@ -199,7 +200,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, afiliado: afiliadoRef.current ?? undefined }),
       });
       const data = (await res.json()) as { reply: string; events: UiEvent[] };
       const parsed = parseReply(data.reply || "");
@@ -310,6 +311,16 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
           <h2>Amparito</h2>
           <div className="status">{offline ? "● Modo demo offline — sin conexión, todo local" : "● En línea — 24/7, sin esperas"}</div>
         </div>
+        {!offline && (
+          <button
+            className="advisor-btn"
+            onClick={() => send("Prefiero que me llame un asesor de Colsubsidio.")}
+            disabled={locked}
+            title="Hablar con un asesor humano de Colsubsidio"
+          >
+            ☎ Que me llame un asesor
+          </button>
+        )}
       </div>
 
       <div className="msgs">
@@ -339,6 +350,12 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
             <button className="pf-talk" onClick={() => inputRef.current?.focus()}>
               Prefiero contarte con mis palabras →
             </button>
+            {!offline && (
+              <AfiliadoEntry
+                disabled={locked}
+                onEnter={(nombre, ciudad) => { afiliadoRef.current = { nombre, ciudad }; send("Hola"); }}
+              />
+            )}
             <div className="pf-jurado">
               <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
               <div className="pf-jurado-row">
@@ -510,6 +527,51 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
   );
 }
 
+/* ===== Entrada de afiliado (arranque caliente) — opcional, nunca obliga a identificarse ===== */
+function AfiliadoEntry({ onEnter, disabled }: { onEnter: (nombre: string, ciudad: string) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  if (!open) {
+    return (
+      <button className="afil-toggle" onClick={() => setOpen(true)} disabled={disabled}>
+        🪪 Soy afiliado de Colsubsidio
+      </button>
+    );
+  }
+  return (
+    <form
+      className="afil-form"
+      onSubmit={(e) => { e.preventDefault(); if (nombre.trim()) onEnter(nombre.trim(), ciudad.trim()); }}
+    >
+      <div className="afil-lbl">Como ya te conocemos, arrancamos rápido 💛 ¿Tu nombre y ciudad?</div>
+      <div className="afil-row">
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" autoFocus />
+        <input value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad" />
+        <button type="submit" disabled={!nombre.trim()}>Entrar</button>
+      </div>
+    </form>
+  );
+}
+
+/* ===== Tarjeta de impacto de ingreso (reframe gasto→protección, en clave de cuidado) ===== */
+function ImpactoCard({ data }: { data: Record<string, any> }) {
+  const total = Number(data.impacto_total) || 0;
+  const anos = Number(data.anos) || 10;
+  const ingreso = Number(data.ingreso_mensual) || 0;
+  return (
+    <div className="impactocard">
+      <div className="ic-eyebrow">💛 Lo que proteges</div>
+      <div className="ic-big">${total.toLocaleString("es-CO")}</div>
+      <div className="ic-sub">es el ingreso que tu familia necesitaría en los próximos {anos} años si un día llegaras a faltar.</div>
+      <div className="ic-frame">No es un gasto: es asegurar que a los tuyos no les falte tu respaldo.</div>
+      {ingreso > 0 && (
+        <div className="ic-note">Referencia con tu ingreso (${ingreso.toLocaleString("es-CO")}/mes × {anos} años). Tú decides cuánto y hasta cuándo.</div>
+      )}
+    </div>
+  );
+}
+
 /* ===== Tarjeta de propensión (el porqué: WhyThis + GapsLedger + PeerProof + Descartados) ===== */
 function PropensionCard({ data }: { data: Record<string, any> }) {
   const recs = (data.recomendaciones ?? []) as Array<{ nombre: string; aseguradora: string; reason_codes: string[] }>;
@@ -602,6 +664,7 @@ function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
 
   if (event.type === "propension") return <PropensionCard data={d} />;
+  if (event.type === "impacto") return <ImpactoCard data={d} />;
 
   if (event.type === "quote") {
     const regulado = d.precio_tipo === "regulado";
@@ -616,14 +679,18 @@ function EventCard({ event }: { event: UiEvent }) {
           {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
         </div>
         {d.nota_precio && <div className="price-note">{String(d.nota_precio)}</div>}
-        <details className="cov" open>
-          <summary>Qué cubre y qué no cubre</summary>
+        {/* Capa 2 — qué cubre / qué no: SIEMPRE visible (cumple Ley 1328 Art. 9, sin saturar) */}
+        <div className="cov2">
           <p className="cov-lbl">Te cubre</p>
           <ul>{(d.coberturas as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
           {Array.isArray(d.exclusiones) && d.exclusiones.length > 0 && (<>
             <p className="cov-lbl no">No te cubre</p>
             <ul>{(d.exclusiones as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
           </>)}
+        </div>
+        {/* Capa 3 — términos completos a demanda: quedan a un clic, no enfrían la conversación */}
+        <details className="cov">
+          <summary>Ver términos completos</summary>
           {d.forma_calculo && (<><p className="cov-lbl">Cómo se calcula lo que pagas</p><p className="cov-txt">{String(d.forma_calculo)}</p></>)}
           {d.consecuencias && (<><p className="cov-lbl">Si dejas de pagar</p><p className="cov-txt">{String(d.consecuencias)}</p></>)}
           <p className="cov-legal">

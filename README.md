@@ -1,111 +1,98 @@
 # Amparito 🛡️
 
-**La asistente que lleva a un afiliado de Colsubsidio de _"no sé qué seguro necesito"_ a _"ya quedé asegurado"_ — en una sola conversación, 24/7, sin intervención humana.**
+**La asistente que lleva a un afiliado de Colsubsidio de _"no sé qué seguro necesito"_ a _"ya quedé asegurado"_ — en una sola conversación, 24/7, sin intervención humana. Y que a veces te dice que NO.**
 
-Proyecto para el **Hackathon Colsubsidio × 30X** (julio 2026) · Reto 02: *Venta automatizada de seguros*.
+Proyecto para el **Hackathon Colsubsidio × 30X** (julio 2026) · Reto: *Venta automatizada de seguros*.
+
+---
+
+## ▶️ Correr en < 2 minutos
+
+```bash
+npm install
+cp .env.local.example .env.local     # pon tu ANTHROPIC_API_KEY
+npm run dev                          # http://localhost:3000
+```
+
+Abre **http://localhost:3000/chat** y cuéntale a Amparito qué cambió en tu vida.
+
+**Atajos para el jurado / demo:**
+- **Modo jurado:** en `/chat`, toca un perfil del demo (Andrés / Carolina / Jaime) — corre solo, sin guía.
+- **Modo demo offline** (por si falla la red del salón): `/chat?offline=1` — las 3 personas corren end-to-end **sin conexión** (el motor y la cotización son locales).
+- **Momento proactivo:** `/chat?evento=credito_vivienda` — Amparito abre la conversación tras un evento de vida.
+- **Voz (Gemini Live, opcional):** en `.env.local` pon `NEXT_PUBLIC_VOICE_ENABLED=true` + `GEMINI_API_KEY`, reinicia, y aparece el micrófono. **Apagada por defecto.**
+
+Deploy en Vercel: importa el repo y configura `ANTHROPIC_API_KEY` (y opcionalmente `ANTHROPIC_MODEL`, `GEMINI_API_KEY`, `NEXT_PUBLIC_VOICE_ENABLED`).
 
 ---
 
 ## El problema (evidencia real)
 
-Hoy, el flujo de seguros de Colsubsidio termina en un formulario que dice **"Déjanos tus datos y te contactaremos"**. Es captura de leads + llamada humana: no escala, no opera 24/7 y el afiliado que no sabe qué necesita queda igual de perdido. Verificamos además que **ninguna caja (Compensar, Cafam) ni aseguradoras como SURA cierran hoy la venta 100% digital sin humano** — todas derivan a asesor o WhatsApp. La regulación colombiana sí lo permite (canales no presenciales + productos estandarizados, Ley 1328/2009): el freno no es legal, es que nadie lo ha construido.
+Hoy el flujo de seguros de Colsubsidio termina en **"déjanos tus datos y te contactaremos"**: no escala, no opera 24/7, y el afiliado que no sabe qué necesita queda igual de perdido. En Colombia **menos del 2% de las pólizas se venden online** (Fasecolda) y **el 34% no compra por autoexclusión** ("esto no es para mí"). El freno no es legal ni de producto — es de **percepción**: el seguro se vive como un *gasto técnico y aburrido que me obligan*, no como *protección que yo elijo*.
 
 ## La solución
 
-Amparito reemplaza el "te contactaremos" por un cierre conversacional inmediato:
+Amparito reemplaza el "te contactaremos" por un cierre conversacional inmediato, y ataca la percepción:
 
-1. **Entiende la situación de vida** ("acabo de comprar una moto") en vez de mostrar un menú de productos.
-2. **Recomienda** 1–2 productos del catálogo real de Colsubsidio, con el porqué.
-3. **Cotiza al instante** (function-calling → motor de cotización).
-4. **Cumple la ley en el flujo**: muestra qué cubre, qué NO cubre, precio y forma de cálculo (Art. 9, Ley 1328/2009) y pide autorización de datos (Ley 1581/2012) **antes** de capturar datos.
-5. **Captura los datos como conversación** (el formulario, vuelto chat, validado campo a campo).
-6. **Emite la póliza** y entrega el certificado digital en el mismo hilo.
-7. **Escala a humano** lo que de verdad requiere asesoría (salud, todo riesgo, arrendamiento).
+1. **Entiende la situación de vida** (no muestra un menú de productos). Entrada *pull-first*: "¿Qué quieres proteger?".
+2. **Recomienda con un motor de propensión explicable** (no un matcher de keywords): scorecard determinista sobre datos reales → ranking + **reason codes** + descartados con razón. "No caja negra".
+3. **Hace visible el porqué**: tarjeta con WhyThis · ledger de brechas · prueba social honesta · "ver descartados".
+4. **Anti-venta honesta**: no recomienda lo que no necesitas y no revende lo que ya tienes ("el Exequial ya lo tienes con Colsubsidio").
+5. **Hace sentir la protección**: calculadora de **impacto de ingreso** ("cuánto ingreso protege tu familia") y reencuadre *gasto → protección*, en clave de cuidado.
+6. **Cotiza al instante** y muestra qué cubre / qué no en **3 capas** (síntesis visible = cumple Art. 9; términos completos a un clic, sin saturar).
+7. **Se adapta a cada generación** (tono/ejemplos) y ofrece **"que me llame un asesor"** para quien desconfía de lo digital.
+8. **Emite la póliza** con consentimiento explícito (Ley 1581) y entrega el certificado en el mismo hilo.
 
 ## Arquitectura
 
 ```
 Usuario ⇄ UI (Next.js, look Colsubsidio)
-            ⇄ /api/chat  →  Claude Haiku (system prompt "Amparito v2")
-                              ⇅ tool-use (6 herramientas)
-               get_catalog · recommend_products · get_product_details
-               quote_product · issue_policy · escalate_to_human
+            ⇄ /api/chat  →  Claude Haiku (system prompt "Amparito")
+                              ⇅ tool-use (9 herramientas)
+   get_catalog · calcular_propension · calcular_impacto_ingreso · recommend_products(fallback)
+   get_product_details · quote_product · collect_customer_data · issue_policy · escalate_to_human
                               ⇅
-                        InsurerGateway  ←— contrato único de integración
-                        └─ MockInsurerAdapter (hoy)
-                        └─ MetLifeAdapter / BolivarAdapter… (producción)
+   Motor de propensión (lib/engine, scorecard + gates)   ·   InsurerGateway (mock → producción)
+
+Extras tras flag/param (no tocan el flujo normal):
+   Voz Gemini Live  →  /api/live-token (token efímero) + /api/tool     [NEXT_PUBLIC_VOICE_ENABLED]
+   Modo demo offline →  lib/demo (guiones + player, motor local)        [?offline=1]
 ```
 
 Decisiones clave:
-
-- **Claude Haiku** como cerebro (costo mínimo por conversación). El system prompt está escrito para Haiku: máquina de estados explícita, frases exactas, reglas si/entonces.
-- **Cero alucinación por diseño:** todo precio/cobertura/exclusión sale de las tools (catálogo + gateway), nunca del texto libre del modelo.
-- **Cumplimiento en servidor, no solo en prompt:** `issue_policy` **rechaza** la emisión sin `consentimiento: true` y sin datos completos, aunque el modelo lo intente.
-- **Bloqueo anti-abuso:** compuerta de clasificación en el prompt (fuera de dominio / manipulación) con respuestas enlatadas y escalamiento a la 3ª insistencia.
-- **Stateless:** el `quoteId` codifica la cotización (base64), así la emisión no depende de memoria compartida — robusto en serverless.
-
-## Integración con aseguradoras reales
-
-La simulación está **diseñada para ser reemplazada sin tocar nada más**:
-
-1. Implementa `InsurerGateway` (`lib/insurer/gateway.ts`) para tu aseguradora:
-   ```ts
-   export class MetLifeAdapter implements InsurerGateway {
-     async quote(productId, perfil) { /* llamada a la API real */ }
-     async issue(quoteId, contacto)  { /* emisión real */ }
-   }
-   ```
-2. Regístrala en `getInsurerGateway()` (`lib/insurer/mock-adapter.ts`).
-3. Actívala con `INSURER_ADAPTER=metlife` en `.env`.
-
-El system prompt, las tools y la UI **no cambian**. El contrato (`Quote`, `Policy`, `Contacto`) es el mismo que hoy devuelve el mock.
-
-## Correr el proyecto
-
-```bash
-npm install
-cp .env.example .env      # y pon tu ANTHROPIC_API_KEY
-npm run dev               # http://localhost:3000
-```
-
-Deploy en Vercel: importa el repo, configura `ANTHROPIC_API_KEY` (y opcionalmente `ANTHROPIC_MODEL`, `INSURER_ADAPTER`) en Environment Variables, y listo.
+- **El motor calcula, el LLM redacta.** Todo precio/cobertura/**razón** sale de las tools (motor + gateway), nunca del texto libre del modelo.
+- **Cumplimiento en servidor, no solo en prompt:** `issue_policy` **rechaza** la emisión sin `consentimiento: true` y sin datos completos.
+- **Propensión auditable ("no caja negra"):** scorecard documentado con priors citados + gate de posesión + gate de asequibilidad; cada peso trazable a `data/weights.json`.
+- **Cero PII:** solo se versionan datos derivados (`data/*.json`); el CSV crudo de afiliados está en `.gitignore`.
 
 ## Estructura
 
 ```
 amparito/
 ├─ app/
-│  ├─ page.tsx              # landing (look pestaña Colsubsidio)
-│  ├─ chat/page.tsx         # chat con Amparito
-│  └─ api/chat/route.ts     # orquestador Claude Haiku + loop de tools
-├─ components/Chat.tsx      # UI de conversación + tarjetas (cotización/póliza/escalamiento)
+│  ├─ page.tsx · chat/page.tsx        # landing + chat
+│  └─ api/ chat · issue · tool · live-token
+├─ components/Chat.tsx                # UI + tarjetas (propensión, impacto, cotización, póliza…)
 ├─ lib/
-│  ├─ prompts.ts            # SYSTEM_PROMPT Amparito v2 (autoría: Fable)
-│  ├─ tools.ts              # 6 tools + compuertas de cumplimiento en servidor
-│  ├─ catalog.ts            # catálogo + recomendador por gatillos de vida
-│  └─ insurer/
-│     ├─ gateway.ts         # InsurerGateway (contrato de integración)
-│     └─ mock-adapter.ts    # simulación determinista de la aseguradora
-├─ data/catalog.json        # 16 productos · 8 aseguradoras aliadas reales
-└─ docs/                    # system prompt fuente + investigación
+│  ├─ prompts.ts · tools.ts · catalog.ts
+│  ├─ engine/    # motor de propensión (scorecard, peer, gates) + impacto de ingreso
+│  ├─ voice/     # Gemini Live (tras feature flag)
+│  ├─ demo/      # modo offline (guiones + player)
+│  ├─ flags.ts   # feature flags
+│  └─ insurer/   # InsurerGateway (contrato) + mock-adapter
+├─ data/         # catalog.json + weights/base_stats/eventos_vida (derivados, sin PII)
+├─ scripts/      # gates de verificación (test-propension, test-offline)
+└─ docs/reto/    # requerimiento, guion, PRD, tracker, contrato, arquitectura C4
 ```
 
-## Catálogo y gatillos
-
-16 productos en 9 categorías (personal/familiar, movilidad, mascotas, hogar, arrendamiento, exequial, viajes, asistencias, créditos) con las aseguradoras aliadas reales de Colsubsidio: MetLife, Chubb, Pan-American Life, GEA, Seguros Bolívar, VetPlus, BMI y Seguros Mundial. Cada producto declara sus **gatillos de vida** (moto, hijo, mascota, viaje, desempleo, arriendo…) y si es **estandarizado** (el bot lo cierra solo) o **requiere asesoría** (escala a humano) — el criterio regulatorio de universalidad/sencillez/estandarización.
-
 ## Cumplimiento (por diseño)
+- **Ley 1328/2009, Art. 9** — coberturas, exclusiones, precio y forma de cálculo antes del cierre (visible en la tarjeta).
+- **Ley 1581/2012 (habeas data)** — autorización explícita antes de emitir; compuerta dura en servidor.
+- **SARLAFT 4.0** — vinculación simplificada para seguros masivos de bajo valor.
+- **Rol de Colsubsidio:** comercializador (la aseguradora aliada emite y asume el riesgo).
 
-- **Ley 1328 de 2009, Art. 9** — información mínima antes del cierre: características, coberturas, exclusiones, precio y forma de cálculo, consecuencias del no pago.
-- **Ley 1581 de 2012 (habeas data)** — autorización explícita ANTES de capturar datos personales; compuerta dura en servidor.
-- **Comercialización masiva** — solo productos estandarizados se venden sin humano; el resto escala (Decreto 2555/2010, C.E. 006/2025 SFC).
-
-## Roadmap
-
-- [ ] **Outreach proactivo:** script que cruza la base de afiliados + gatillos conocidos (subsidio de desempleo → renta; nuevo hogar → hogar) y envía un empujón personalizado con deep-link a Amparito con contexto. Une este reto con el de crédito hiperpersonalizado.
-- [ ] Integración real vía `InsurerGateway` con las APIs de los aliados.
-- [ ] Pasarela de pago y autenticación con la cuenta Colsubsidio.
-- [ ] Canal WhatsApp (mismo cerebro, otro front).
+## Documentación
+Todo el detalle vive en [`docs/reto/`](docs/reto/): [estado vivo](docs/reto/10-estado.md) · [guion de demo](docs/reto/07-guion-demo.md) · [tracker de build](docs/reto/12-build-tracker.md) · [arquitectura C4](docs/reto/13-arquitectura-c4.md).
 
 ---
 

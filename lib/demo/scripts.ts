@@ -41,7 +41,10 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
   Carolina: [
     { role: "user", say: "Hola, soy Carolina, tengo 39 años, soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
     { role: "assistant", say: "Hola Carolina 💛 Veo que eres el único ingreso de tu hogar y tienes un hijo pequeño. Déjame mirar qué los protege mejor a los dos.", tool: { name: "calcular_propension", input: { perfil: PERSONAS.Carolina } } },
-    { role: "assistant", say: "Por lo que me cuentas, un Seguro de Vida es lo que más te conviene: si algún día faltas, tu hijo queda respaldado. ¿Te muestro cuánto costaría?" },
+    { role: "assistant", say: "Antes de hablar de plata, quiero que veas algo. ¿Cuánto ganas más o menos al mes?" },
+    { role: "user", say: "Como $1.800.000." },
+    { role: "assistant", say: "Mira esto con calma.", tool: { name: "calcular_impacto_ingreso", input: { ingreso_mensual: 1800000, dependientes: 1, anos_proteccion: 10 } } },
+    { role: "assistant", say: "No es un gasto: es que a tu hijo nunca le falte tu respaldo. Por eso un Seguro de Vida es lo que más te protege. ¿Te muestro cuánto sería?" },
     { role: "user", say: "Sí, muéstrame." },
     { role: "assistant", say: "Aquí está. Abajo ves en detalle qué te cubre y qué no.", tool: { name: "quote_product", input: { productId: "vida_panamerican", perfil: { edad: 39, ciudad: "Soacha" } } } },
     { role: "assistant", say: "¿Te gustaría quedar asegurada?" },
