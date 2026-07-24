@@ -6,7 +6,7 @@ import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 
 interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto";
   data: Record<string, any>;
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
@@ -510,6 +510,24 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
   );
 }
 
+/* ===== Tarjeta de impacto de ingreso (reframe gasto→protección, en clave de cuidado) ===== */
+function ImpactoCard({ data }: { data: Record<string, any> }) {
+  const total = Number(data.impacto_total) || 0;
+  const anos = Number(data.anos) || 10;
+  const ingreso = Number(data.ingreso_mensual) || 0;
+  return (
+    <div className="impactocard">
+      <div className="ic-eyebrow">💛 Lo que proteges</div>
+      <div className="ic-big">${total.toLocaleString("es-CO")}</div>
+      <div className="ic-sub">es el ingreso que tu familia necesitaría en los próximos {anos} años si un día llegaras a faltar.</div>
+      <div className="ic-frame">No es un gasto: es asegurar que a los tuyos no les falte tu respaldo.</div>
+      {ingreso > 0 && (
+        <div className="ic-note">Referencia con tu ingreso (${ingreso.toLocaleString("es-CO")}/mes × {anos} años). Tú decides cuánto y hasta cuándo.</div>
+      )}
+    </div>
+  );
+}
+
 /* ===== Tarjeta de propensión (el porqué: WhyThis + GapsLedger + PeerProof + Descartados) ===== */
 function PropensionCard({ data }: { data: Record<string, any> }) {
   const recs = (data.recomendaciones ?? []) as Array<{ nombre: string; aseguradora: string; reason_codes: string[] }>;
@@ -602,6 +620,7 @@ function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
 
   if (event.type === "propension") return <PropensionCard data={d} />;
+  if (event.type === "impacto") return <ImpactoCard data={d} />;
 
   if (event.type === "quote") {
     const regulado = d.precio_tipo === "regulado";

@@ -368,6 +368,14 @@ a { text-decoration: none; color: inherit; }
 .pp-disc li b { color: var(--tinta); }
 @media (max-width: 560px) { .pp-ledger { grid-template-columns: 1fr; } }
 
+/* ===== Tarjeta de impacto de ingreso (cuidado, no miedo) ===== */
+.impactocard { align-self: flex-start; width: min(470px, 94%); background: linear-gradient(135deg, #fffdf3 0%, #f2f8ff 100%); border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: 16px; padding: 20px 22px; box-shadow: 0 12px 34px rgba(0,0,0,.07); }
+.ic-eyebrow { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #8a6d00; }
+.ic-big { font-size: 34px; font-weight: 800; letter-spacing: -1px; color: var(--tinta); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ic-sub { font-size: 14.5px; color: var(--tinta); line-height: 1.45; margin-top: 4px; }
+.ic-frame { margin-top: 14px; font-size: 14px; font-weight: 600; color: var(--azul-osc); background: #e7f0f9; border-radius: 10px; padding: 11px 14px; line-height: 1.4; }
+.ic-note { margin-top: 10px; font-size: 12px; color: var(--gris); line-height: 1.4; }
+
 /* ===== Detalle de cobertura bajo la cotización ===== */
 .card { width: min(470px, 94%); }
 .price-tag { margin-top: 8px; font-size: 12px; color: #8a6d00; background: #fff6c8; display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 600; }

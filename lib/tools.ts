@@ -3,6 +3,7 @@ import { getCatalog, getProduct, recommendProducts } from "./catalog";
 import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
+import { calcularImpacto } from "./engine/impacto";
 import { Perfil } from "./engine/types";
 
 /**
@@ -87,6 +88,20 @@ export const toolDefinitions: Anthropic.Tool[] = [
     },
   },
   {
+    name: "calcular_impacto_ingreso",
+    description:
+      "Calcula, como referencia, cuánto ingreso dejaría de recibir la familia si la persona faltara (su ingreso mensual proyectado a varios años). Úsala cuando la persona es sostén de un hogar con dependientes y estás recomendando o cotizando un Seguro de Vida: hace tangible el 'por qué' sin vender. Enmárcalo SIEMPRE como cuidado/tranquilidad, nunca como miedo ni como muerte. El motor calcula el número; tú lo comunicas con calidez.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        ingreso_mensual: { type: "number", description: "Ingreso mensual aproximado de la persona, en pesos." },
+        dependientes: { type: "number", description: "Cuántas personas dependen de ese ingreso." },
+        anos_proteccion: { type: "number", description: "Años de respaldo a considerar (si no lo sabes, omítelo; por defecto 10)." },
+      },
+      required: ["ingreso_mensual"],
+    },
+  },
+  {
     name: "get_product_details",
     description:
       "Detalle completo de un producto: coberturas, exclusiones y la información legal mínima (Art. 9 Ley 1328/2009). Llamar SIEMPRE antes del cierre.",
@@ -168,7 +183,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
 
 /** Evento estructurado que la UI renderiza como tarjeta. */
 export interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto";
   data: Record<string, unknown>;
 }
 
@@ -218,6 +233,18 @@ export async function executeTool(
       return {
         result: prop,
         event: { type: "propension", data: prop as unknown as Record<string, unknown> },
+      };
+    }
+
+    case "calcular_impacto_ingreso": {
+      const impacto = calcularImpacto({
+        ingreso_mensual: Number(input.ingreso_mensual ?? 0),
+        anos: input.anos_proteccion != null ? Number(input.anos_proteccion) : undefined,
+        dependientes: input.dependientes != null ? Number(input.dependientes) : undefined,
+      });
+      return {
+        result: impacto,
+        event: { type: "impacto", data: impacto as unknown as Record<string, unknown> },
       };
     }
 

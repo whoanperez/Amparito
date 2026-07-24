@@ -242,6 +242,16 @@ muestran Carro/Hogar/Bici sin posesión; moto_asistencia sí aparece para André
   `lib/demo/player.ts` (dynamic import → fuera del bundle normal). `import type Anthropic` en tools.ts saca
   el SDK del cliente. En modo normal (`/chat`) todo idéntico. Verificado: `scripts/test-offline.ts` →
   propensión+cotización+póliza OK; tsc + build limpios. **Todo el desarrollo del alcance está COMPLETO.**
+- **24-jul-2026** — **Panel de comportamiento (3 expertos + web) → Tier 1 "hacer sentir la protección".**
+  El equipo de seguros pidió menos tecnificación, más emoción, y reframe "gasto→protección". Los 3 expertos
+  convergen: la aversión a la pérdida fija el foco en la PRIMA (pérdida presente), no en el patrimonio; el
+  giro es mover el foco a **el ingreso familiar**. Construido: (1) **calculadora de impacto de ingreso** —
+  `lib/engine/impacto.ts` + tool `calcular_impacto_ingreso` + `UiEvent "impacto"` + `ImpactoCard` (cálida,
+  cuidado no miedo, con nota de referencia y control del usuario); (2) **reframe en `prompts.ts`**: regla de
+  gasto→protección ("menos que un tinto al día"), resumen emocional antes del consentimiento, consentimiento
+  como "confirmar tu protección", framing de cuidado. Se añadió el beat de impacto al guion offline de
+  Carolina (el momento emocional del demo). tsc + gates (motor + offline con impacto) + build OK.
+  Docs C4 (markdown+HTML) también en el repo. Pendiente Tier 2 (tono generacional, disclosure 3 capas, asesor humano).
 - **24-jul-2026** — **RONDA 2 COMPLETA** (ajustes del panel de 3 expertos, 13 tareas R1–R13). Rigor: guion
   sin el "8 de 10" inventado + prueba social = tamaño real; PeerProof con guarda n≥1000; prior de mascotas
   ya no rankea solo; desempate determinista; `SEGMENTO_POBLACIONAL` alineado a la base. Robustez: guardas

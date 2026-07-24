@@ -16,8 +16,8 @@ async function main() {
 
   console.log("Eventos:", events.join(" · "));
   console.log("Recomendaciones:", recs.join(", "));
-  const ok = events.includes("propension") && events.includes("quote") && events.includes("policy");
-  console.log(ok ? "\n✅ OFFLINE OK — propensión + cotización + póliza, todo local sin red" : "\n❌ faltan eventos");
+  const ok = ["propension", "impacto", "quote", "policy"].every((e) => events.includes(e));
+  console.log(ok ? "\n✅ OFFLINE OK — propensión + impacto + cotización + póliza, todo local sin red" : "\n❌ faltan eventos");
   process.exit(ok ? 0 : 1);
 }
 
