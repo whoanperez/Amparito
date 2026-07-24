@@ -310,6 +310,16 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
           <h2>Amparito</h2>
           <div className="status">{offline ? "● Modo demo offline — sin conexión, todo local" : "● En línea — 24/7, sin esperas"}</div>
         </div>
+        {!offline && (
+          <button
+            className="advisor-btn"
+            onClick={() => send("Prefiero que me llame un asesor de Colsubsidio.")}
+            disabled={locked}
+            title="Hablar con un asesor humano de Colsubsidio"
+          >
+            ☎ Que me llame un asesor
+          </button>
+        )}
       </div>
 
       <div className="msgs">
@@ -635,14 +645,18 @@ function EventCard({ event }: { event: UiEvent }) {
           {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
         </div>
         {d.nota_precio && <div className="price-note">{String(d.nota_precio)}</div>}
-        <details className="cov" open>
-          <summary>Qué cubre y qué no cubre</summary>
+        {/* Capa 2 — qué cubre / qué no: SIEMPRE visible (cumple Ley 1328 Art. 9, sin saturar) */}
+        <div className="cov2">
           <p className="cov-lbl">Te cubre</p>
           <ul>{(d.coberturas as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
           {Array.isArray(d.exclusiones) && d.exclusiones.length > 0 && (<>
             <p className="cov-lbl no">No te cubre</p>
             <ul>{(d.exclusiones as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
           </>)}
+        </div>
+        {/* Capa 3 — términos completos a demanda: quedan a un clic, no enfrían la conversación */}
+        <details className="cov">
+          <summary>Ver términos completos</summary>
           {d.forma_calculo && (<><p className="cov-lbl">Cómo se calcula lo que pagas</p><p className="cov-txt">{String(d.forma_calculo)}</p></>)}
           {d.consecuencias && (<><p className="cov-lbl">Si dejas de pagar</p><p className="cov-txt">{String(d.consecuencias)}</p></>)}
           <p className="cov-legal">

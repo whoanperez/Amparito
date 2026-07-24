@@ -194,6 +194,11 @@ a { text-decoration: none; color: inherit; }
 .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--amarillo); color: var(--tinta); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
 .chat-title h2 { font-size: 18px; font-weight: 700; }
 .chat-title .status { font-size: 12.5px; color: var(--verde); font-weight: 600; }
+/* Puente híbrido: pedir un asesor humano (vence la desconfianza, sobre todo en +50) */
+.chat-title .advisor-btn { margin-left: auto; background: var(--blanco); border: 1.5px solid var(--borde); color: var(--azul); font-weight: 600; font-size: 12.5px; padding: 7px 13px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: .15s; }
+.chat-title .advisor-btn:hover { border-color: var(--azul); background: #f2f8ff; }
+.chat-title .advisor-btn:disabled { opacity: .5; cursor: default; }
+@media (max-width: 480px) { .chat-title .advisor-btn { font-size: 0; padding: 8px 11px; } .chat-title .advisor-btn::before { content: "☎"; font-size: 16px; } }
 .msgs { display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 82%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; background: var(--azul); color: var(--blanco); border-bottom-right-radius: 4px; }
@@ -390,6 +395,11 @@ a { text-decoration: none; color: inherit; }
 .cov-txt { font-size: 12.5px; color: var(--tinta); margin-top: 3px; line-height: 1.45; }
 .cov ul { margin: 6px 0 0 18px; font-size: 12.5px; }
 .cov li { margin-bottom: 3px; }
+/* Capa 2 del disclosure: síntesis cubre/no cubre siempre visible */
+.cov2 { margin-top: 14px; }
+.cov2 ul { margin: 6px 0 0 18px; font-size: 12.5px; }
+.cov2 li { margin-bottom: 3px; }
+.cov2 + .cov { margin-top: 12px; }
 .cov-legal { margin-top: 12px; font-size: 11px; color: var(--gris); font-style: italic; }
 .cov-legal a { color: var(--azul); font-style: normal; font-weight: 600; }
 

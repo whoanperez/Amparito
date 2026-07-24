@@ -251,7 +251,14 @@ muestran Carro/Hogar/Bici sin posesión; moto_asistencia sí aparece para André
   gasto→protección ("menos que un tinto al día"), resumen emocional antes del consentimiento, consentimiento
   como "confirmar tu protección", framing de cuidado. Se añadió el beat de impacto al guion offline de
   Carolina (el momento emocional del demo). tsc + gates (motor + offline con impacto) + build OK.
-  Docs C4 (markdown+HTML) también en el repo. Pendiente Tier 2 (tono generacional, disclosure 3 capas, asesor humano).
+  Docs C4 (markdown+HTML) también en el repo. (PR #1 MERGEADO a main; Tier 1 en PR #2.)
+- **24-jul-2026** — **Tier 2 "quitar el miedo a la letra menuda + hablar como cada generación".**
+  (1) **Tono adaptativo por generación** en `prompts.ts` (sección 2b): detecta señales de lenguaje y ajusta
+  registro/ejemplos/calidez sin preguntar la edad (<30 informal+anécdota; 30-45 aspiracional; +50 cálido+
+  respaldo+ofrecer asesor). (2) **Disclosure en 3 capas** en la tarjeta de cotización: síntesis "cubre/no
+  cubre" SIEMPRE visible (cumple Art.9) + "Ver términos completos" colapsado (antes todo abierto). (3) **Botón
+  "Que me llame un asesor"** en el encabezado (reusa escalate_to_human) — puente híbrido para la desconfianza
+  de +50. tsc + gates + build OK. Todo en la rama del PR #2.
 - **24-jul-2026** — **RONDA 2 COMPLETA** (ajustes del panel de 3 expertos, 13 tareas R1–R13). Rigor: guion
   sin el "8 de 10" inventado + prueba social = tamaño real; PeerProof con guarda n≥1000; prior de mascotas
   ya no rankea solo; desempate determinista; `SEGMENTO_POBLACIONAL` alineado a la base. Robustez: guardas
