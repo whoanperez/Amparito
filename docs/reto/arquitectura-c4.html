@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amparito · Arquitectura C4 (base → Amparito+)</title>
+<style>
+  :root{
+    --azul:#0067b1; --amarillo:#ffd000; --verde:#1a9e5c; --ink:#1d1d1f;
+    --base:#9aa3b2; --base-fill:#eef1f5;
+    --bg:#f4f6f9; --panel:#ffffff; --panel-2:#fbfcfe; --borde:#e2e6ec; --txt:#1d1d1f; --mute:#5b6472; --eyebrow:#0067b1;
+    --canvas:#ffffff;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#12151b; --panel:#1a1e26; --panel-2:#161a21; --borde:#2a2f3a; --txt:#eceef2; --mute:#9aa3b2; --eyebrow:#5aa9e6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:44px 22px 90px}
+  .eyebrow{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--eyebrow)}
+  h1{font-size:clamp(27px,4.4vw,40px);font-weight:800;letter-spacing:-.02em;margin:8px 0 0}
+  .lede{margin:14px 0 0;max-width:74ch;color:var(--mute);font-size:15.5px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:20px;font-size:13px;font-weight:600}
+  .legend span{display:inline-flex;align-items:center;gap:8px;color:var(--mute)}
+  .dot{width:14px;height:14px;border-radius:4px;border:2px solid}
+  .dot.base{background:var(--base-fill);border-color:var(--base)}
+  .dot.nuevo{background:#dbeafe;border-color:var(--azul)}
+  .sec-lbl{display:flex;align-items:baseline;gap:12px;margin:52px 0 6px;padding-bottom:10px;border-bottom:2px solid var(--borde)}
+  .sec-lbl .lvl{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--azul);padding:3px 9px;border-radius:6px}
+  .sec-lbl h2{font-size:20px;font-weight:700;margin:0}
+  .sec-note{font-size:13.5px;color:var(--mute);margin:10px 0 0}
+  .sec-note b{color:var(--txt)}
+  .canvas{background:var(--canvas);border:1px solid var(--borde);border-radius:14px;padding:18px;margin-top:16px;overflow-x:auto;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+  .frase{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  @media (max-width:720px){ .frase{grid-template-columns:1fr} }
+  .vcard{background:var(--panel);border:1px solid var(--borde);border-radius:14px;padding:18px 20px}
+  .vcard.v1{border-left:5px solid var(--base)}
+  .vcard.v2{border-left:5px solid var(--azul)}
+  .vtag{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .vcard.v1 .vtag{color:var(--mute)}
+  .vcard.v2 .vtag{color:var(--azul)}
+  .vcard h3{font-size:16px;font-weight:700;margin:6px 0 8px}
+  .vcard p{font-size:14px;color:var(--mute);margin:0}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media (max-width:860px){ .ba{grid-template-columns:1fr} }
+  .ba .canvas{margin-top:0}
+  .ba-h{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin:0 0 8px}
+  .ba-h.v1{color:var(--mute)} .ba-h.v2{color:var(--azul)}
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:14px}
+  thead th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute);padding:8px 12px;border-bottom:2px solid var(--borde)}
+  td{padding:11px 12px;border-bottom:1px solid var(--borde);vertical-align:top}
+  td:first-child{font-weight:700;white-space:nowrap}
+  td.v1c{color:var(--mute)}
+  code{font-family:var(--mono);font-size:.9em;background:var(--panel-2);border:1px solid var(--borde);border-radius:5px;padding:1px 6px}
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--borde);font-size:12.5px;color:var(--mute);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Amparito · Hackathon Colsubsidio × 30X · Arquitectura C4</div>
+    <h1>De Amparito base a Amparito+</h1>
+    <p class="lede">La misma app de venta automatizada de seguros, antes y después de los cambios de la rama
+      <code>feature/amparito-plus</code>. El backend del chat no se rompió: todo lo nuevo es <b>aditivo</b>.
+      Modelo C4: Contexto → Contenedor → Componente.</p>
+    <div class="legend">
+      <span><span class="dot base"></span> Ya existía — base (v1)</span>
+      <span><span class="dot nuevo"></span> Nuevo o modificado — Amparito+ (v2)</span>
+    </div>
+  </header>
+
+  <div class="frase">
+    <div class="vcard v1">
+      <div class="vtag">v1 · base</div>
+      <h3>Chat que recomienda por palabras clave</h3>
+      <p>Claude Haiku con tool-use cierra la venta end-to-end (cotiza, cumplimiento Art. 9, certificado mock),
+         pero la recomendación sale de un <b>matcher de palabras clave</b> sin explicar el porqué.</p>
+    </div>
+    <div class="vcard v2">
+      <div class="vtag">v2 · Amparito+</div>
+      <h3>Motor de propensión explicable + capa del porqué</h3>
+      <p>Un <b>scorecard determinista</b> sobre datos reales produce la recomendación con reason codes; se hace
+         <b>visible el porqué</b>, se añade <b>pull-first + anti-venta</b>, <b>voz Gemini Live</b> (tras flag) y
+         <b>modo demo offline</b>.</p>
+    </div>
+  </div>
+
+  <div class="sec-lbl"><span class="lvl">C4 · Nivel 1</span><h2>Contexto del sistema</h2></div>
+  <p class="sec-note"><b>Nuevo en v2:</b> el actor <b>Jurado</b> (autogestión) y el externo <b>Gemini Live</b> (voz, apagada por defecto).</p>
+  <div class="canvas"><pre class="mermaid">
+flowchart TB
+  afiliado["👤 Afiliado / No afiliado"]
+  jurado["⚖️ Jurado del hackathon"]
+  amparito(("🛡️ Amparito+"))
+  haiku["🤖 Claude Haiku · Anthropic"]
+  gemini["🎙️ Gemini Live · Google"]
+  aseg["🏢 Aseguradoras aliadas (mock)"]
+  sheets["📄 Google Sheets · leads"]
+  afiliado --> amparito
+  jurado --> amparito
+  amparito -->|function calling| haiku
+  amparito -.->|tras feature flag| gemini
+  amparito -->|cotiza / emite| aseg
+  amparito -->|sin PII| sheets
+  classDef base fill:#eef1f5,stroke:#9aa3b2,color:#1d1d1f;
+  classDef nuevo fill:#dbeafe,stroke:#0067b1,color:#00344f,stroke-width:2px;
+  class afiliado,haiku,aseg,sheets base;
+  class jurado,gemini,amparito nuevo;
+  </pre></div>
+
+  <div class="sec-lbl"><span class="lvl">C4 · Nivel 2</span><h2>Contenedores</h2></div>
+  <p class="sec-note"><b>Base:</b> UI, <code>/api/chat</code>, <code>/api/issue</code>, <code>catalog.json</code>, lógica base y gateway mock.
+     <b>Nuevo:</b> <code>/api/tool</code>, <code>/api/live-token</code>, <code>lib/engine</code>, <code>lib/voice</code>, <code>lib/demo</code>, <code>lib/flags</code>.</p>
+  <div class="canvas"><pre class="mermaid">
+flowchart TB
+  subgraph cliente["Navegador"]
+    ui["Chat UI + Landing<br/>Next.js / React"]
+  end
+  subgraph server["Next.js · API routes"]
+    chat["/api/chat<br/>orquestador tool-use"]
+    issue["/api/issue"]
+    tool["/api/tool<br/>bridge de tools (voz)"]
+    token["/api/live-token<br/>token efímero"]
+  end
+  subgraph logica["Lógica · lib/"]
+    baselib["catalog · tools · prompts<br/>insurer(mock) · sheets"]
+    engine["engine/ · propensión"]
+    voice["voice/ · Gemini Live"]
+    demo["demo/ · offline"]
+    flags["flags"]
+  end
+  subgraph datos["Datos · JSON derivado sin PII"]
+    cat["catalog.json"]
+    prop["weights · base_stats<br/>eventos_vida"]
+  end
+  ui --> chat --> baselib --> cat
+  ui --> issue
+  ui -.voz.-> token
+  ui -.voz.-> tool --> baselib
+  chat --> engine --> prop
+  voice --> token
+  demo --> baselib
+  classDef base fill:#eef1f5,stroke:#9aa3b2,color:#1d1d1f;
+  classDef nuevo fill:#dbeafe,stroke:#0067b1,color:#00344f,stroke-width:2px;
+  class ui,chat,issue,baselib,cat base;
+  class tool,token,engine,voice,demo,flags,prop nuevo;
+  </pre></div>
+
+  <div class="sec-lbl"><span class="lvl">C4 · Nivel 3</span><h2>Componentes · antes / después</h2></div>
+  <p class="sec-note">Izquierda el MVP base; derecha, lo mismo <b>+</b> los componentes nuevos (azul). El matcher de palabras clave queda como <i>fallback</i>.</p>
+  <div class="ba">
+    <div>
+      <div class="ba-h v1">v1 · Amparito base</div>
+      <div class="canvas"><pre class="mermaid">
+flowchart TB
+  chatui["Chat UI<br/>tarjetas: quote · policy<br/>compliance · escalation · form"]
+  orq["Orquestador<br/>loop tool-use (Haiku)"]
+  tools7["7 tools"]
+  matcher["recommend_products<br/>matcher por PALABRAS CLAVE"]
+  cat["catalog.json"]
+  gate["Cumplimiento (Art.9<br/>+ consentimiento)"]
+  mock["Insurer gateway (mock)"]
+  chatui --> orq --> tools7
+  tools7 --> matcher --> cat
+  tools7 --> gate
+  tools7 --> mock
+  classDef base fill:#eef1f5,stroke:#9aa3b2,color:#1d1d1f;
+  class chatui,orq,tools7,matcher,cat,gate,mock base;
+      </pre></div>
+    </div>
+    <div>
+      <div class="ba-h v2">v2 · Amparito+</div>
+      <div class="canvas"><pre class="mermaid">
+flowchart TB
+  chatui2["Chat UI + pull-first<br/>proactivo · selector jurado"]
+  orq2["Orquestador (loop tool-use)"]
+  toolsN["8 tools (+ calcular_propension)"]
+  motor["MOTOR DE PROPENSIÓN<br/>scorecard · peer · gates"]
+  prop["weights · base_stats"]
+  card["PropensionCard<br/>WhyThis · GapsLedger<br/>PeerProof · anti-venta"]
+  voz["Voz Gemini Live<br/>(flag APAGADO)"]
+  off["Modo offline<br/>?offline=1"]
+  base["Base v1<br/>matcher(fallback) · catalog<br/>cumplimiento · mock · issue"]
+  chatui2 --> orq2 --> toolsN
+  toolsN --> motor --> prop
+  toolsN --> base
+  motor --> card --> chatui2
+  voz -.-> toolsN
+  off -.-> base
+  classDef base fill:#eef1f5,stroke:#9aa3b2,color:#1d1d1f;
+  classDef nuevo fill:#dbeafe,stroke:#0067b1,color:#00344f,stroke-width:2px;
+  class chatui2,orq2,base base;
+  class toolsN,motor,prop,card,voz,off nuevo;
+      </pre></div>
+    </div>
+  </div>
+
+  <div class="sec-lbl"><span class="lvl">Resumen</span><h2>Qué cambió, capa por capa</h2></div>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Capa</th><th>v1 · base</th><th>v2 · Amparito+</th></tr></thead>
+    <tbody>
+      <tr><td>Recomendación</td><td class="v1c">Matcher por palabras clave</td><td><b>Motor de propensión</b> (scorecard + reason codes + gates)</td></tr>
+      <tr><td>Datos</td><td class="v1c"><code>catalog.json</code></td><td>+ <code>weights</code> · <code>base_stats</code> · <code>eventos_vida</code></td></tr>
+      <tr><td>UI del porqué</td><td class="v1c">Cotización / póliza / cumplimiento</td><td>+ <b>PropensionCard</b> (WhyThis · GapsLedger · PeerProof · anti-venta)</td></tr>
+      <tr><td>Entrada</td><td class="v1c">Caja de chat + starters</td><td>+ <b>pull-first</b> + <b>proactivo</b> + <b>selector jurado</b></td></tr>
+      <tr><td>Voz</td><td class="v1c">—</td><td><b>Gemini Live</b> tras feature flag apagado</td></tr>
+      <tr><td>Robustez demo</td><td class="v1c">Depende de la red</td><td>+ <b>modo offline</b> end-to-end + auto-fallback</td></tr>
+      <tr><td>Tools</td><td class="v1c">7</td><td>8 (+ <code>calcular_propension</code>)</td></tr>
+      <tr><td>Backend del chat</td><td class="v1c"><code>/api/chat</code>, <code>/api/issue</code></td><td><b>intactos</b> — todo lo nuevo es aditivo</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <footer>
+    Arquitectura del proyecto Amparito+ (Hackathon Colsubsidio × 30X). Gris = base v1; azul = nuevo/modificado en <code>feature/amparito-plus</code>.
+    Fuente: <code>docs/reto/13-arquitectura-c4.md</code>. La marca Colsubsidio se referencia con fines demostrativos.
+  </footer>
+</div>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  mermaid.initialize({ startOnLoad: true, theme: "base", themeVariables: { fontFamily: "system-ui, sans-serif", fontSize: "14px" } });
+</script>
+</body>
+</html>
