@@ -8,8 +8,8 @@
 La venta de seguros de Colsubsidio depende hoy de un asesor humano 1-a-1: no escala, no es 24/7, y la
 web termina en *"déjanos tus datos y te llamamos"*. El afiliado que **no sabe qué necesita** queda igual
 de perdido. El freno real del colombiano no es el precio (8%) sino la **autoexclusión "esto no es para
-mí" (34%, Superfinanciera)** y la desconfianza. El canal digital de seguros está **vacío (0,24% de las
-ventas)**.
+mí" (34%, Fasecolda — estudio de demanda)** y la desconfianza. El canal digital de seguros está casi
+**vacío (menos del 2% de las pólizas se venden online, Fasecolda/La República)**.
 
 ## 2. La apuesta ganadora
 > **"El único asesor de seguros que a veces te dice que NO."** Un motor de propensión **explicable**

@@ -64,14 +64,30 @@ ha construido. Esto es Amparito."*
   **certificado PDF** → *"Ya quedaste asegurado, Jaime."* (pago mockeado).
 
 ### 2:35–3:00 · Pitch de cierre (el número + el KPI nuevo)
-**Presentador:** *"El canal digital mueve hoy el **0,24%** de las ventas de seguros en Colombia —está
-vacío. La conversación convierte **13 a 19 veces** mejor que la web. Y le damos a Colsubsidio un número
-que hoy no puede medir: la **tasa de anti-venta** —cuántas veces Amparito, siendo una caja de
-compensación con misión social, tuvo la honestidad de decir 'no lo necesitas'. Ese es el único asesor
-que a veces te dice que NO. De 'no sé qué necesito' a 'ya quedé asegurado', en 3 minutos, sin un solo
-humano."*
+**Presentador:** *"En Colombia **menos del 2% de las pólizas se venden por internet** (Fasecolda) —el
+canal digital está casi vacío, y la web hoy termina en 'déjanos tus datos'. Una conversación guiada que
+sí entiende a la persona convierte mucho mejor que un formulario. Y le damos a Colsubsidio un número que
+hoy no puede medir: la **tasa de anti-venta** —cuántas veces Amparito, siendo una caja de compensación
+con misión social, tuvo la honestidad de decir 'no lo necesitas'. Ese es el único asesor que a veces te
+dice que NO. De 'no sé qué necesito' a 'ya quedé asegurado', en 3 minutos, sin un solo humano."*
+
+> **Cifras del pitch (todas citables, sin inventar):** penetración de seguros ≈3,3% del PIB (Fasecolda 2024)
+> · venta online <2% de las pólizas (Fasecolda / La República) · autoexclusión "esto no es para mí" 34%
+> (Fasecolda, estudio de demanda) · 67% de hogares con mascota (DANE 2023). Si un jurado pregunta la
+> fuente, se muestra. *(Dato de apoyo opcional: 2025 Insurance Barometer — 51% usaría IA para investigar
+> un seguro de vida.)*
 
 ---
+
+## Encuadre regulatorio (munición para preguntas del jurado)
+Tenerlo listo por si preguntan "¿pueden vender seguros así?":
+- **Rol:** Colsubsidio **comercializa** (uso de red / comercialización de seguros, Decreto 034/2015 y
+  Circular 049/2016 SFC); la **aseguradora aliada emite y asume el riesgo**. Amparito hace el *match*.
+- **Consumidor financiero:** se muestran coberturas, exclusiones y forma de pago **antes** de contratar
+  (**Ley 1328/2009, Art. 9**) — ya está en el flujo (tarjeta de cumplimiento).
+- **Datos:** autorización previa, expresa e informada (**Ley 1581/2012**) — consentimiento explícito antes de emitir.
+- **Onboarding:** **SARLAFT 4.0** (Circular 027/2020 SFC) admite **vinculación simplificada** para seguros
+  masivos de bajo valor → encaja con la venta digital sin fricción. *(Ese es el "¿y el lavado de activos?").*
 
 ## Bonus · Momento proactivo (timing/canal — el diferencial que casi nadie muestra)
 Beat corto y opcional (si sobra tiempo, o como cierre del modo jurado). Abrimos `/chat?evento=credito_vivienda`

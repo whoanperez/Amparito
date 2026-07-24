@@ -61,6 +61,14 @@ const INTERES: Record<string, string> = {
   movilidad: "un seguro para mi vehículo",
 };
 
+// Modo jurado: perfiles del demo listos para que el jurado los pruebe solo (autogestión).
+// Cada apertura le da a Amparito lo justo para perfilar y correr el motor en vivo.
+const PERSONAS_DEMO = [
+  { n: "Andrés, 28", msg: "Hola, soy Andrés, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
+  { n: "Carolina, 39", msg: "Hola, soy Carolina, tengo 39 años, soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
+  { n: "Jaime, 58", msg: "Hola, soy Jaime, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
+];
+
 // Momento proactivo (timing/canal): Amparito abre la conversación tras un evento de vida real
 // que Colsubsidio ya conoce. Es el diferencial de canal — llegar en el momento correcto.
 const EVENTOS: Record<string, string> = {
@@ -288,6 +296,14 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
             <button className="pf-talk" onClick={() => inputRef.current?.focus()}>
               Prefiero contarte con mis palabras →
             </button>
+            <div className="pf-jurado">
+              <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
+              <div className="pf-jurado-row">
+                {PERSONAS_DEMO.map((p) => (
+                  <button key={p.n} className="pf-persona" onClick={() => send(p.msg)}>{p.n}</button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -323,7 +339,7 @@ export default function Chat({ interes, evento }: { interes?: string | null; eve
               placeholder="Escríbele a Amparito…" disabled={locked} autoFocus />
             <button type="submit" disabled={locked || !input.trim()}>Enviar</button>
           </form>
-          <p className="disclaimer">Amparito es una asistente virtual de Colsubsidio. Tus datos se tratan según la Ley 1581 de 2012.</p>
+          <p className="disclaimer">Amparito es la asistente virtual de seguros de Colsubsidio (comercializador; la aseguradora aliada emite y asume el riesgo). Verás coberturas, exclusiones y forma de pago antes de decidir (Ley 1328/2009, Art. 9) y tus datos se tratan con tu autorización (Ley 1581/2012). Vinculación simplificada bajo SARLAFT.</p>
         </div>
       )}
     </div>
@@ -351,11 +367,18 @@ function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string
 function ProcessingCard({ variant }: { variant: "emision" | "reco" }) {
   const SETS: Record<string, string[]> = {
     emision: ["Validando tu información…", "Consultando con la aseguradora…", "Personalizando tu cobertura…", "Generando tu certificado…"],
-    reco: ["Analizando tu situación…", "Comparando coberturas de nuestras aseguradoras…", "Eligiendo lo mejor para tu caso…"],
+    // Los pasos REALES del motor de propensión (no relleno): demuestran el "no caja negra".
+    reco: [
+      "Leyendo tu perfil de vida…",
+      "Sumando las señales que aplican a tu caso…",
+      "Descartando lo que no puedes tener y lo que hoy no te conviene…",
+      "Ordenando por propensión, de forma determinista…",
+      "Redactando el porqué de cada recomendación…",
+    ],
   };
   const steps = SETS[variant];
   const sub = variant === "reco"
-    ? "Amparito está personalizando tus opciones."
+    ? "Motor de propensión explicable · reglas que puedes auditar, no una caja negra."
     : "Estamos personalizando tu seguro con estándar de calidad Colsubsidio.";
   const [i, setI] = useState(0);
   useEffect(() => {

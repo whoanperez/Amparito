@@ -1,56 +1,67 @@
 import { NextResponse } from "next/server";
 import { voiceEnabled } from "@/lib/flags";
 import { geminiFunctionDeclarations, VOICE_SYSTEM_PROMPT } from "@/lib/voice/geminiTools";
+import { sameOrigin } from "@/lib/voice/guard";
 
 /**
  * Token efímero para Gemini Live (Bloque 4).
  *
- * El navegador NO se conecta con la key real: pide aquí un token de corta vida que se acuña
- * en el servidor con GEMINI_API_KEY (nunca `NEXT_PUBLIC`). Así la voz funciona con el cliente
- * conectándose directo a Google (Vercel no soporta WS server) sin exponer el secreto.
- * Ref: https://ai.google.dev/gemini-api/docs/ephemeral-tokens
+ * El navegador NO se conecta con la key real: pide aquí un token de corta vida acuñado en el
+ * servidor con GEMINI_API_KEY (nunca `NEXT_PUBLIC`). El cliente se conecta directo a Google con
+ * ese token (patrón recomendado por Google: menor latencia, sin relay). Nota: Vercel sí soporta
+ * WebSockets hoy (Fluid Compute); aun así el patrón directo con token efímero es el preferido.
+ * Ref: https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens
  *
- * Devuelve también la config de sesión (mismas tools + system prompt del chat) para que el
- * cliente no tenga que importar la lógica de tools.
+ * `liveConnectConstraints` fija el modelo y la config en el token: si alguien roba el token, no
+ * puede abrir otro modelo ni cambiar la sesión. Devolvemos también model + config para que el
+ * cliente arme la conexión sin importar la lógica de tools.
  */
-const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-2.0-flash-live-001";
+const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-2.5-flash-native-audio-preview-12-2025";
 
-export async function POST() {
+export async function POST(req: Request) {
   if (!voiceEnabled) {
     return NextResponse.json({ error: "Voz deshabilitada" }, { status: 404 });
   }
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
+  if (!sameOrigin(req)) {
+    return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+  }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     return NextResponse.json({ error: "Falta GEMINI_API_KEY en el servidor." }, { status: 500 });
   }
   try {
-    // Cuerpo mínimo; ajustar (uses/expireTime/liveConnectConstraints) según la versión vigente
-    // de la API al validar con la key. Un solo uso, para abrir la sesión de inmediato.
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key=${encodeURIComponent(key)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uses: 1 }),
-      }
-    );
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("[amparito/live-token] Google respondió", res.status, txt);
-      return NextResponse.json({ error: "No se pudo crear el token de voz." }, { status: 502 });
-    }
-    const data = (await res.json()) as { name?: string };
-    if (!data.name) {
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
+
+    const sessionConfig = {
+      responseModalities: ["AUDIO"],
+      systemInstruction: VOICE_SYSTEM_PROMPT,
+      tools: [{ functionDeclarations: geminiFunctionDeclarations }],
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+    };
+
+    // Acuña el token (SDK, v1beta por defecto) con la config fijada.
+    const token = await (ai as unknown as {
+      authTokens: { create: (o: unknown) => Promise<{ name?: string }> };
+    }).authTokens.create({
+      config: {
+        uses: 1,
+        liveConnectConstraints: { model: MODEL, config: sessionConfig },
+      },
+    });
+
+    if (!token?.name) {
       return NextResponse.json({ error: "Token vacío." }, { status: 502 });
     }
     return NextResponse.json({
-      token: data.name,
+      token: token.name,
       model: MODEL,
       systemInstruction: VOICE_SYSTEM_PROMPT,
       functionDeclarations: geminiFunctionDeclarations,
     });
   } catch (err) {
     console.error("[amparito/live-token] error:", err);
-    return NextResponse.json({ error: "Error creando el token de voz." }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo crear el token de voz." }, { status: 502 });
   }
 }

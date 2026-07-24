@@ -225,6 +225,16 @@ muestran Carro/Hogar/Bici sin posesión; moto_asistencia sí aparece para André
   Mismas tools + prompt que el chat (sin duplicar el cerebro). `.env.local.example` documenta las keys.
   Con el flag apagado: byte-idéntico al chat actual (verificado: tsc + build OK, botón no se renderiza,
   SDK no carga). **NO validado en vivo** — falta `GEMINI_API_KEY` + `ANTHROPIC_API_KEY`; se valida al prender.
+- **24-jul-2026** — **RONDA 3 (2º panel de 3 expertos, con verificación web).** A) Cifras del pitch: el
+  "0,24%" (no verificable) → "<2% de pólizas online" (Fasecolda/La República); 34% atribuido a Fasecolda;
+  nota de fuentes citables en el guion. B) **Voz Gemini corregida contra la doc vigente:** modelo default
+  `gemini-2.5-flash-native-audio-preview-12-2025` (el 2.0 se apagó 1-jun-2026), `apiVersion` v1beta (el
+  token efímero lo exige), token vía SDK `authTokens.create` con `liveConnectConstraints`, guarda de
+  mismo-origen en `/api/live-token` y `/api/tool`, comentario Vercel corregido (sí soporta WS). C) Encuadre
+  regulatorio: disclaimer con Ley 1328 Art.9 + 1581 + SARLAFT vinculación simplificada + rol comercializador;
+  nota de munición regulatoria en el guion. D) Modo jurado: selector de personas (Andrés/Carolina/Jaime) en
+  `/chat` + spinners convertidos en "teatro de explicabilidad" (pasos reales del motor). tsc + gate + build OK.
+  Veredicto del panel: **proyecto de podio**; los flancos de cifras quedaron cerrados.
 - **24-jul-2026** — **RONDA 2 COMPLETA** (ajustes del panel de 3 expertos, 13 tareas R1–R13). Rigor: guion
   sin el "8 de 10" inventado + prueba social = tamaño real; PeerProof con guarda n≥1000; prior de mascotas
   ya no rankea solo; desempate determinista; `SEGMENTO_POBLACIONAL` alineado a la base. Robustez: guardas

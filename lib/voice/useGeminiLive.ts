@@ -71,7 +71,8 @@ export function useGeminiLive({ enabled, onUserText, onBotText, onEvent }: UseGe
       const genai = (await import("@google/genai")) as unknown as {
         GoogleGenAI: new (o: unknown) => { live: { connect: (p: unknown) => Promise<unknown> } };
       };
-      const ai = new genai.GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: "v1alpha" } });
+      // El token efímero solo funciona con v1beta (doc oficial de ephemeral tokens).
+      const ai = new genai.GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: "v1beta" } });
 
       // 3) Contexto de reproducción (Gemini responde a 24kHz).
       const outCtx = new AudioContext({ sampleRate: 24000 });

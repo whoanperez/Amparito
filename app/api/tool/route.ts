@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeTool } from "@/lib/tools";
 import { voiceEnabled } from "@/lib/flags";
+import { sameOrigin } from "@/lib/voice/guard";
 
 /**
  * Bridge de function-calls para la voz (Bloque 4).
@@ -12,6 +13,9 @@ import { voiceEnabled } from "@/lib/flags";
 export async function POST(req: NextRequest) {
   if (!voiceEnabled) {
     return NextResponse.json({ error: "Voz deshabilitada" }, { status: 404 });
+  }
+  if (!sameOrigin(req)) {
+    return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
   }
   try {
     const { name, input } = (await req.json()) as {

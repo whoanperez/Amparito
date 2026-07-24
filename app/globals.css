@@ -296,6 +296,12 @@ a { text-decoration: none; color: inherit; }
   font-size: 13.5px; cursor: pointer; font-family: inherit; padding: 4px 0;
 }
 .pf-talk:hover { text-decoration: underline; }
+/* Modo jurado: perfiles del demo (autogestión sin narrador) */
+.pf-jurado { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--borde); }
+.pf-jurado-lbl { display: block; font-size: 12.5px; color: var(--gris); margin-bottom: 8px; font-weight: 500; }
+.pf-jurado-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-persona { background: var(--oscuro); color: #fff; border: none; border-radius: 999px; font-weight: 600; font-size: 13px; padding: 8px 15px; cursor: pointer; font-family: inherit; transition: .15s; }
+.pf-persona:hover { background: #000; transform: translateY(-1px); }
 @media (max-width: 560px) { .pf-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* ===== Tarjetas de recomendación ===== */
