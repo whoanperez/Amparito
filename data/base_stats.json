@@ -1,0 +1,2076 @@
+{
+  "_meta": {
+    "fuente": "Usos_Productos_Afiliados_SIN_ID.csv",
+    "total_afiliados": 1566028,
+    "pii_descartada": "NOMBRE_COMPLETO",
+    "nota": "Distribuciones REALES de la base. Sin etiqueta de compra: los pesos de propensión están en weights.json (lógica + priors citados), no aquí."
+  },
+  "distribuciones": {
+    "GENERO": {
+      "M": 870562,
+      "F": 695466
+    },
+    "RANGO_EDAD": {
+      "20 a 35 años": 735537,
+      "36 a 45 años": 389828,
+      "46 a 55 años": 239427,
+      "Mayor de 55 años": 177468,
+      "Menor de 19 años": 23768
+    },
+    "CATEGORIA": {
+      "A": 1187788,
+      "B": 226688,
+      "C": 137640,
+      "(vacío)": 13910,
+      "D": 2
+    },
+    "SEGMENTO_GRUPO_FAMILIAR": {
+      "Sin grupo familiar": 908102,
+      "Monoparental": 367713,
+      "Nuclear integral": 147289,
+      "Pareja conyugal": 85695,
+      "Monoparental ampliada": 33963,
+      "(vacío)": 23197,
+      "Nuclear ampliada": 69
+    },
+    "SEGMENTO_POBLACIONAL": {
+      "Básico": 764794,
+      "Medio": 419563,
+      "Joven": 361381,
+      "(vacío)": 14558,
+      "Alto": 5732
+    },
+    "PIRAMIDE_NUEVA": {
+      "5 Micro Transaccional": 508345,
+      "2 Medianas": 314199,
+      "1 Grandes": 313408,
+      "3 Empresarial Top": 182114,
+      "6.1 Facultativo": 81279,
+      "4 Empresarial Estandar": 62998,
+      "6.3 Pensionado": 43729,
+      "6.2 Independiente": 25421,
+      "(vacío)": 20695,
+      "5 Micro Transaccional Colsubsidio": 13773,
+      "1. Grandes": 67
+    },
+    "EMPRESA_FOCO": {
+      "(vacío)": 1303212,
+      "X": 262816
+    }
+  },
+  "marcas_consumo": {
+    "conteo_si": {
+      "DROGUERIA": 86985,
+      "PISCILAGO": 76344,
+      "VIVIENDA": 1048,
+      "HOTELES": 426,
+      "AGENCIAS": 248
+    },
+    "pct_si": {
+      "HOTELES": 0.027,
+      "PISCILAGO": 4.875,
+      "DROGUERIA": 5.554,
+      "AGENCIAS": 0.016,
+      "VIVIENDA": 0.067
+    },
+    "n_marcas_por_afiliado": {
+      "0": 1407328,
+      "1": 152366,
+      "2": 6317,
+      "3": 17
+    },
+    "por_segmento_familiar": {
+      "HOTELES": {
+        "Sin grupo familiar": 154,
+        "Monoparental": 107,
+        "Nuclear integral": 81,
+        "Pareja conyugal": 73,
+        "Monoparental ampliada": 11
+      },
+      "PISCILAGO": {
+        "Sin grupo familiar": 33066,
+        "Monoparental": 26988,
+        "Nuclear integral": 11363,
+        "Pareja conyugal": 2793,
+        "Monoparental ampliada": 1592,
+        "": 534,
+        "Nuclear ampliada": 8
+      },
+      "DROGUERIA": {
+        "Sin grupo familiar": 47401,
+        "Monoparental": 26032,
+        "Nuclear integral": 7980,
+        "Monoparental ampliada": 3294,
+        "Pareja conyugal": 1924,
+        "": 345,
+        "Nuclear ampliada": 9
+      },
+      "AGENCIAS": {
+        "Sin grupo familiar": 100,
+        "Monoparental": 77,
+        "Nuclear integral": 40,
+        "Pareja conyugal": 20,
+        "Monoparental ampliada": 11
+      },
+      "VIVIENDA": {
+        "Sin grupo familiar": 484,
+        "Monoparental": 419,
+        "Nuclear integral": 66,
+        "Pareja conyugal": 43,
+        "Monoparental ampliada": 34,
+        "": 2
+      }
+    }
+  },
+  "peer_groups": {
+    "ejes": [
+      "GENERO",
+      "RANGO_EDAD",
+      "SEGMENTO_GRUPO_FAMILIAR",
+      "CATEGORIA"
+    ],
+    "n_celdas": 194,
+    "celdas": [
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 263398,
+        "pct": 16.82
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 144504,
+        "pct": 9.23
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 83569,
+        "pct": 5.34
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 70419,
+        "pct": 4.5
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 62459,
+        "pct": 3.99
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 55410,
+        "pct": 3.54
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 49318,
+        "pct": 3.15
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 41448,
+        "pct": 2.65
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 40189,
+        "pct": 2.57
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 39742,
+        "pct": 2.54
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 39458,
+        "pct": 2.52
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 37883,
+        "pct": 2.42
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 37766,
+        "pct": 2.41
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 36288,
+        "pct": 2.32
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 26433,
+        "pct": 1.69
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 22473,
+        "pct": 1.44
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 21189,
+        "pct": 1.35
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 20963,
+        "pct": 1.34
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 19185,
+        "pct": 1.23
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 16769,
+        "pct": 1.07
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 15895,
+        "pct": 1.01
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 15849,
+        "pct": 1.01
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 14718,
+        "pct": 0.94
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 14063,
+        "pct": 0.9
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 13191,
+        "pct": 0.84
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 13119,
+        "pct": 0.84
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 12563,
+        "pct": 0.8
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 12522,
+        "pct": 0.8
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 12026,
+        "pct": 0.77
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 10805,
+        "pct": 0.69
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 9501,
+        "pct": 0.61
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 9430,
+        "pct": 0.6
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "A"
+        },
+        "n": 8949,
+        "pct": 0.57
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 8533,
+        "pct": 0.54
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 8319,
+        "pct": 0.53
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 8112,
+        "pct": 0.52
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 7942,
+        "pct": 0.51
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 7832,
+        "pct": 0.5
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 7566,
+        "pct": 0.48
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 7300,
+        "pct": 0.47
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 6817,
+        "pct": 0.44
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 6472,
+        "pct": 0.41
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 6141,
+        "pct": 0.39
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 6002,
+        "pct": 0.38
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 5878,
+        "pct": 0.38
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 5284,
+        "pct": 0.34
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 5267,
+        "pct": 0.34
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 5243,
+        "pct": 0.33
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 5223,
+        "pct": 0.33
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 5101,
+        "pct": 0.33
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 5015,
+        "pct": 0.32
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 4818,
+        "pct": 0.31
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 4716,
+        "pct": 0.3
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 4596,
+        "pct": 0.29
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 4575,
+        "pct": 0.29
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 4220,
+        "pct": 0.27
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 4192,
+        "pct": 0.27
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 4101,
+        "pct": 0.26
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 3962,
+        "pct": 0.25
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 3861,
+        "pct": 0.25
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 3794,
+        "pct": 0.24
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 3718,
+        "pct": 0.24
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 3654,
+        "pct": 0.23
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 3598,
+        "pct": 0.23
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 3533,
+        "pct": 0.23
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 3397,
+        "pct": 0.22
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 3330,
+        "pct": 0.21
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 3315,
+        "pct": 0.21
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 3231,
+        "pct": 0.21
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 3222,
+        "pct": 0.21
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 3112,
+        "pct": 0.2
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 3015,
+        "pct": 0.19
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 3006,
+        "pct": 0.19
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 2840,
+        "pct": 0.18
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 2629,
+        "pct": 0.17
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 2333,
+        "pct": 0.15
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 2135,
+        "pct": 0.14
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 2116,
+        "pct": 0.14
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 2096,
+        "pct": 0.13
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 2095,
+        "pct": 0.13
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 2081,
+        "pct": 0.13
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 2014,
+        "pct": 0.13
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 1947,
+        "pct": 0.12
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 1934,
+        "pct": 0.12
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 1921,
+        "pct": 0.12
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 1891,
+        "pct": 0.12
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 1879,
+        "pct": 0.12
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 1859,
+        "pct": 0.12
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 1817,
+        "pct": 0.12
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 1798,
+        "pct": 0.11
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 1542,
+        "pct": 0.1
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 1506,
+        "pct": 0.1
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 1446,
+        "pct": 0.09
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 1345,
+        "pct": 0.09
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 1225,
+        "pct": 0.08
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 1173,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 1162,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 1156,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 1142,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 1109,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 1107,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 1043,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 1022,
+        "pct": 0.07
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 993,
+        "pct": 0.06
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 989,
+        "pct": 0.06
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 948,
+        "pct": 0.06
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 941,
+        "pct": 0.06
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 934,
+        "pct": 0.06
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 920,
+        "pct": 0.06
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 836,
+        "pct": 0.05
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 808,
+        "pct": 0.05
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 793,
+        "pct": 0.05
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "B"
+        },
+        "n": 781,
+        "pct": 0.05
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 753,
+        "pct": 0.05
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 728,
+        "pct": 0.05
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 644,
+        "pct": 0.04
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 628,
+        "pct": 0.04
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "B"
+        },
+        "n": 586,
+        "pct": 0.04
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "C"
+        },
+        "n": 555,
+        "pct": 0.04
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 552,
+        "pct": 0.04
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 549,
+        "pct": 0.04
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 535,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 510,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 484,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 474,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 472,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 442,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 426,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "C"
+        },
+        "n": 414,
+        "pct": 0.03
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "C"
+        },
+        "n": 330,
+        "pct": 0.02
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 330,
+        "pct": 0.02
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 329,
+        "pct": 0.02
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 319,
+        "pct": 0.02
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 284,
+        "pct": 0.02
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "(vacío)"
+        },
+        "n": 238,
+        "pct": 0.02
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 235,
+        "pct": 0.02
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 219,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 188,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 183,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 165,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 158,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 142,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "A"
+        },
+        "n": 132,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 126,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "B"
+        },
+        "n": 114,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 113,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 110,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 100,
+        "pct": 0.01
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 66,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 66,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 58,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 52,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 40,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 39,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 32,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 29,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 25,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Sin grupo familiar",
+          "CATEGORIA": "C"
+        },
+        "n": 23,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 22,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 20,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "C"
+        },
+        "n": 20,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 16,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 12,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "B"
+        },
+        "n": 12,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 11,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 10,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 9,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 8,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Pareja conyugal",
+          "CATEGORIA": "A"
+        },
+        "n": 7,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 6,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 6,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 5,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "A"
+        },
+        "n": 5,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 4,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 4,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 4,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "(vacío)",
+          "CATEGORIA": "A"
+        },
+        "n": 4,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 4,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 3,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 3,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "B"
+        },
+        "n": 3,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 2,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 2,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 2,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 2,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 2,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "46 a 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 2,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 2,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "Mayor de 55 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 1,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "M",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "C"
+        },
+        "n": 1,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "B"
+        },
+        "n": 1,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "Menor de 19 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear ampliada",
+          "CATEGORIA": "A"
+        },
+        "n": 1,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "20 a 35 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Monoparental",
+          "CATEGORIA": "D"
+        },
+        "n": 1,
+        "pct": 0.0
+      },
+      {
+        "grupo": {
+          "GENERO": "F",
+          "RANGO_EDAD": "36 a 45 años",
+          "SEGMENTO_GRUPO_FAMILIAR": "Nuclear integral",
+          "CATEGORIA": "D"
+        },
+        "n": 1,
+        "pct": 0.0
+      }
+    ]
+  }
+}

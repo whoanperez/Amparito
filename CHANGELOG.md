@@ -60,3 +60,29 @@ El primer Amparito que se subió a Vercel y funcionó de punta a punta.
 
 ### Estado actual: **v2.5** · build ✓
 Pendiente opcional: módulo de **outreach proactivo** (cruzar base de afiliados + gatillos → empujón con deep-link al bot), documentado en el blueprint. Profundizar coberturas reales de los 9 productos que hoy usan data de referencia.
+
+---
+
+## Rama `feature/amparito-plus` — "Amparito+" (injertos que valen el 45% del puntaje)
+
+> **Bitácora por commit** de nuestro trabajo sobre la base v2.5. **Convención: cada commit agrega aquí
+> una entrada** (`hash` · fecha · qué se hizo · qué logra), más detallada que el mensaje de git. Objetivo
+> de la rama: **propensión explicable con reason codes · capa visual del porqué (GapsLedger/WhyThis/
+> PeerProof) · pull-first + anti-venta · voz Gemini Live**. Estado completo del proyecto en
+> `colsubsidio-hackathon/reto-seguros/10-estado.md`. (Los commits solo-docs se pliegan en la siguiente entrada.)
+
+### `f7c5431` · 2026-07-24 · Data: enriquecimiento de propensión derivado de la base real (sin PII)
+**Qué se hizo:**
+- `data/pipeline/profile_base.py` — perfila los **1.566.028 afiliados** de la base real en ~8 s;
+  **descarta `NOMBRE_COMPLETO` en el paso 1** (PII, Ley 1581); sin dependencias (librería estándar).
+- `data/base_stats.json` — distribuciones reales + **194 peer-groups** para la prueba social ("afiliados
+  como tú"). Dato estrella: segmento de Carolina (F · 36-45 · monoparental · cat A) = **62.459 afiliadas reales**.
+- `data/weights.json` — **scorecard documentado** (16 productos: señal → peso → *reason code*) + priors
+  citados (DANE mascota 0,67 · Fasecolda · Superfinanciera autoexclusión 34%).
+- `data/eventos_vida.json` — matriz edad × grupo familiar → evento vital → productos + slots conversacionales.
+- `.gitignore` — bloquea el CSV crudo (PII) y builds.
+**Qué logra:** la materia prima del **motor de propensión explicable** (25% del puntaje), 100% derivada
+de datos reales + fuentes, **sin PII** y **sin ML** (la base no tiene etiqueta de compra → scorecard
+documentado, no modelo entrenado; es el argumento del "no caja negra").
+**Pendiente que habilita:** el motor en `lib/` que consume estos 3 JSON, la tool `calcular_propension`
+y los componentes visuales.

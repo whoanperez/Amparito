@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import FlowVideo from "./FlowVideo";
+import { voiceEnabled } from "@/lib/flags";
+import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 
 interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension";
   data: Record<string, any>;
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
@@ -14,6 +16,7 @@ interface ChatItem {
   text?: string;
   event?: UiEvent;
   recs?: Rec[];
+  voice?: boolean; // ítem generado por la voz (para fusionar transcripts consecutivos)
 }
 interface Contacto {
   nombre: string;
@@ -27,14 +30,14 @@ interface Contacto {
 const GREETING =
   "¡Hola! Soy Amparito, tu asistente de seguros de Colsubsidio 😊 Cuéntame: ¿qué cambió en tu vida o qué te tiene pensando en protegerte?";
 
-// Disparadores para quien entra directo (sin venir de un link)
-const STARTERS = [
-  "Compré una moto 🏍️",
-  "Nació mi bebé 👶",
-  "Adopté una mascota 🐶",
-  "Me mudé de casa 🏠",
-  "Voy a viajar ✈️",
-  "Tomé un crédito 💳",
+// Entrada pull-first: tarjetas grandes "¿Qué quieres proteger?" (reemplaza la caja vacía)
+const PROTEGER = [
+  { ico: "👪", t: "Mi familia", msg: "Quiero proteger a mi familia" },
+  { ico: "🏍️", t: "Mi movilidad", msg: "Quiero proteger mi moto o mi carro" },
+  { ico: "🐶", t: "Mi mascota", msg: "Quiero proteger a mi mascota" },
+  { ico: "🏠", t: "Mi hogar", msg: "Quiero proteger mi hogar" },
+  { ico: "💳", t: "Mi crédito", msg: "Tengo un crédito que quiero respaldar" },
+  { ico: "✈️", t: "Un viaje", msg: "Voy a viajar y quiero asistencia" },
 ];
 
 const INTERES: Record<string, string> = {
@@ -56,6 +59,23 @@ const INTERES: Record<string, string> = {
   creditos: "un seguro para mi crédito",
   personal_familiar: "un seguro para mí y mi familia",
   movilidad: "un seguro para mi vehículo",
+};
+
+// Modo jurado: perfiles del demo listos para que el jurado los pruebe solo (autogestión).
+// Cada apertura le da a Amparito lo justo para perfilar y correr el motor en vivo.
+const PERSONAS_DEMO = [
+  { key: "Andres", n: "Andrés, 28", msg: "Hola, soy Andrés, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
+  { key: "Carolina", n: "Carolina, 39", msg: "Hola, soy Carolina, tengo 39 años, soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
+  { key: "Jaime", n: "Jaime, 58", msg: "Hola, soy Jaime, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
+];
+
+// Momento proactivo (timing/canal): Amparito abre la conversación tras un evento de vida real
+// que Colsubsidio ya conoce. Es el diferencial de canal — llegar en el momento correcto.
+const EVENTOS: Record<string, string> = {
+  credito_vivienda:
+    "Hola, soy Amparito 👋 Vi que hace poco tomaste un crédito de vivienda con Colsubsidio. Se me ocurre algo: podríamos proteger tu hogar y lo que estás pagando, por si pasa un imprevisto. ¿Te cuento cómo, sin compromiso?",
+  bebe:
+    "Hola, soy Amparito 👋 Me contaron que llegó un bebé a tu familia, ¡felicitaciones! En este momento muchas familias piensan en proteger su ingreso, por si algún día faltan. ¿Miramos juntos qué te conviene?",
 };
 
 const INSURER: Record<string, { color: string; short: string }> = {
@@ -108,10 +128,11 @@ function parseReply(raw: string): { text: string; options: string[]; recs: Rec[]
   return { text: clean(text), options, recs };
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-export default function Chat({ interes }: { interes?: string | null }) {
-  const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: GREETING }]);
+export default function Chat({ interes, evento, offline }: { interes?: string | null; evento?: string | null; offline?: boolean }) {
+  const proactivo = (evento && EVENTOS[evento.toLowerCase()]) || null;
+  const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: proactivo ?? GREETING }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -119,14 +140,36 @@ export default function Chat({ interes }: { interes?: string | null }) {
   const [processing, setProcessing] = useState<null | "emision" | "reco">(null);
   const lastQuote = useRef<string | null>(null);
   const started = useRef(false);
+  const offlineCancel = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
 
+  // --- Voz (Bloque 4) — inerte si el flag está apagado ---
+  const pushVoiceText = useCallback((role: "user" | "assistant", text: string) => {
+    setItems((cur) => {
+      const last = cur[cur.length - 1];
+      if (last && last.kind === "msg" && last.role === role && last.voice) {
+        const copy = cur.slice();
+        copy[copy.length - 1] = { ...last, text: (last.text ?? "") + text };
+        return copy;
+      }
+      return [...cur, { kind: "msg", role, text, voice: true }];
+    });
+  }, []);
+  const voice = useGeminiLive({
+    enabled: voiceEnabled,
+    onUserText: (t) => pushVoiceText("user", t),
+    onBotText: (t) => pushVoiceText("assistant", t),
+    onEvent: (ev) => setItems((cur) => [...cur, { kind: "event", event: { type: ev.type as UiEvent["type"], data: ev.data } }]),
+  });
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [items, busy, activeForm, processing, suggestions]);
+
+  useEffect(() => () => { offlineCancel.current = true; }, []); // cancela el demo offline al desmontar
 
   useEffect(() => {
     if (started.current) return;
@@ -141,9 +184,9 @@ export default function Chat({ interes }: { interes?: string | null }) {
     setTimeout(() => inputRef.current?.focus(), 30);
   }
 
-  async function send(text: string) {
+  async function send(text: string, opts?: { silentFail?: boolean }): Promise<boolean> {
     const t = text.trim();
-    if (!t || busy || processing) return;
+    if (!t || busy || processing) return false;
     setInput("");
     setSuggestions([]);
 
@@ -176,20 +219,60 @@ export default function Chat({ interes }: { interes?: string | null }) {
       if (parsed.recs.length) {
         setBusy(false);
         setProcessing("reco");
-        await sleep(4000);
+        await sleep(2500);
         setProcessing(null);
         setItems((cur) => [...cur, ...msgItems, ...eventItems, { kind: "recommend", recs: parsed.recs }]);
-        return;
+        return true;
       }
 
       setItems((cur) => [...cur, ...msgItems, ...eventItems]);
       setSuggestions(parsed.options);
       if (openForm) setActiveForm(openForm);
+      return true;
     } catch {
-      setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: "Se me trabó la conexión. ¿Intentamos de nuevo?" }]);
+      // silentFail: quien llama maneja el fallo (ej. cae al demo offline) sin mostrar el aviso.
+      if (!opts?.silentFail) {
+        setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: "Se me trabó la conexión. ¿Intentamos de nuevo?" }]);
+      }
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  // --- Demo offline (RNF-1) — reproduce el guion local sin red ---
+  async function runOffline(key: string, startFrom = 0) {
+    if (busy || processing) return;
+    setSuggestions([]);
+    setInput("");
+    offlineCancel.current = false;
+    setBusy(true);
+    try {
+      const [{ playDemo }, { DEMO_SCRIPTS }] = await Promise.all([
+        import("@/lib/demo/player"),
+        import("@/lib/demo/scripts"),
+      ]);
+      const beats = DEMO_SCRIPTS[key]?.slice(startFrom);
+      if (!beats?.length) return;
+      await playDemo(beats, {
+        addMsg: (role, text) => setItems((cur) => [...cur, { kind: "msg", role, text }]),
+        addEvent: (event) => setItems((cur) => [...cur, { kind: "event", event: { type: event.type as UiEvent["type"], data: event.data } }]),
+        addRecommend: (recs) => setItems((cur) => [...cur, { kind: "recommend", recs }]),
+        sleep,
+        cancelled: () => offlineCancel.current,
+      });
+    } catch {
+      setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: "No pude cargar el demo offline." }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startPersona(p: { key: string; msg: string }) {
+    if (offline) { runOffline(p.key); return; }
+    // En vivo: intenta la API; si falla, cae al guion local (el saludo ya se agregó → salta la beat 0).
+    const ok = await send(p.msg, { silentFail: true });
+    if (!ok) runOffline(p.key, 1);
   }
 
   async function submitForm(contacto: Contacto) {
@@ -205,7 +288,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
       });
       result = await res.json();
     } catch { result = { error: "No pudimos emitir en este momento." }; }
-    await sleep(Math.max(0, 7000 - (Date.now() - t0)));
+    await sleep(Math.max(0, 3000 - (Date.now() - t0)));
     setProcessing(null);
     if (result.event) {
       setItems((cur) => [...cur, { kind: "event", event: result.event },
@@ -217,7 +300,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
   }
 
   const locked = busy || !!processing || !!activeForm;
-  const showStarters = items.length === 1 && !interes && !locked;
+  const showStarters = items.length === 1 && !interes && !proactivo && !locked;
 
   return (
     <div className="chat-shell">
@@ -225,7 +308,7 @@ export default function Chat({ interes }: { interes?: string | null }) {
         <div className="avatar">A</div>
         <div>
           <h2>Amparito</h2>
-          <div className="status">● En línea — 24/7, sin esperas</div>
+          <div className="status">{offline ? "● Modo demo offline — sin conexión, todo local" : "● En línea — 24/7, sin esperas"}</div>
         </div>
       </div>
 
@@ -243,12 +326,26 @@ export default function Chat({ interes }: { interes?: string | null }) {
         )}
 
         {showStarters && (
-          <div className="starters">
-            <div className="starters-lbl">O elige por dónde empezar:</div>
-            <div className="starters-row">
-              {STARTERS.map((s) => (
-                <button key={s} className="starter" onClick={() => send(s)}>{s}</button>
+          <div className="pullfirst">
+            <div className="pf-q">¿Qué quieres proteger?</div>
+            <div className="pf-grid">
+              {PROTEGER.map((p) => (
+                <button key={p.t} className="pf-card" onClick={() => send(p.msg)}>
+                  <span className="pf-ico">{p.ico}</span>
+                  <span className="pf-t">{p.t}</span>
+                </button>
               ))}
+            </div>
+            <button className="pf-talk" onClick={() => inputRef.current?.focus()}>
+              Prefiero contarte con mis palabras →
+            </button>
+            <div className="pf-jurado">
+              <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
+              <div className="pf-jurado-row">
+                {PERSONAS_DEMO.map((p) => (
+                  <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -270,11 +367,23 @@ export default function Chat({ interes }: { interes?: string | null }) {
       {!activeForm && (
         <div className="inputbar">
           <form onSubmit={(e) => { e.preventDefault(); send(input); }}>
+            {voiceEnabled && voice.supported && (
+              <button
+                type="button"
+                className={`voicebtn ${voice.status}`}
+                onClick={() => (voice.status === "idle" || voice.status === "error" ? voice.start() : voice.stop())}
+                title="Hablar con Amparito por voz"
+                aria-label="Hablar con Amparito por voz"
+              >
+                {voice.status === "connecting" ? "…" : voice.status === "listening" ? "⏹" : "🎤"}
+              </button>
+            )}
             <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
-              placeholder="Escríbele a Amparito…" disabled={locked} autoFocus />
-            <button type="submit" disabled={locked || !input.trim()}>Enviar</button>
+              placeholder={offline ? "Modo demo offline — prueba un perfil de arriba ↑" : "Escríbele a Amparito…"}
+              disabled={locked || !!offline} autoFocus />
+            <button type="submit" disabled={locked || !!offline || !input.trim()}>Enviar</button>
           </form>
-          <p className="disclaimer">Amparito es una asistente virtual de Colsubsidio. Tus datos se tratan según la Ley 1581 de 2012.</p>
+          <p className="disclaimer">Amparito es la asistente virtual de seguros de Colsubsidio (comercializador; la aseguradora aliada emite y asume el riesgo). Verás coberturas, exclusiones y forma de pago antes de decidir (Ley 1328/2009, Art. 9) y tus datos se tratan con tu autorización (Ley 1581/2012). Vinculación simplificada bajo SARLAFT.</p>
         </div>
       )}
     </div>
@@ -289,7 +398,8 @@ function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string
         <button key={i} className={`reco ${r.recomendado ? "top" : ""}`} onClick={() => onPick(r.nombre)}>
           {r.recomendado && <span className="reco-badge">★ Recomendado para ti</span>}
           <span className="reco-name">{r.nombre}</span>
-          {r.razon && <span className="reco-why">{r.razon}</span>}
+          {/* El porqué del #1 ya vive en la PropensionCard; aquí solo lo mostramos para las opciones. */}
+          {!r.recomendado && r.razon && <span className="reco-why">{r.razon}</span>}
           <span className="reco-cta">Elegir este →</span>
         </button>
       ))}
@@ -301,11 +411,18 @@ function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string
 function ProcessingCard({ variant }: { variant: "emision" | "reco" }) {
   const SETS: Record<string, string[]> = {
     emision: ["Validando tu información…", "Consultando con la aseguradora…", "Personalizando tu cobertura…", "Generando tu certificado…"],
-    reco: ["Analizando tu situación…", "Comparando coberturas de nuestras aseguradoras…", "Eligiendo lo mejor para tu caso…"],
+    // Los pasos REALES del motor de propensión (no relleno): demuestran el "no caja negra".
+    reco: [
+      "Leyendo tu perfil de vida…",
+      "Sumando las señales que aplican a tu caso…",
+      "Descartando lo que no puedes tener y lo que hoy no te conviene…",
+      "Ordenando por propensión, de forma determinista…",
+      "Redactando el porqué de cada recomendación…",
+    ],
   };
   const steps = SETS[variant];
   const sub = variant === "reco"
-    ? "Amparito está personalizando tus opciones."
+    ? "Motor de propensión explicable · reglas que puedes auditar, no una caja negra."
     : "Estamos personalizando tu seguro con estándar de calidad Colsubsidio.";
   const [i, setI] = useState(0);
   useEffect(() => {
@@ -393,9 +510,98 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
   );
 }
 
+/* ===== Tarjeta de propensión (el porqué: WhyThis + GapsLedger + PeerProof + Descartados) ===== */
+function PropensionCard({ data }: { data: Record<string, any> }) {
+  const recs = (data.recomendaciones ?? []) as Array<{ nombre: string; aseguradora: string; reason_codes: string[] }>;
+  const descartados = (data.descartados ?? []) as Array<{ nombre: string; motivo: string }>;
+  const riesgos = (data.ledger?.riesgos_hoy ?? []) as string[];
+  const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
+  const peer = data.peer as { descripcion: string; n: number; pct: number } | null;
+  const top = recs[0];
+
+  return (
+    <div className="propcard">
+      <div className="pp-head">
+        <span className="pp-eyebrow">Por qué esto es para ti</span>
+        <div className="pp-title">Así analicé tu protección</div>
+      </div>
+
+      {/* Anti-venta como HÉROE — el momento honesto que gana confianza */}
+      {yaCubierto.length > 0 && (
+        <div className="pp-antiventa">
+          <span className="pp-av-ico">✋</span>
+          <div>
+            <b>No te lo vendo de nuevo.</b>
+            <span>{yaCubierto.map((c) => c.razon).join(" · ")}.</span>
+          </div>
+        </div>
+      )}
+
+      {/* WhyThis — el porqué del #1, con sus reason codes */}
+      {top && (
+        <div className="pp-why">
+          <div className="pp-why-top">
+            <span className="pp-check">✓</span>
+            <div>
+              <b>{top.nombre}</b>
+              <small>{top.aseguradora}</small>
+            </div>
+          </div>
+          <ul className="pp-reasons">
+            {top.reason_codes.map((r, i) => (
+              <li key={i}><span className="pp-dot" />{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* GapsLedger — riesgos hoy vs lo que ya tiene (anti-venta) */}
+      <div className="pp-ledger">
+        <div className="pp-col risk">
+          <div className="pp-col-lbl">Riesgos hoy</div>
+          {riesgos.length ? (
+            <ul>{riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul>
+          ) : (
+            <p className="pp-empty">—</p>
+          )}
+        </div>
+        <div className="pp-col cov">
+          <div className="pp-col-lbl">Ya cubierto</div>
+          {yaCubierto.length ? (
+            <ul>{yaCubierto.map((c, i) => <li key={i}>{c.producto}</li>)}</ul>
+          ) : (
+            <p className="pp-empty">Nada aún</p>
+          )}
+        </div>
+      </div>
+
+      {/* PeerProof — tamaño REAL del segmento (honesto, sin fracción de compra inventada) */}
+      {peer && peer.n > 0 && (
+        <div className="pp-peer">
+          No estás solo: hay <b>{peer.n.toLocaleString("es-CO")}</b> afiliados en tu mismo segmento ({peer.descripcion}) dentro de Colsubsidio.
+        </div>
+      )}
+
+      {/* Descartados — la pregunta de segundo orden: por qué NO lo otro */}
+      {descartados.length > 0 && (
+        <details className="pp-disc" open>
+          <summary>Por qué NO te recomendé lo demás</summary>
+          <ul>
+            {descartados.map((x, i) => (
+              <li key={i}><b>{x.nombre}:</b> {x.motivo}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 /* ===== Tarjetas ===== */
 function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
+
+  if (event.type === "propension") return <PropensionCard data={d} />;
 
   if (event.type === "quote") {
     const regulado = d.precio_tipo === "regulado";

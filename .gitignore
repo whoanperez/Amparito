@@ -1,0 +1,25 @@
+# Dependencias / build
+node_modules/
+.next/
+out/
+dist/
+
+# Entorno / secretos
+.env
+.env.local
+.env*.local
+
+# --- PROTECCIÓN DE PII (crítico) ---
+# La base real de afiliados trae NOMBRE_COMPLETO (dato personal, Ley 1581).
+# NUNCA subir el CSV crudo al repo. Solo se versionan salidas derivadas SIN PII
+# (data/base_stats.json, weights.json, eventos_vida.json).
+*.csv
+Usos_Productos_Afiliados*
+
+# TypeScript / Next (generados)
+*.tsbuildinfo
+next-env.d.ts
+
+# OS / editor
+.DS_Store
+*.log
