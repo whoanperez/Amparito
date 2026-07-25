@@ -8,6 +8,7 @@
  * gateway — el lookup solo se disparaba desde un formulario.
  */
 import { detectarCiudad, detectarNombre } from "../lib/afiliados/deteccion";
+import "./_env";
 import { identidadDe } from "./_identidad";
 import { getAffiliateGateway } from "../lib/afiliados";
 
@@ -111,15 +112,27 @@ async function main() {
 
   /* ── 6 · tope de enumeración ───────────────────────────────────────────── */
   console.log("\n===== Tope de búsquedas =====");
-  // El tope ya no lo lleva el resolver contando sobre el historial: lo lleva el estado, que es
-  // quien puede contarlo de verdad entre turnos. Se recorre turno a turno, como en la vida real.
-  let acumulado = (await identidadDe("soy Ana Perez")).estado;
-  for (const n of ["soy Luis Gomez", "soy Pedro Diaz", "soy Sara Ruiz"]) {
-    acumulado = (await identidadDe(n, acumulado)).estado;
-  }
-  check("tras 3 búsquedas se alcanza el tope", acumulado.identidad.intentos >= 3);
-  const quinto = await identidadDe("soy Juan Mora", acumulado);
-  check("y el quinto nombre ya NO consulta la base", quinto.hallazgo.estado === "sin_intento");
+  // Los nombres tienen que ser CIERTAMENTE inexistentes. Con nombres comunes ("Ana Perez",
+  // "Luis Gomez") esta prueba pasaba contra el sample de seis y fallaba contra Turso: en la base
+  // real esos nombres SÍ existen, así que la primera búsqueda reconocía a alguien, la identidad
+  // quedaba congelada y no había más búsquedas que contar. El tope nunca se alcanzaba porque el
+  // flujo se detenía antes, correctamente.
+  //
+  // No es elegir datos convenientes: es controlar la variable que se está midiendo. Que el tope
+  // funcione es lo que se prueba; que "Ana Perez" exista o no es ruido.
+  const INEXISTENTES = [
+    "soy Zulema Trastamara Quispe",
+    "soy Bartolomeo Vercingetorix Nu",
+    "soy Ludmila Oyelaran Kowalczyk",
+    "soy Anastasio Vukovic Ferreiro",
+  ];
+  let acumulado = (await identidadDe(INEXISTENTES[0])).estado;
+  for (const n of INEXISTENTES.slice(1)) acumulado = (await identidadDe(n, acumulado)).estado;
+  check(`ninguno de los ${INEXISTENTES.length} nombres de prueba existe en la base`,
+    acumulado.identidad.resultado === "no_encontrado");
+  check("y tras esas búsquedas se alcanza el tope", acumulado.identidad.intentos >= 3);
+  const siguiente = await identidadDe("soy Casimiro Etxeberria Nakagawa", acumulado);
+  check("el nombre siguiente ya NO consulta la base", siguiente.hallazgo.estado === "sin_intento");
 
   console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
   process.exit(ok ? 0 : 1);

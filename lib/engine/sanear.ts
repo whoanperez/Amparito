@@ -54,8 +54,9 @@ export interface Saneado {
   descartes: string[];
 }
 
-/* Mismos valores que el esquema de la tool: cualquier cosa fuera de aquí se cae. */
-const ENUM: Record<string, readonly string[]> = {
+/* Mismos valores que el esquema de la tool: cualquier cosa fuera de aquí se cae.
+ * Se EXPORTA para que los gates comprueben el contrato real en vez de una copia suya. */
+export const ENUM: Record<string, readonly string[]> = {
   GENERO: ["F", "M"],
   RANGO_EDAD: ["Menor de 19 años", "20 a 35 años", "36 a 45 años", "46 a 55 años", "Mayor de 55 años"],
   CATEGORIA: ["A", "B", "C"],

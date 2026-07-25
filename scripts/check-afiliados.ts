@@ -12,8 +12,10 @@
  *     pierde la señal de grupo familiar y el PeerProof desaparece en silencio;
  *  3) el motor produce recomendaciones y encuentra la celda de peer-group.
  */
+import "./_env";
 import { createClient } from "@libsql/client";
 import { getAffiliateGateway } from "../lib/afiliados";
+import { ENUM } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { lookupPeer } from "../lib/engine/peer";
 import type { Perfil } from "../lib/engine/types";
@@ -21,13 +23,27 @@ import type { Perfil } from "../lib/engine/types";
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
-// Las etiquetas crudas del CSV vienen TODO EN MAYÚSCULAS ("FAMILIA MONOPARENTAL"); las canónicas
-// del motor, capitalizadas ("Monoparental", "Pareja conyugal"). Si sobrevive una cruda, el gate falla.
-const esCruda = (v: string) => v === v.toUpperCase();
+/**
+ * Aquí vivía `esCruda = (v) => v === v.toUpperCase()`, y el check era
+ * `!seg.grupo_familiar || !esCruda(seg.grupo_familiar)`. Tres agujeros a la vez:
+ *
+ *   · `"" === "".toUpperCase()` es true, y el `||` de escape lo dejaba pasar igual: el valor
+ *     VACÍO —el fallo silencioso que la cabecera de este archivo dice proteger— salía verde;
+ *   · solo detectaba MAYÚSCULAS. `canonGrupoFamiliar` deja pasar tal cual cualquier etiqueta
+ *     desconocida, así que un "Familia Monoparental" del CSV pasaba el check y el motor perdía
+ *     la señal;
+ *   · afirmaba la AUSENCIA de algo malo, que es lo que nunca falla cuando desaparece todo.
+ *
+ * Ahora se afirma la PRESENCIA: el valor tiene que ser uno de los que el motor acepta de verdad,
+ * leídos de su propia definición y no de una copia.
+ */
+const CANONICOS = ENUM.SEGMENTO_GRUPO_FAMILIAR;
 
 let fallos = 0;
+let checks = 0;
 const check = (ok: boolean, msg: string) => {
-  console.log(`  ${ok ? "OK  " : "FALLA"} · ${msg}`);
+  checks++;
+  console.log(`   ${ok ? "✅" : "❌"} ${msg}`);
   if (!ok) fallos++;
 };
 
@@ -59,6 +75,7 @@ async function main() {
 
   const gw = getAffiliateGateway();
   const casos = await candidatos();
+  let conPeer = 0;
   if (!casos.length) throw new Error("No se encontraron afiliados de prueba en la base.");
 
   for (const caso of casos) {
@@ -76,8 +93,8 @@ async function main() {
         `${seg.grupo_familiar ?? "(sin grupo)"} · ${seg.poblacional ?? "-"}`
     );
     check(
-      !seg.grupo_familiar || !esCruda(seg.grupo_familiar),
-      `grupo familiar canónico (no cruda del CSV)`
+      !!seg.grupo_familiar && CANONICOS.includes(seg.grupo_familiar),
+      `grupo familiar canónico: "${seg.grupo_familiar ?? "(vacío)"}" ∈ los que acepta el motor`
     );
 
     const perfil: Perfil = {
@@ -95,12 +112,24 @@ async function main() {
     }
 
     const peer = lookupPeer(perfil);
-    // n<1000 es un "no afirmamos nada" legítimo, no un fallo: solo exigimos que no se caiga
-    // por vocabulario. Reportamos cuál de las dos cosas pasó.
     console.log(`       peer: ${peer ? `${peer.n.toLocaleString("es-CO")} personas · ${peer.descripcion}` : "sin celda (n<1000 o eje faltante)"}`);
+    if (peer) conPeer++;
   }
 
-  console.log(`\n${fallos === 0 ? "GATE OK — arranque caliente end-to-end" : `GATE FALLA — ${fallos} problema(s)`}`);
+  // #17 · La prueba social se CALCULABA, se imprimía y no se verificaba nunca. La cabecera de
+  // este archivo promete que "el motor encuentra la celda de peer-group", y esa mitad de la
+  // promesa no estaba cubierta: `lookupPeer` podía devolver null para los tres candidatos y el
+  // gate salía verde. La regresión que ya perdió la prueba social una vez volvería a pasar.
+  //
+  // Un n<1000 suelto es un "no afirmamos nada" legítimo, así que no se exige celda en CADA caso;
+  // pero que NINGUNO de los candidatos —elegidos con los cuatro ejes completos— encuentre celda
+  // sí es el síntoma de que el vocabulario se rompió.
+  check(
+    conPeer > 0,
+    `al menos un candidato con los 4 ejes encuentra su celda de peer-group (${conPeer}/${casos.length})`
+  );
+
+  console.log(`\n${fallos === 0 ? `GATE OK — ${checks} checks, arranque caliente end-to-end` : `GATE FALLA — ${fallos} de ${checks}`}`);
   process.exit(fallos === 0 ? 0 : 1);
 }
 

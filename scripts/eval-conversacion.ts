@@ -17,6 +17,7 @@
 import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "../lib/prompts";
 import { estadoInicial } from "../lib/estado/tipos";
 import { siguienteFase } from "../lib/estado/reducir";
+import "./_env";
 import { identidadDe } from "./_identidad";
 import { getAffiliateGateway } from "../lib/afiliados";
 import { sanearPerfil } from "../lib/engine/sanear";
