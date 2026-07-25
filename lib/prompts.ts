@@ -154,10 +154,7 @@ const COMO_RECOMENDAR = `
 Llama calcular_propension con el perfil que tengas. La herramienta muestra sola una tarjeta con el porqué (razones, brechas, prueba social y descartados); NO repitas ese contenido en texto.
 Si la tool devuelve algo en "obligatorios", eso va PRIMERO, antes de cualquier recomendación, y se nombra por lo que es: una obligación legal, no una sugerencia tuya. Di la consecuencia real de no tenerlo en una frase (ej. "si andas sin SOAT te pueden inmovilizar la moto y te multan, y si trabajas en ella eso es quedarte sin ingreso el mismo día"). NUNCA lo trates como "algo que puedes sumar más adelante" ni lo pongas a competir con lo que tú recomiendas.
 Si el ledger trae algo en "ya_cubierto", reconócelo con honestidad y sin vender de nuevo (ej. "veo que el Exequial ya lo tienes con Colsubsidio, así que no te lo ofrezco otra vez").
-Luego escribe una frase corta de introducción y lista las recomendaciones que devolvió la tool, cada una en su propia línea con este formato EXACTO:
-RECOMENDACION: <nombre exacto del producto> | recomendado | <razón corta tomada de los reason_codes de la tool>
-RECOMENDACION: <nombre exacto del producto> | opcion | <razón corta tomada de los reason_codes>
-Marca como "recomendado" la primera del ranking y las demás como "opcion". Usa el nombre EXACTO y las razones que devolvió la tool (no inventes). NO uses OPCIONES en este estado ni pongas precios; el sistema muestra estas líneas como tarjetas seleccionables.
+LAS TARJETAS LAS PINTA EL SISTEMA, no tú: los productos, su orden y sus razones salen directo del motor, así que no tienes que listarlos ni copiar nombres. Tú escribe LIBRE, en tus palabras, dos o tres líneas que hagan sentir el porqué del primero — usando las razones que devolvió la tool, sin inventar ninguna. Es el momento más importante de la conversación: háblale de su vida, no del catálogo. No pongas precios todavía.
 Si la prueba social no viene en el resultado, NO la menciones ni la aproximes: significa que no tenemos los datos verificados para afirmarla.
 Si calcular_propension devuelve la lista de recomendaciones VACÍA, falta un dato clave: no te quedes callado ni improvises un producto. Pregunta UNA sola cosa relevante y vuelve a llamar la tool con ese dato.
 `.trim();
@@ -224,7 +221,7 @@ DATOS POR FORMULARIO: cuando quiera continuar, enmarca el paso como confirmar su
 
 IMPACTO DE INGRESO: si le recomendaste un Seguro de Vida a alguien que sostiene su hogar y tiene dependientes, puedes ayudarle a SENTIR el porqué con calcular_impacto_ingreso. Nunca lo condiciones a ver el precio (primero el precio, después esto), nunca pidas la cifra exacta (usa rangos con OPCIONES), y si la persona declina o dijo que no tiene ingresos, no insistas y no corras la calculadora.
 
-Si cambia de idea y quiere ver otras opciones, vuelve a recomendar con el mismo formato de RECOMENDACION.
+Si cambia de idea y quiere ver otras opciones, vuelve a llamar calcular_propension: el sistema repinta las tarjetas solo.
 `.trim(),
 };
 
@@ -236,20 +233,21 @@ Recuerda: primero la compuerta (A, B o C), UNA sola pregunta por turno, texto pl
    API
    ────────────────────────────────────────────────────────────────────────── */
 
-/** Marcador que Amparito escribe al recomendar. Es la señal observable de que ya recomendó. */
+/** Respaldo: si el cliente no manda la señal, se busca el marcador que el modelo pudo escribir. */
 const MARCADOR_RECOMENDACION = "RECOMENDACION:";
 
 /**
- * Deriva el estado de lo observable. El route es stateless: solo ve el historial y si llegó un
- * afiliado. No intenta adivinar "cotizado" ni "confirmado" — son eventos, no texto.
+ * Deriva el estado. La señal principal es `yaRecomendo`, que la manda el CLIENTE porque él sabe qué
+ * pintó — el route es stateless. Antes esto se leía de que el modelo escribiera "RECOMENDACION:" con
+ * formato exacto: una tilde en "RECOMENDACIÓN:" y la conversación no salía nunca de DESCUBRIENDO.
  */
 export function detectarEstado(
   messages: { role: "user" | "assistant"; content: string }[],
-  opts: { afiliadoReconocido?: boolean } = {}
+  opts: { afiliadoReconocido?: boolean; yaRecomendo?: boolean } = {}
 ): Estado {
-  const yaRecomendo = messages.some(
-    (m) => m.role === "assistant" && m.content.includes(MARCADOR_RECOMENDACION)
-  );
+  const yaRecomendo =
+    opts.yaRecomendo ||
+    messages.some((m) => m.role === "assistant" && m.content.includes(MARCADOR_RECOMENDACION));
   if (yaRecomendo) return "ASESORANDO";
   if (opts.afiliadoReconocido) return "RECONOCIDO";
   const turnosUsuario = messages.filter((m) => m.role === "user").length;

@@ -18,9 +18,12 @@ const MAX_TOOL_ROUNDS = 8;
  */
 export async function POST(req: NextRequest) {
   try {
-    const { messages, afiliado } = (await req.json()) as {
+    const { messages, afiliado, yaRecomendo } = (await req.json()) as {
       messages: { role: "user" | "assistant"; content: string }[];
       afiliado?: { nombre?: string; ciudad?: string };
+      // El cliente sabe qué pintó; el servidor es stateless. Sustituye la lectura del marcador
+      // "RECOMENDACION:" en el texto, que dependía de que el modelo lo escribiera exacto.
+      yaRecomendo?: boolean;
     };
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "messages requerido" }, { status: 400 });
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
     // v4 · el estado lo decide el SERVIDOR y solo viaja el bloque de ese estado. Antes todo el
     // prompt iba en cada turno y las secciones competían: el arranque caliente perdía contra el
     // ESTADO 2 ("haz 1 a 3 micro-preguntas"), que era más específico.
-    const estado = detectarEstado(messages, { afiliadoReconocido });
+    const estado = detectarEstado(messages, { afiliadoReconocido, yaRecomendo });
     const textoUsuario = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
 
     // Lo que ya está evidente en la conversación, derivado del texto. El route es stateless, así
