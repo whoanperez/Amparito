@@ -882,10 +882,15 @@ function EventCard({ event }: { event: UiEvent }) {
   if (event.type === "policy") {
     const ins = insurerOf(String(d.aseguradora));
     const per = String(d.periodicidad).replace("_", " ");
+    // La tarjeta refleja lo que devolvió el adaptador, no un valor fijo: hoy es SIMULADA porque no
+    // hay aseguradora conectada, y el día que la haya la UI dirá la verdad sin tocar nada.
+    const simulada = String(d.estado ?? "SIMULADA") !== "ACTIVA";
     return (
       <div className="policycard">
         <div className="pc-top">
-          <span className="pc-badge sim">SIMULACIÓN · demo</span>
+          <span className={`pc-badge ${simulada ? "sim" : ""}`}>
+            {simulada ? "SIMULACIÓN · demo" : "✓ Póliza activa"}
+          </span>
           <div className="pc-logo">
             <span className="pc-mono" style={{ background: ins.color }}>{ins.short.charAt(0)}</span>
             <span className="pc-brand" style={{ color: ins.color }}>{ins.short}</span>
@@ -895,16 +900,18 @@ function EventCard({ event }: { event: UiEvent }) {
         <div className="pc-id">{String(d.policyId)}</div>
         <div className="pc-grid">
           <div><small>Tomador</small><b>{String(d.asegurado)}</b></div>
-          <div><small>Vigencia que tendría</small><b>{String(d.vigenciaMeses)} meses</b></div>
-          <div><small>Pagaría</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
-          <div><small>Estado</small><b className="sim">Simulada</b></div>
+          <div><small>{simulada ? "Vigencia que tendría" : "Vigencia"}</small><b>{String(d.vigenciaMeses)} meses</b></div>
+          <div><small>{simulada ? "Pagaría" : "Pagas"}</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
+          <div><small>Estado</small><b className={simulada ? "sim" : "ok"}>{simulada ? "Simulada" : "Activa"}</b></div>
         </div>
-        <div className="pc-cert-label">Certificado simulado</div>
+        <div className="pc-cert-label">{simulada ? "Certificado simulado" : "Certificado digital"}</div>
         <div className="cert">{String(d.certificado)}</div>
-        <p className="pc-sim-note">
-          Esta es una simulación del proceso completo. <b>No se emitió ninguna póliza</b> y no vas a
-          recibir ningún correo.
-        </p>
+        {simulada && (
+          <p className="pc-sim-note">
+            Esta es una simulación del proceso completo. <b>No se emitió ninguna póliza</b> y no vas a
+            recibir ningún correo.
+          </p>
+        )}
       </div>
     );
   }

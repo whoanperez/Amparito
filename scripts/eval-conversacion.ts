@@ -1,0 +1,224 @@
+/**
+ * EVAL DE CONVERSACIÓN (B10) — el gate que se corre antes de cada demo.
+ *   npx tsx scripts/eval-conversacion.ts
+ *   (con TURSO_* para probar contra la base real; sin ellas usa el sample sintético)
+ *
+ * POR QUÉ EXISTE. Hay gates excelentes para el motor y CERO para el comportamiento. Y ya hubo una
+ * regresión invisible: la regla de empatía existía en docs/system_prompt_amparito_v2.md:64 y
+ * desapareció en la v3 sin que nadie lo notara. Sin esto, cada cambio de prompt es una apuesta.
+ *
+ * QUÉ PRUEBA. La capa determinista del servidor, que es donde viven las garantías: qué estado se
+ * calcula, qué contexto se inyecta, qué sobrevive la compuerta de entrada y qué devuelve el motor.
+ * Cada escenario le pasa al servidor la salida que EL MODELO MANDARÍA —a propósito adversarial— y
+ * verifica que las compuertas la neutralicen. No necesita ANTHROPIC_API_KEY.
+ *
+ * LO QUE NO PRUEBA. La redacción del modelo. Eso solo se ve en vivo, y queda anotado abajo.
+ */
+import { buildSystemPrompt, contarPreguntas, detectarEstado, esDobleCanon } from "../lib/prompts";
+import { resolverIdentidad } from "../lib/afiliados/resolver";
+import { getAffiliateGateway } from "../lib/afiliados";
+import { sanearPerfil } from "../lib/engine/sanear";
+import { calcularPropension } from "../lib/engine/scorecard";
+import { executeTool } from "../lib/tools";
+import { copyCierre } from "../lib/expedicion";
+
+let fallos = 0;
+let total = 0;
+const check = (label: string, cond: boolean, detalle?: string) => {
+  total++;
+  console.log(`   ${cond ? "✅" : "❌"} ${label}${detalle ? `  ${detalle}` : ""}`);
+  if (!cond) fallos++;
+};
+const titulo = (t: string) => console.log(`\n───── ${t} ─────`);
+const u = (content: string) => ({ role: "user" as const, content });
+const a = (content: string) => ({ role: "assistant" as const, content });
+
+/** Todo lo que la persona escribió: es lo que el servidor usa para verificar evidencia. */
+const texto = (msgs: { role: string; content: string }[]) =>
+  msgs.filter((m) => m.role === "user").map((m) => m.content).join("\n");
+
+async function main() {
+  const fuente = process.env.TURSO_DATABASE_URL ? "Turso (base completa)" : "sample sintético";
+  console.log(`Eval de conversación · fuente de afiliados: ${fuente}`);
+
+  /* ═══ 1 · Afiliado reconocido: valor antes que preguntas ═══════════════════ */
+  titulo("1 · Nombre reconocido → tarjeta sin interrogatorio");
+  const nombreReal = process.env.TURSO_DATABASE_URL
+    ? await (async () => {
+        for (const c of ["maria fernanda amaya mora", "gerardo galvis penaloza"]) {
+          if ((await getAffiliateGateway().buscar(c)).estado === "unico") return c;
+        }
+        return null;
+      })()
+    : "carolina ramirez lopez";
+
+  if (!nombreReal) {
+    check("hay un afiliado real para la prueba", false);
+  } else {
+    const msgs = [u(`soy ${nombreReal}`)];
+    const id = await resolverIdentidad(msgs);
+    check("se reconoce en el primer mensaje", id.estado === "reconocido");
+    check("el estado del prompt es RECONOCIDO", detectarEstado(msgs, { afiliadoReconocido: true }) === "RECONOCIDO");
+
+    const prompt = buildSystemPrompt("RECONOCIDO", id.contexto);
+    check("el prompt PROHÍBE perfilar", prompt.includes("PROHIBIDO hacerle preguntas de perfilamiento"));
+    check("NO trae el presupuesto de preguntas de descubrimiento", !prompt.includes("PRESUPUESTO DE DOS PREGUNTAS"));
+    check("el segmento verificado va en el contexto", prompt.includes("SEGMENTO VERIFICADO"));
+
+    // El motor con SOLO el segmento de la base ya debe recomendar: eso es "tarjeta en el mensaje 2".
+    const seg = id.segmento!;
+    const { perfil } = sanearPerfil({}, {
+      textoUsuario: texto(msgs),
+      segmentoBase: {
+        GENERO: seg.genero, RANGO_EDAD: seg.rango_edad, CATEGORIA: seg.categoria,
+        SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar, SEGMENTO_POBLACIONAL: seg.poblacional,
+      },
+    });
+    const r = calcularPropension(perfil);
+    check("recomienda con CERO preguntas", r.recomendaciones.length > 0,
+      `→ ${r.recomendaciones.map((x) => x.nombre).join(", ")}`);
+    check("y con los 4 ejes verificados SÍ afirma la prueba social", r.peer !== null,
+      r.peer ? `→ ${r.peer.n.toLocaleString("es-CO")}` : "");
+  }
+
+  /* ═══ 2 · Nombre que no está: se dice claro y se sigue ═════════════════════ */
+  titulo("2 · Nombre inventado → copy A y la conversación continúa");
+  const inv = await resolverIdentidad([u("soy Zulema Trastamara Quispe Vergara")]);
+  check("no encontrado", inv.estado === "no_encontrado");
+  check("usa el copy A", (inv.contexto ?? "").includes("No apareces en la base de afiliados"));
+  check('NUNCA dice "no eres afiliado"', (inv.contexto ?? "").includes('NUNCA digas "no eres afiliado"'));
+  check("no se bloquea el flujo (no hay error ni corte)", inv.segmento === undefined && !!inv.contexto);
+
+  /* ═══ 3 · Anónimo: presupuesto de dos preguntas ════════════════════════════ */
+  titulo("3 · Anónimo → máximo 2 preguntas antes de la tarjeta");
+  const anon = [u("hola"), a("¿qué te trae por aquí?"), u("compré una moto")];
+  check("el estado es DESCUBRIENDO", detectarEstado(anon) === "DESCUBRIENDO");
+  const pDesc = buildSystemPrompt("DESCUBRIENDO");
+  check("el prompt fija el presupuesto en dos", pDesc.includes("PRESUPUESTO DE DOS PREGUNTAS"));
+  check("y prohíbe encadenar temas con 'o'", pDesc.includes('PROHIBIDO encadenar dos temas con "o"'));
+
+  /* ═══ 4 · Sin ingresos: cero productos de pago ═════════════════════════════ */
+  titulo("4 · \"no tengo ingresos\" → no se vende nada");
+  const sinIngreso = calcularPropension(
+    sanearPerfil(
+      { SEGMENTO_GRUPO_FAMILIAR: "Pareja conyugal", enriquecido: { sin_ingresos: true, tiene_vehiculo: ["carro"] } },
+      { textoUsuario: "tengo familia y no tengo trabajo\nno tengo ingresos\nsi carro" }
+    ).perfil
+  );
+  check("CERO productos de pago", sinIngreso.recomendaciones.length === 0);
+  check("ni el SOAT", sinIngreso.obligatorios.length === 0);
+  check("aparece el motivo del no", !!sinIngreso.no_venta?.motivo);
+  check("ofrece lo que la CAJA sí tiene",
+    /subsidio al desempleo/i.test(sinIngreso.no_venta?.alternativa ?? "") &&
+    /agencia de empleo/i.test(sinIngreso.no_venta?.alternativa ?? ""));
+  const pBase = buildSystemPrompt("DESCUBRIENDO");
+  check("el prompt manda PARAR el cuestionario ante algo difícil", pBase.includes("PARA el cuestionario"));
+  check('y aclara que "Entiendo" no es reconocer', pBase.includes("son despachar"));
+
+  /* ═══ 5 · Moto sin SOAT: la ley antes que la recomendación ═════════════════ */
+  titulo("5 · Moto sin SOAT → obligatorio, nunca descartado");
+  const moto = calcularPropension(
+    sanearPerfil(
+      { SEGMENTO_GRUPO_FAMILIAR: "Monoparental ampliada", enriquecido: { tiene_vehiculo: ["moto"], dependientes: 1 } },
+      { textoUsuario: "compré una moto y la uso para trabajar\nno tengo SOAT\nmi mamá depende de mí" }
+    ).perfil
+  );
+  check("SOAT en obligatorios", moto.obligatorios.some((o) => o.id === "soat_mundial"),
+    `→ ${moto.obligatorios.map((o) => o.nombre).join(", ") || "—"}`);
+  check("SOAT NO en descartados", !moto.descartados.some((d) => d.id === "soat_mundial"));
+  check("SOAT NO compite en el ranking", !moto.recomendaciones.some((x) => x.id === "soat_mundial"));
+  check("trae la consecuencia legal real", /inmoviliz/i.test(moto.obligatorios[0]?.consecuencia ?? ""));
+  check("los descartados no repiten la misma frase",
+    new Set(moto.descartados.map((d) => d.motivo)).size === moto.descartados.length);
+
+  /* ═══ 6 · Perfil adversarial: la compuerta de entrada ══════════════════════ */
+  titulo("6 · El modelo inventa → el servidor lo descarta");
+  // Exactamente lo que el modelo mandó en la conversación real que rompió el producto.
+  const adv = sanearPerfil(
+    {
+      GENERO: "M", RANGO_EDAD: "36 a 45 años", CATEGORIA: "B",
+      SEGMENTO_GRUPO_FAMILIAR: "Pareja conyugal",
+      enriquecido: { tiene_vehiculo: ["carro"], vivienda: "propia" },
+      marca: { VIVIENDA: "SI" },
+    },
+    { textoUsuario: "tengo familia, y no tengo trabajo\nno tengo ingresos\nmi esposa\nsi carro\npropio\nuso personal" }
+  );
+  check("CATEGORIA descartada", adv.perfil.CATEGORIA === undefined);
+  check("RANGO_EDAD descartada", adv.perfil.RANGO_EDAD === undefined);
+  check("GENERO descartado", adv.perfil.GENERO === undefined);
+  check("vivienda fabricada descartada", adv.perfil.enriquecido?.vivienda === undefined);
+  check("marca.* rechazada (es dato de la base)", adv.perfil.marca === undefined);
+  check("el carro sí se acepta (lo dijo)", adv.perfil.enriquecido?.tiene_vehiculo?.includes("carro") === true);
+  const advR = calcularPropension(adv.perfil);
+  check("el top-1 ya no es Hogar", advR.recomendaciones[0]?.nombre !== "Seguro de Hogar y Contenidos",
+    `→ ${advR.recomendaciones[0]?.nombre ?? "—"}`);
+  check("prueba social AUSENTE sin ejes verificados", advR.peer === null);
+
+  /* ═══ 7 · Guarda de la pregunta de doble cañón ═════════════════════════════ */
+  titulo("7 · Doble cañón → la guarda lo detecta");
+  const mala = "¿tienes algún vehículo (carro, moto o bici), o tu vivienda es propia o en arriendo?";
+  check("se detecta aunque tenga UN solo signo", esDobleCanon(mala), `(? = ${contarPreguntas(mala)})`);
+  check("dos preguntas separadas también", contarPreguntas("¿es propio? Además, ¿lo usas para trabajar?") > 1);
+  check("una pregunta con opciones NO se marca", !esDobleCanon("¿La usas para el diario, para trabajar, o de vez en cuando?"));
+  check("la de mayor valor NO se marca", !esDobleCanon("¿Alguien depende de tu ingreso?"));
+
+  /* ═══ 8 · Ninguna cifra inventada ═════════════════════════════════════════ */
+  titulo("8 · Precios: ninguno inventado");
+  const soat = await executeTool("quote_product", { productId: "soat_mundial", perfil: { edad: 30 } });
+  check("SOAT no muestra ningún número", (soat.result as Record<string, unknown>).sin_precio === true);
+  check("y explica de qué depende la tarifa", /cilindraje/i.test(String((soat.result as Record<string, unknown>).motivo ?? "")));
+
+  for (const id of ["arrendamiento_mundial", "salud_bmi", "todo_riesgo_carro_chubb"]) {
+    const q = await executeTool("quote_product", { productId: id, perfil: { edad: 40 } });
+    const r0 = q.result as Record<string, unknown>;
+    check(`${id}: sin número (requiere asesoría)`, r0.error === "PRODUCTO_REQUIERE_ASESORIA");
+  }
+
+  const vida = await executeTool("quote_product", { productId: "vida_panamerican", perfil: { edad: 39 } });
+  const vr = vida.result as Record<string, unknown>;
+  check("Vida sí cotiza", Number(vr.prima) > 0, `→ $${Number(vr.prima).toLocaleString("es-CO")}`);
+  check("el valor asegurado se declara (null explícito, no inventado)", vr.valor_asegurado === null);
+  check("y el modelo recibe la orden de decir la verdad",
+    /NUNCA inventes una cifra/i.test(String(vr.instruccion_valor_asegurado ?? "")));
+
+  const sinEdad = await executeTool("quote_product", { productId: "vida_panamerican", perfil: {} });
+  check("sin edad no se asume 30 en silencio",
+    (sinEdad.event?.data as Record<string, unknown>).edad_usada === null);
+
+  /* ═══ 9 · El cierre no promete lo que no pasa ══════════════════════════════ */
+  titulo("9 · Cierre honesto y con el proceso explicado");
+  const cierre = copyCierre("Pan-American Life");
+  check("dice que es una simulación", /simulación del proceso/i.test(cierre));
+  check("no promete un correo", !/llegará al correo/i.test(cierre));
+  check("explica los pasos del handoff", /Colsubsidio recibe tu solicitud/.test(cierre) && /expide la póliza/.test(cierre));
+  check("dice qué hacer si no llega", /lo rastreo/i.test(cierre));
+
+  const pol = await executeTool("issue_policy", {
+    quoteId: String((vida.event?.data as Record<string, unknown>).quoteId),
+    consentimiento: true,
+    contacto: { nombre: "Demo Demo", tipoDocumento: "CC", numeroDocumento: "1", fechaNacimiento: "01/01/1990", celular: "3000000000", correo: "d@e.com" },
+  });
+  const pd = pol.event?.data as Record<string, unknown>;
+  check("el certificado se rotula como simulación", /SIMULACIÓN/.test(String(pd.certificado)));
+  check('el estado que ve el modelo es "SIMULADA"',
+    String((pol.result as Record<string, unknown>).estado) === "SIMULADA");
+  check("y la UI recibe el mismo estado (no un texto fijo)", String(pd.estado) === "SIMULADA");
+
+  /* ═══ Resumen ═════════════════════════════════════════════════════════════ */
+  console.log(`\n${"═".repeat(66)}`);
+  console.log(`${total - fallos}/${total} aserciones OK`);
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.log(
+      "\n⚠️  Sin ANTHROPIC_API_KEY no se evalúa la REDACCIÓN del modelo (que respete el copy, que no\n" +
+        "   invente coberturas, que suene humano). Eso solo se ve en vivo: correr una vez con la key\n" +
+        "   puesta antes del demo, con las 3 personas y con un nombre real de la base."
+    );
+  }
+  console.log(fallos === 0 ? "\n✅ EVAL OK" : `\n❌ EVAL FALLÓ (${fallos})`);
+  process.exit(fallos === 0 ? 0 : 1);
+}
+
+main().catch((e) => {
+  console.error("ERROR:", e.message);
+  process.exit(1);
+});

@@ -461,6 +461,9 @@ export async function executeTool(
           type: "policy",
           data: {
             policyId: policy.policyId,
+            // El estado viaja al evento para que la tarjeta diga la verdad según el adaptador:
+            // si algún día uno real devuelve "ACTIVA", la UI no puede seguir diciendo "simulada".
+            estado: policy.estado,
             producto: p?.nombre ?? policy.productId,
             aseguradora: p?.aseguradora ?? "",
             asegurado: contacto.nombre,
