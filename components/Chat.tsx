@@ -32,10 +32,12 @@ interface Contacto {
 // Una sola pregunta, y pide lo único que puede ahorrar cinco turnos: el nombre. El servidor lo
 // detecta en el texto y busca el segmento solo; identificarse nunca es obligatorio.
 const GREETING =
-  "¡Hola! Soy Amparito, la asistente de seguros de Colsubsidio 💛 Dime tu nombre y qué te trae por aquí. Si estás afiliado te reconozco y nos saltamos el interrogatorio.";
+  "Dime tu nombre: si estás afiliado a Colsubsidio te reconozco y nos saltamos el interrogatorio 💛 Soy Amparito — de amparar, protegerte. Y a veces te voy a decir que no.";
 
 // Chips de arranque: prellenan la casilla para que la persona complete y edite.
-const CHIPS_ENTRADA = ["Soy ", "Prefiero no dar mi nombre"];
+// El anti-venta es el momento que se recuerda tres horas después, y hoy había que provocarlo con
+// la frase exacta. Con el chip se DESCUBRE, que vale el doble.
+const CHIPS_ENTRADA = ["Soy ", "Me quedé sin trabajo", "Prefiero no dar mi nombre"];
 
 // Entrada pull-first: tarjetas grandes "¿Qué quieres proteger?" (reemplaza la caja vacía)
 const PROTEGER = [
@@ -68,12 +70,14 @@ const INTERES: Record<string, string> = {
   movilidad: "un seguro para mi vehículo",
 };
 
-// Modo jurado: perfiles del demo listos para que el jurado los pruebe solo (autogestión).
-// Cada apertura le da a Amparito lo justo para perfilar y correr el motor en vivo.
+// Autogestión del jurado: cada pastilla manda un NOMBRE, no una autobiografía. Así el primer
+// toque llega al reconocimiento contra la base —el foso— en vez de al camino genérico que
+// cualquier equipo pudo construir. Los tres existen en data/afiliados_muestra.json con sus 4
+// ejes completos, así que el momento sobrevive aunque la red del salón falle.
 const PERSONAS_DEMO = [
-  { key: "Andres", n: "Andrés, 28", msg: "Hola, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
-  { key: "Carolina", n: "Carolina, 39", msg: "Hola, tengo 39 años y soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
-  { key: "Jaime", n: "Jaime, 58", msg: "Hola, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
+  { key: "Carolina", n: "Carolina Ramírez", msg: "Soy Carolina Ramírez López" },
+  { key: "Andres", n: "Andrés Gómez", msg: "Soy Andrés Gómez Ruiz" },
+  { key: "Jaime", n: "Jaime Ortiz", msg: "Soy Jaime Ortiz Vega" },
 ];
 
 // Momento proactivo (timing/canal): Amparito abre la conversación tras un evento de vida real
@@ -204,12 +208,24 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
 
     try {
       const history = next.filter((i) => i.kind === "msg").map((i) => ({ role: i.role!, content: i.text! }));
+
+      // El teatro de explicabilidad (los pasos reales del motor) arranca ANTES de la llamada, para
+      // CUBRIR la latencia. Antes corría después de que la respuesta ya había llegado, así que le
+      // sumaba 2,5 s: el momento de más valor del producto aterrizaba detrás del silencio más
+      // largo de la demo. No hay streaming (decisión registrada), así que esto es la mitigación.
+      const esperaMinima = sleep(2200);
+      setProcessing("reco");
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, afiliado: afiliadoRef.current ?? undefined }),
       });
       const data = (await res.json()) as { reply: string; events: UiEvent[] };
+      // Si la respuesta llegó antes de que se alcancen a leer los pasos, se completa la espera; si
+      // tardó más, no se suma nada.
+      await esperaMinima;
+      setProcessing(null);
       const parsed = parseReply(data.reply || "");
 
       const eventItems: ChatItem[] = [];
@@ -232,13 +248,13 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const msgItems: ChatItem[] = [];
       if (parsed.text) msgItems.push({ kind: "msg", role: "assistant", text: parsed.text });
 
+      // (El teatro de explicabilidad ya arrancó ANTES del fetch: cubre la latencia real en vez de
+      //  sumarse a ella. Antes corría aquí, después de que la respuesta ya había llegado.)
       // Si hay recomendaciones -> pantalla de "evaluando opciones" y luego las tarjetas.
       // La TARJETA va antes del texto: la frase suele comentar lo que la tarjeta muestra ("¿quieres
       // que te cuente cómo funciona el de Hogar?"), y leerla antes de ver Hogar no tiene sentido.
       if (parsed.recs.length) {
         setBusy(false);
-        setProcessing("reco");
-        await sleep(2500);
         setProcessing(null);
         setItems((cur) => [...cur, ...eventItems, { kind: "recommend", recs: parsed.recs }, ...msgItems]);
         return true;
@@ -381,7 +397,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
               ))}
             </div>
             <div className="pf-jurado">
-              <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
+              <span className="pf-jurado-lbl">Teclea un nombre y te reconozco. Prueba con uno de la base:</span>
               <div className="pf-jurado-row">
                 {PERSONAS_DEMO.map((p) => (
                   <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>

@@ -104,6 +104,17 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
       },
       ledger: { riesgos_hoy: [], ya_cubierto: [] },
       peer: null,
+      // Negarse a vender también es una decisión, y es la que más vale auditar: hay que poder
+      // demostrar por qué el sistema NO ofreció nada. Sin esto, la única ruta del motor sin traza
+      // sería justamente la más delicada.
+      traza: {
+        version_reglas: String((weights as unknown as { _meta?: { version?: unknown } })._meta?.version ?? "?"),
+        perfil,
+        gate_asequibilidad: { categoria: perfil.CATEGORIA ?? "(vacío)", prioriza_prima_baja: true },
+        jerarquia_aplicada: false,
+        peer: { afirmada: false, motivo: "no se evalúa: no hay recomendación que sustentar" },
+        productos: [],
+      },
     };
   }
 

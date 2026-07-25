@@ -69,6 +69,23 @@ const TERMINOS_VEHICULO: Record<string, string[]> = {
   patineta: ["patineta", "monopatin", "scooter electric"],
 };
 
+/**
+ * Falta de ingreso HOY. Van con negación explícita a propósito: "trabajo en una empresa" y
+ * "mi esposa trabaja" NO pueden disparar el "hoy no te vendo nada". El texto llega normalizado
+ * (sin tildes, minúsculas), así que los patrones se escriben así.
+ */
+const SIN_INGRESOS: RegExp[] = [
+  /\bno tengo (trabajo|empleo|ingreso|ingresos|entrada|entradas|plata|con que|como pagar)\b/,
+  /\bno cuento con (ingresos?|trabajo|empleo)\b/,
+  /\b(estoy|ando|me quede|quede) (sin|desemplead)/,
+  /\bme dejaron sin (trabajo|empleo)\b/,
+  /\bsin (trabajo|empleo|ingresos)\b/,
+  /\bdesemplead[oa]\b/,
+  /\bcesante\b/,
+  /\bperdi (el|mi) (trabajo|empleo)\b/,
+  /\bme sacaron del trabajo\b/,
+];
+
 const TERMINOS_MASCOTA: Record<string, string[]> = {
   perro: ["perro", "perra", "perrito", "cachorro", "mascota"],
   gato: ["gato", "gata", "gatico", "michi", "mascota"],
@@ -215,12 +232,32 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
       origen[`enriquecido.${k}`] = "inferido";
     }
   }
-  const BOOL = ["necesidad_salud", "viaja", "tiene_credito", "mascota_veterinario_frecuente", "sin_ingresos"] as const;
+  const BOOL = ["necesidad_salud", "viaja", "tiene_credito", "mascota_veterinario_frecuente"] as const;
   for (const k of BOOL) {
     if (typeof enrBruto[k] === "boolean") {
       enr[k] = enrBruto[k];
       origen[`enriquecido.${k}`] = "inferido";
     }
+  }
+
+  // `sin_ingresos` NO puede quedar a criterio del modelo: dispara el "hoy no te vendo nada", que
+  // es el momento de mayor confianza del producto. Aquí la asimetría importa — un falso positivo
+  // mata una venta y se VE; un falso negativo (venderle a quien no puede pagar) es SILENCIOSO, y
+  // es el que hace daño. Así que el servidor decide, en las dos direcciones:
+  //   · si el modelo lo manda sin evidencia → se cae
+  //   · si hay evidencia y el modelo no lo mandó → se FIJA
+  const evidenciaSinIngresos = SIN_INGRESOS.some((re) => re.test(texto));
+  if (evidenciaSinIngresos) {
+    enr.sin_ingresos = true;
+    origen["enriquecido.sin_ingresos"] = "declarado";
+  } else if (enrBruto.sin_ingresos === true) {
+    descartes.push(
+      "enriquecido.sin_ingresos: la persona no dijo que no tuviera ingresos. Descartado — no se le " +
+        "puede negar una venta por una suposición, igual que no se le puede vender por una."
+    );
+  } else if (enrBruto.sin_ingresos === false) {
+    enr.sin_ingresos = false;
+    origen["enriquecido.sin_ingresos"] = "inferido";
   }
 
   if (Object.keys(enr).length) perfil.enriquecido = enr;

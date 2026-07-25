@@ -150,15 +150,22 @@ async function main() {
   check("marca.* rechazada (es dato de la base)", adv.perfil.marca === undefined);
   check("el carro sí se acepta (lo dijo)", adv.perfil.enriquecido?.tiene_vehiculo?.includes("carro") === true);
   const advR = calcularPropension(adv.perfil);
-  check("el top-1 ya no es Hogar", advR.recomendaciones[0]?.nombre !== "Seguro de Hogar y Contenidos",
-    `→ ${advR.recomendaciones[0]?.nombre ?? "—"}`);
-  check("prueba social AUSENTE sin ejes verificados", advR.peer === null);
+  // Ojo: esta conversación real incluye "no tengo trabajo" y "no tengo ingresos". Con la detección
+  // determinista (B12) el servidor lo reconoce y el motor se NIEGA a vender — que es la conducta
+  // correcta y más fuerte que la anterior (antes recomendaba Vida a alguien sin con qué pagarla).
+  check("YA NO se le vende Hogar (era la venta que decidió el dato falso)",
+    !advR.recomendaciones.some((x) => x.nombre === "Seguro de Hogar y Contenidos"));
+  check("de hecho no se le vende NADA: dijo que no tiene ingresos", advR.recomendaciones.length === 0);
+  check("y se le ofrece lo que la caja sí tiene",
+    /subsidio al desempleo/i.test(advR.no_venta?.alternativa ?? ""));
+  check("prueba social AUSENTE", advR.peer === null);
 
   /* ═══ 6b · La traza auditable (RNF-6) ═════════════════════════════════════ */
   titulo("6b · Traza auditable: se puede ver por qué");
   const tz = advR.traza!;
   check("la recomendación deja traza", !!tz);
   check("los pesos suman el score", tz.productos.every((p) => p.senales.reduce((a, s) => a + s.peso, 0) === p.score));
+  check("incluso la decisión de NO vender deja traza", tz.productos.length === 0 && !!tz.version_reglas);
   check("cada campo del perfil dice de dónde vino", !!tz.perfil._origen);
   check("dice por qué NO se afirmó la prueba social", tz.peer.afirmada === false && !!tz.peer.motivo,
     `→ ${tz.peer.motivo}`);
