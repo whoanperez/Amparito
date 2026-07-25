@@ -211,13 +211,24 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
     }
   }
 
+  /**
+   * Los campos de LISTA se unen con lo ya ganado, no lo reemplazan.
+   *
+   * Asignar directamente parecía inofensivo mientras el perfil se re-inferí­a entero cada turno,
+   * porque no había nada que perder. Con el piso sí lo hay: si en el turno 2 mencionó la moto y
+   * en el 5 el modelo manda solo ["carro"], una asignación borraba la moto — justo lo contrario
+   * de lo que el piso promete.
+   */
+  const unir = (previas: string[] | undefined, nuevas: string[]) =>
+    Array.from(new Set([...(previas ?? []), ...nuevas]));
+
   if (Array.isArray(enrBruto.tiene_vehiculo)) {
     const validos = (enrBruto.tiene_vehiculo as unknown[])
       .map(String)
       .filter((t) => TERMINOS_VEHICULO[t] && menciona(TERMINOS_VEHICULO[t]));
     const rechazados = (enrBruto.tiene_vehiculo as unknown[]).map(String).filter((t) => !validos.includes(t));
     if (validos.length) {
-      enr.tiene_vehiculo = validos;
+      enr.tiene_vehiculo = unir(enrPrevio?.tiene_vehiculo, validos);
       origen["enriquecido.tiene_vehiculo"] = "declarado";
     }
     if (rechazados.length) {
@@ -230,7 +241,7 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
       .map(String)
       .filter((t) => TERMINOS_MASCOTA[t] && menciona(TERMINOS_MASCOTA[t]));
     if (validos.length) {
-      enr.tiene_mascota = validos;
+      enr.tiene_mascota = unir(enrPrevio?.tiene_mascota, validos);
       origen["enriquecido.tiene_mascota"] = "declarado";
     } else if ((enrBruto.tiene_mascota as unknown[]).length) {
       descartes.push("enriquecido.tiene_mascota: la persona no mencionó mascotas, descartado");
@@ -287,7 +298,9 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   const COBERTURAS = ["exequial", "vida", "soat", "hogar", "accidentes", "mascota"];
   if (Array.isArray(src.ya_cubierto)) {
     const vals = (src.ya_cubierto as unknown[]).map(String).filter((v) => COBERTURAS.includes(v));
-    if (vals.length) perfil.ya_cubierto = vals;
+    // También se une: `ya_cubierto` dispara el anti-venta ("eso ya lo tienes"), así que perder
+    // una cobertura mencionada tres turnos atrás es venderle algo que ya tiene.
+    if (vals.length) perfil.ya_cubierto = unir(restoPrevio.ya_cubierto, vals);
   }
   // `marca.*` son datos de consumo de la base: el LLM no los puede conocer.
   if (src.marca && !ctx.segmentoBase) {

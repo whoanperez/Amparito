@@ -129,6 +129,24 @@ check("turno 2 · la moto sigue ahí aunque el modelo no la mande",
   turno2.perfil.enriquecido?.tiene_vehiculo?.join() === "moto");
 check("turno 2 · y su procedencia también", turno2.perfil._origen?.["enriquecido.tiene_vehiculo"] === "declarado");
 
+// Y el caso que de verdad importa: el modelo manda algo DISTINTO, no nada. Con una asignación
+// en vez de una unión, la moto desaparecía — justo lo contrario de lo que el piso promete. El
+// test anterior no lo distinguía porque solo probaba el caso fácil (el modelo no manda nada).
+const turno2b = sanearPerfil(
+  { enriquecido: { tiene_vehiculo: ["carro"] } },
+  { textoUsuario: "tengo una moto y también un carro", perfilPrevio: turno1.perfil }
+);
+check("un vehículo nuevo se SUMA al ya conocido",
+  (turno2b.perfil.enriquecido?.tiene_vehiculo ?? []).slice().sort().join() === "carro,moto");
+
+const yaCubierto1 = sanearPerfil({ ya_cubierto: ["exequial"] }, { textoUsuario: "tengo exequial" });
+const yaCubierto2 = sanearPerfil(
+  { ya_cubierto: ["vida"] },
+  { textoUsuario: "tengo exequial y vida", perfilPrevio: yaCubierto1.perfil }
+);
+check("una cobertura nueva se SUMA a la ya conocida",
+  (yaCubierto2.perfil.ya_cubierto ?? []).slice().sort().join() === "exequial,vida");
+
 // El piso no relaja la compuerta: lo que el modelo propone AHORA sigue verificándose.
 const turno3 = sanearPerfil(
   { enriquecido: { vivienda: "propia" } },
