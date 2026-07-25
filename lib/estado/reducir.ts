@@ -191,8 +191,11 @@ export function aplicarIdentidad(
         id.esperando = "ciudad";
         estado.dichoUnaVez.pidioCiudad = true;
       } else {
+        // Se deja de insistir y se atiende igual. Y NO se marca `avisoNoEncontrado`: "ambiguo"
+        // significa que hay VARIAS personas con ese nombre, lo contrario de "no apareces en la
+        // base". Marcarlo aquí haría que Amparito afirmara algo falso sobre la base — que es la
+        // clase de error que este bloque existe para cerrar, no para reintroducir.
         id.esperando = null;
-        estado.dichoUnaVez.avisoNoEncontrado = true; // ya no se insiste; se atiende igual
       }
       break;
 

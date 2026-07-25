@@ -71,15 +71,21 @@ export function vistaDeEstado(
   const texto = limpiarTexto(textoDelModelo ?? "");
   const bloques: Bloque[] = [];
 
-  // GANA EL ÚLTIMO evento de propensión: si el modelo llamó la tool dos veces, antes se pintaban
-  // dos tarjetas. Se conserva el orden de los demás eventos.
-  const ultimaPropension = eventos.filter((e) => e.type === "propension").at(-1);
+  // GANA EL ÚLTIMO evento de propensión: si el modelo llamó la tool dos veces —cosa que el prompt
+  // le pide hacer si lo corrigen— antes se pintaban dos tarjetas.
+  //
+  // Se compara por POSICIÓN, no por identidad de objeto: si los dos eventos resultan ser la misma
+  // referencia, un `ev !== ultima` no descarta ninguno y el guard falla abierto justo en el caso
+  // que dice cubrir.
+  const iUltimaPropension = eventos.map((e) => e.type).lastIndexOf("propension");
+  const ultimaPropension = iUltimaPropension >= 0 ? eventos[iUltimaPropension] : undefined;
   let formulario: Record<string, unknown> | undefined;
 
-  for (const ev of eventos) {
+  for (let i = 0; i < eventos.length; i++) {
+    const ev = eventos[i];
     if (ev.type === "form") { formulario = ev.data; continue; }
     if (NO_PINTAN.has(ev.type)) continue;
-    if (ev.type === "propension" && ev !== ultimaPropension) continue;
+    if (ev.type === "propension" && i !== iUltimaPropension) continue;
     bloques.push({ t: "evento", evento: ev });
   }
 
@@ -93,9 +99,13 @@ export function vistaDeEstado(
   if (texto) bloques.push({ t: "texto", contenido: texto });
   if (vaElegirProteccion(estado, texto, eventos)) bloques.push({ t: "elegir_proteccion" });
 
+  // Se ofrecen el turno en que la recomendación ATERRIZA, no para siempre. Colgarlas de
+  // `estado.veredicto` las dejaba fijas en todos los turnos posteriores —el veredicto no se
+  // limpia nunca— y acabarían compitiendo con lo que el agente pregunte después.
+  const recomendoAhora = !!ultimaPropension && !ultimaPropension.data.no_venta;
   const sugerencias =
     opciones?.length ? opciones.slice(0, 4)
-    : estado.veredicto?.tipo === "recomendacion" ? PREGUNTAS_ASESOR
+    : recomendoAhora ? PREGUNTAS_ASESOR
     : [];
 
   return {

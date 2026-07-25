@@ -165,6 +165,10 @@ titulo("La ciudad se pide una vez, y solo si se preguntó");
   // Sigue ambiguo: no se vuelve a preguntar.
   const e2 = aplicarIdentidad(abierto.estado, { estado: "ambiguo", nombre: "Carolina Ramírez López", n: 2 });
   checkEq("no se pregunta la ciudad por segunda vez", e2.identidad.esperando, null);
+  // "Ambiguo" es que hay VARIAS personas con ese nombre. Decir "no apareces en la base" sería
+  // afirmar algo falso sobre la base — la clase de error que este bloque cierra.
+  checkEq("y NO se marca como que no aparece en la base", e2.dichoUnaVez.avisoNoEncontrado, false);
+  checkEq("el estado sigue siendo ambiguo", e2.identidad.resultado, "ambiguo");
 
   // Un mensaje cualquiera cuando NO se preguntó nada nunca se lee como ciudad.
   let libre = estadoInicial();
@@ -246,6 +250,12 @@ titulo("La vista no compite con una pregunta abierta");
   checkEq("una sola tarjeta de propensión", dosLlamadas.bloques.filter((b) => b.t === "evento").length, 1);
   checkEq("y un solo bloque de tarjetas", dosLlamadas.bloques.filter((b) => b.t === "tarjetas").length, 1);
 
+  // El mismo objeto repetido. Un dedupe por identidad de referencia falla ABIERTO justo aquí, y
+  // el caso anterior no lo distingue porque construye dos objetos distintos.
+  const mismoObjeto = eventoPropension(prop);
+  const repetido = vistaDeEstado(e, "Míralo abajo.", [mismoObjeto, mismoObjeto]);
+  checkEq("también con la misma referencia repetida", repetido.bloques.filter((b) => b.t === "evento").length, 1);
+
   const tarjetas = dosLlamadas.bloques.find((b) => b.t === "tarjetas");
   checkPresente("las tarjetas vienen del motor", tarjetas && tarjetas.t === "tarjetas" ? tarjetas.recs : null);
   checkEq(
@@ -260,6 +270,13 @@ titulo("La vista no compite con una pregunta abierta");
   check("la tarjeta va antes que el texto", iTarjetas >= 0 && iTexto >= 0 && iTarjetas < iTexto, `→ tarjetas@${iTarjetas} texto@${iTexto}`);
 
   checkEq("el markdown se limpia", limpiarTexto("**Hola** y `esto`"), "Hola y esto");
+
+  // Las sugerencias son del turno en que la recomendación aterriza, no permanentes: colgarlas del
+  // veredicto —que no se limpia nunca— las dejaba fijas compitiendo con lo que se pregunte después.
+  checkEq("el turno de la recomendación ofrece las preguntas de asesor", repetido.sugerencias.length, 3);
+  const cerrado = cerrarTurno(e, { eventos: [mismoObjeto] });
+  checkEq("el veredicto quedó guardado", cerrado.veredicto?.tipo, "recomendacion");
+  checkEq("pero al turno siguiente ya no se repiten", vistaDeEstado(cerrado, "¿Te la explico?", []).sugerencias.length, 0);
 }
 
 /* 7 · El sello ───────────────────────────────────────────────────────────────
