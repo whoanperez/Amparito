@@ -238,13 +238,20 @@ export interface ToolCtx extends SanearCtx {}
  * Punto ÚNICO por donde pasan las 9 tools. Aquí se registra la decisión (RNF-6): no en nueve
  * sitios distintos, que es como se pierde la mitad de la traza.
  */
+/**
+ * Tools que NO son decisiones, sino afordancias de pantalla. El historial de auditoría es la
+ * evidencia del RNF-6, tiene cupo (200) y es global al proceso: llenarlo de filas de botones
+ * desplaza decisiones reales del registro. Ofrecer un botón no es una decisión que auditar.
+ */
+const NO_SE_AUDITAN = new Set(["ofrecer_opciones"]);
+
 export async function executeTool(
   name: string,
   input: Record<string, unknown>,
   ctx: ToolCtx = {}
 ): Promise<{ result: unknown; event?: UiEvent }> {
   const salida = await ejecutar(name, input, ctx);
-  registrar(name, input, salida.result);
+  if (!NO_SE_AUDITAN.has(name)) registrar(name, input, salida.result);
   return salida;
 }
 

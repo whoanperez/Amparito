@@ -330,16 +330,12 @@ async function main() {
 
   /* 2 · Caracterización de los defectos que arregla el bloque 2 ──────────── */
 
-  titulo("HOY · el texto que acompaña a una tool se pierde");
+  titulo("El texto que acompaña a una tool se rescata");
   {
-    // El modelo suele escribir la pregunta Y llamar la tool en el MISMO mensaje. `reply` se toma
-    // solo de la respuesta FINAL del loop, así que ese texto nunca llega a la persona: el modelo
-    // tiene que repetirlo en la ronda siguiente, y si no lo hace el turno sale mudo.
-    //
-    // No lo introduce este commit —pasa con cualquier tool desde siempre— pero `ofrecer_opciones`
-    // lo vuelve MUCHO más probable, porque "pregunta + ofrece opciones" es el patrón natural.
-    // Es de la familia del defecto #6 y se arregla en el bloque 2, acumulando el texto de todas
-    // las rondas en vez de quedarse con el de la última.
+    // El modelo suele escribir la pregunta Y llamar la tool en el MISMO mensaje. Como `reply` sale
+    // de la respuesta FINAL del loop, ese texto se perdía y el turno salía mudo. Pasaba con
+    // cualquier tool desde siempre, pero con `ofrecer_opciones` dejó de ser raro para ser el
+    // patrón natural — así que se rescata.
     const conTextoYTool = msg(
       [
         { type: "text", text: "¿Para qué usas la moto?" },
@@ -349,9 +345,15 @@ async function main() {
     );
     const { d } = deps([conTextoYTool, dice("")], { ejecutarTool: executeTool });
     const r = await ejecutarTurno({ messages: HOLA, estado: sellar(estadoInicial()) }, d);
-    checkEq("HOY: el texto escrito junto a la tool NO llega a la persona", r.reply, "");
-    checkEq("aunque las opciones sí llegaron", opcionesDeEventos(r.events).length, 2);
-    console.log("      ↑ amplificado por ofrecer_opciones. Familia del #6. Bloque 2.");
+    checkEq("el texto escrito junto a la tool SÍ llega a la persona", r.reply, "¿Para qué usas la moto?");
+    checkEq("y las opciones también", opcionesDeEventos(r.events).length, 2);
+
+    // Es un RESCATE, no una acumulación: si la ronda final trae texto, manda ella. Acumular
+    // duplicaría el mensaje cuando el modelo se repite.
+    const { d: d2 } = deps([conTextoYTool, dice("Cuéntame para qué la usas.")], { ejecutarTool: executeTool });
+    const r2 = await ejecutarTurno({ messages: HOLA, estado: sellar(estadoInicial()) }, d2);
+    checkEq("si la ronda final habla, manda ella", r2.reply, "Cuéntame para qué la usas.");
+    checkEq("y no se duplica con la intermedia", r2.reply.includes("¿Para qué usas la moto?"), false);
   }
 
   titulo("HOY · defecto #6 — el turno muerto silencioso");

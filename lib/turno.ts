@@ -208,9 +208,19 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     messages: convo,
   });
 
+  // El modelo suele escribir la pregunta Y llamar la tool en el MISMO mensaje. Como `reply` sale
+  // de la respuesta FINAL del loop, ese texto se perdía y el turno salía mudo. Con
+  // `ofrecer_opciones` eso pasó de ser raro a ser el patrón natural, así que se guarda el último
+  // texto intermedio como RESCATE.
+  //
+  // Es un rescate, no una acumulación: solo entra si al final no hay texto. Acumular todas las
+  // rondas duplicaría el mensaje cuando el modelo se repite, y eso es trabajo del bloque 2.
+  let textoDeRescate = "";
   let rounds = 0;
   while (response.stop_reason === "tool_use" && rounds < maxRondas) {
     rounds++;
+    const intermedio = textoDe(response);
+    if (intermedio) textoDeRescate = intermedio;
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
     for (const block of response.content) {
@@ -250,7 +260,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     });
   }
 
-  let reply = textoDe(response);
+  let reply = textoDe(response) || textoDeRescate;
 
   // Guarda de la pregunta de doble cañón. `prompts.ts` lo prohíbe, pero una regla de prompt es
   // una petición: se violó tres veces en una sola conversación.
