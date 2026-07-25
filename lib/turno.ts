@@ -19,7 +19,7 @@ import type { ConsultaIdentidad, EstadoConversacion, UiEvent, UiVista } from "@/
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
-import { SALUDO_INICIAL, opcionesDeEventos, vistaDeEstado } from "@/lib/estado/vista";
+import { SALUDO_INICIAL, vistaDeEstado } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";

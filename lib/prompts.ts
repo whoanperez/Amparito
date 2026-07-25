@@ -270,7 +270,14 @@ const TEMAS: Record<string, string[]> = {
   viaje: ["viaje", "viajas", "viajar"],
 };
 
-/** ¿La respuesta encadena dos temas distintos en una sola pregunta? */
+/**
+ * ¿La respuesta encadena dos temas distintos en una sola pregunta?
+ *
+ * El filtro de líneas `OPCIONES:` es RESIDUO DEFENSIVO: ese protocolo ya no existe —las
+ * quick-replies llegan por la tool `ofrecer_opciones`— pero un modelo puede escribirlo por
+ * costumbre durante un tiempo, y una opción como "¿De vez en cuando?" contada como pregunta
+ * dispararía un reintento inútil. Se conserva a propósito; no es que el protocolo siga vivo.
+ */
 export function esDobleCanon(texto: string): boolean {
   const sinOpciones = texto
     .split("\n")
@@ -289,8 +296,8 @@ export function esDobleCanon(texto: string): boolean {
 
 /**
  * Cuenta las preguntas de una respuesta. Protege la regla "una sola pregunta por turno", que el
- * prompt ya pide pero que se violó tres veces en una sola conversación real. La línea OPCIONES no
- * cuenta: son respuestas que la persona daría, no preguntas.
+ * prompt ya pide pero que se violó tres veces en una sola conversación real. El filtro de
+ * `OPCIONES:` es el mismo residuo defensivo que en `esDobleCanon`.
  */
 export function contarPreguntas(texto: string): number {
   return (

@@ -16,6 +16,7 @@
  * Ahora el servidor serializa y el LLM conversa.
  */
 import { estadoInicial } from "../lib/estado/tipos";
+import { recsDeEvento } from "../lib/estado/vista";
 import { siguienteFase, cerrarTurno } from "../lib/estado/reducir";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
@@ -27,11 +28,14 @@ const check = (label: string, cond: boolean, detalle?: string) => {
   if (!cond) ok = false;
 };
 
-/** Réplica de la función del cliente (components/Chat.tsx · recsDeEvento). */
-function recsDeEvento(data: Record<string, unknown>) {
-  const recs = (data?.recomendaciones ?? []) as Array<{ nombre: string; reason_codes?: string[] }>;
-  return recs.map((r, i) => ({ nombre: r.nombre, recomendado: i === 0, razon: r.reason_codes?.[0] ?? "" }));
-}
+/*
+ * Aquí había una RÉPLICA de `recsDeEvento`, con un comentario que decía "réplica de la función
+ * del cliente (components/Chat.tsx)". Esa función ya no existe en el cliente: el comentario
+ * apuntaba a un archivo que dejó de tenerla, y el test seguía verde probando su propia copia.
+ *
+ * Es exactamente el modo de falla que hacía inútil la cobertura: la única versión cubierta era
+ * la que vivía dentro del test. Ahora se importa la de verdad.
+ */
 
 async function main() {
   /* ── 1 · las tarjetas salen del evento ─────────────────────────────────── */
