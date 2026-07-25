@@ -23,6 +23,26 @@ export interface PlayerCallbacks {
 export async function playDemo(beats: DemoBeat[], cb: PlayerCallbacks): Promise<void> {
   let lastQuoteId: string | undefined;
 
+  // El guion offline lo escribimos NOSOTROS con datos derivados de la base real: no es salida de
+  // un modelo. Así que su segmento entra como verificado — si no, `sanearPerfil` lo descartaría y
+  // el demo perdería la prueba social, que es justo el momento central de Carolina.
+  const guionUsuario = beats.filter((b) => b.role === "user" && b.say).map((b) => b.say!).join("\n");
+  const segmentoDelGuion = (() => {
+    const p = beats.find((b) => b.tool?.name === "calcular_propension")?.tool?.input?.perfil as
+      | Record<string, unknown>
+      | undefined;
+    if (!p) return undefined;
+    const pick = (k: string) => (typeof p[k] === "string" ? (p[k] as string) : undefined);
+    return {
+      GENERO: pick("GENERO"),
+      RANGO_EDAD: pick("RANGO_EDAD"),
+      CATEGORIA: pick("CATEGORIA"),
+      SEGMENTO_GRUPO_FAMILIAR: pick("SEGMENTO_GRUPO_FAMILIAR"),
+      SEGMENTO_POBLACIONAL: pick("SEGMENTO_POBLACIONAL"),
+    };
+  })();
+  const ctx = { textoUsuario: guionUsuario, segmentoBase: segmentoDelGuion };
+
   for (const beat of beats) {
     if (cb.cancelled()) return;
 
@@ -37,7 +57,7 @@ export async function playDemo(beats: DemoBeat[], cb: PlayerCallbacks): Promise<
       // Hilvana el quoteId de la cotización hacia la emisión.
       if (beat.tool.name === "issue_policy" && lastQuoteId) input.quoteId = lastQuoteId;
 
-      const { result, event } = await executeTool(beat.tool.name, input);
+      const { result, event } = await executeTool(beat.tool.name, input, ctx);
       if (cb.cancelled()) return;
 
       if (event) cb.addEvent(event);

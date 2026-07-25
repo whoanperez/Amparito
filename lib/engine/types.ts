@@ -19,6 +19,8 @@ export interface PerfilEnriquecido {
   viaja?: boolean;
   tiene_credito?: boolean;
   mascota_veterinario_frecuente?: boolean;
+  /** No tiene ingresos hoy (desempleo, informalidad sin entrada). Dispara el "hoy no te vendo". */
+  sin_ingresos?: boolean;
 }
 
 /**
@@ -35,6 +37,14 @@ export interface Perfil {
   enriquecido?: PerfilEnriquecido;
   marca?: Record<string, "SI" | "NO">; // DROGUERIA, VIVIENDA, AGENCIAS, HOTELES, PISCILAGO
   ya_cubierto?: string[]; // coberturas que YA tiene: "exequial" | "vida" | "soat" | "hogar" | "accidentes" | "mascota"
+  /**
+   * Procedencia por campo, la pone el SERVIDOR (`sanearPerfil`), nunca el LLM.
+   * "base" = vino verificado de la base de afiliados · "declarado" = la persona lo dijo y el
+   * servidor lo verificó contra su texto · "inferido" = el modelo lo supuso.
+   * Un campo `inferido` puede mover el score, pero NO habilita afirmaciones sobre la base
+   * (la prueba social exige los 4 ejes en "base" o "declarado").
+   */
+  _origen?: Record<string, "base" | "declarado" | "inferido">;
 }
 
 // --- Forma de data/weights.json (subconjunto que consume el motor) ---

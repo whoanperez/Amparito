@@ -4,6 +4,7 @@ import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
+import { sanearPerfil, type SegmentoBase } from "./engine/sanear";
 import { Perfil } from "./engine/types";
 
 /**
@@ -188,9 +189,21 @@ export interface UiEvent {
 }
 
 /** Ejecuta una tool y devuelve {result, event?}. Compuertas de cumplimiento EN SERVIDOR. */
+/**
+ * Contexto que el servidor le da a las tools. Lo necesita `sanearPerfil` para verificar que un
+ * campo del perfil venga de la base o de algo que la persona escribió de verdad.
+ */
+export interface ToolCtx {
+  /** Todo lo que la PERSONA escribió, concatenado (no lo que escribió Amparito). */
+  textoUsuario?: string;
+  /** Segmento verificado del afiliado. Manda sobre lo que proponga el modelo. */
+  segmentoBase?: SegmentoBase;
+}
+
 export async function executeTool(
   name: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  ctx: ToolCtx = {}
 ): Promise<{ result: unknown; event?: UiEvent }> {
   const gateway = getInsurerGateway();
 
@@ -227,11 +240,28 @@ export async function executeTool(
     }
 
     case "calcular_propension": {
-      const perfil = (input.perfil ?? {}) as Perfil;
+      // COMPUERTA DE ENTRADA (RNF-7). Antes esto era `input.perfil as Perfil` — un cast que no
+      // verifica nada en runtime, así que el motor creía cualquier cosa que mandara el modelo.
+      const { perfil, descartes } = sanearPerfil(input.perfil, ctx);
       const prop = calcularPropension(perfil);
       // El resultado que ve el modelo (para redactar) y el evento que ve la UI son el mismo objeto.
+      // Los descartes van SOLO al modelo (no a la UI): le dicen qué no pudo usar y por qué, para
+      // que pueda preguntarlo en vez de improvisarlo.
       return {
-        result: prop,
+        result: {
+          ...prop,
+          perfil_usado: perfil,
+          descartado_por_falta_de_evidencia: descartes.length ? descartes : undefined,
+          instruccion_descartes: descartes.length
+            ? "Estos campos NO se usaron porque no vinieron de la base ni la persona los dijo. No los " +
+              "des por ciertos ni los menciones como si los supieras: si alguno importa, pregúntalo."
+            : undefined,
+          instruccion_peer: prop.peer
+            ? undefined
+            : "No hay prueba social para este perfil. NO la menciones ni la aproximes. Si la persona " +
+              "no está identificada, puedes invitarla: con su nombre podrías decirle cuántos afiliados " +
+              "como ella hay en Colsubsidio.",
+        },
         event: { type: "propension", data: prop as unknown as Record<string, unknown> },
       };
     }

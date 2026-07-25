@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { SYSTEM_PROMPT } from "@/lib/prompts";
-import { toolDefinitions, executeTool, UiEvent } from "@/lib/tools";
+import { buildSystemPrompt, detectarEstado } from "@/lib/prompts";
+import { toolDefinitions, executeTool, UiEvent, type ToolCtx } from "@/lib/tools";
 import { getAffiliateGateway } from "@/lib/afiliados";
 
 export const maxDuration = 60;
@@ -27,21 +27,48 @@ export async function POST(req: NextRequest) {
 
     // Arranque caliente: si llega un afiliado identificado, buscamos su segmento en el servidor
     // (los nombres nunca llegan al navegador) y se lo damos a Amparito como contexto.
-    let system = SYSTEM_PROMPT;
+    let contexto: string | undefined;
+    let afiliadoReconocido = false;
+    let segmentoBase: ToolCtx["segmentoBase"];
     if (afiliado?.nombre) {
       const seg = await getAffiliateGateway().lookup(afiliado.nombre, afiliado.ciudad);
       if (seg) {
+        afiliadoReconocido = true;
+        // El segmento verificado va al motor por el SERVIDOR, no retranscrito por el modelo:
+        // así un error de transcripción no puede producir una celda de peer-group falsa.
+        segmentoBase = {
+          GENERO: seg.genero,
+          RANGO_EDAD: seg.rango_edad,
+          CATEGORIA: seg.categoria,
+          SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar,
+          SEGMENTO_POBLACIONAL: seg.poblacional,
+        };
         const primerNombre = seg.nombre.split(" ")[0];
-        system +=
-          `\n\n## AFILIADO IDENTIFICADO (arranque caliente)\n` +
-          `La persona es un afiliado de Colsubsidio que ya inició sesión, así que YA la conoces: salúdala por su primer nombre (${primerNombre}) y arranca caliente CONFIRMANDO su situación, sin volver a preguntar lo que ya sabes. ` +
+        contexto =
+          `## SEGMENTO VERIFICADO DE ESTE AFILIADO (viene de la base de Colsubsidio, no lo preguntes)\n` +
+          `Primer nombre: ${primerNombre}.\n` +
           // Los 4 ejes del peer-group (género, edad, grupo familiar, categoría) van COMPLETOS:
           // `lookupPeer` exige los 4 para ubicar la celda; si falta uno, no hay PeerProof.
-          `Su segmento: género = ${seg.genero ?? "?"}; grupo familiar = ${seg.grupo_familiar ?? "?"}; rango de edad = ${seg.rango_edad ?? "?"}; categoría = ${seg.categoria ?? "?"}; segmento poblacional = ${seg.poblacional ?? "?"}; ciudad = ${seg.ciudad ?? "?"}. ` +
-          `Ejemplo de apertura: "Hola ${primerNombre} 👋, veo que [su situación en palabras cálidas]. ¿Es así?". ` +
-          `Al llamar calcular_propension usa estos datos como perfil (no los preguntes de nuevo). Si algo no cuadra, la persona te corrige.`;
+          `Género = ${seg.genero ?? "?"}; grupo familiar = ${seg.grupo_familiar ?? "?"}; ` +
+          `rango de edad = ${seg.rango_edad ?? "?"}; categoría = ${seg.categoria ?? "?"}; ` +
+          `segmento poblacional = ${seg.poblacional ?? "?"}; ciudad = ${seg.ciudad ?? "?"}.\n` +
+          `Estos son los únicos campos de segmento que puedes usar: vinieron verificados de la base. ` +
+          `Pásalos tal cual a calcular_propension y no los preguntes de nuevo. Si la persona te corrige, mandan sus palabras.`;
       }
     }
+
+    // v4 · el estado lo decide el SERVIDOR y solo viaja el bloque de ese estado. Antes todo el
+    // prompt iba en cada turno y las secciones competían: el arranque caliente perdía contra el
+    // ESTADO 2 ("haz 1 a 3 micro-preguntas"), que era más específico.
+    const estado = detectarEstado(messages, { afiliadoReconocido });
+    const system = buildSystemPrompt(estado, contexto);
+
+    // Contexto de las tools: `sanearPerfil` verifica los campos con gate contra lo que la PERSONA
+    // escribió (no contra lo que escribió Amparito — ahí estaba el bug de `vivienda:"propia"`).
+    const toolCtx: ToolCtx = {
+      textoUsuario: messages.filter((m) => m.role === "user").map((m) => m.content).join("\n"),
+      segmentoBase,
+    };
 
     const client = new Anthropic(); // usa ANTHROPIC_API_KEY del entorno
     const events: UiEvent[] = [];
@@ -68,7 +95,8 @@ export async function POST(req: NextRequest) {
         if (block.type === "tool_use") {
           const { result, event } = await executeTool(
             block.name,
-            (block.input ?? {}) as Record<string, unknown>
+            (block.input ?? {}) as Record<string, unknown>,
+            toolCtx
           );
           if (event) events.push(event);
           toolResults.push({

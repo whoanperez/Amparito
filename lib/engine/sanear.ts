@@ -1,0 +1,250 @@
+/**
+ * sanearPerfil — compuerta de ENTRADA del motor (RNF-7).
+ *
+ * El motor es determinista y acierta. Lo que fallaba es lo que entra: `lib/tools.ts` hacía
+ * `input.perfil as Perfil`, un cast de TypeScript que no verifica NADA en runtime. El LLM podía
+ * mandar lo que quisiera y el motor lo creía.
+ *
+ * Daño real observado en una conversación de verdad: la persona nunca dijo dónde vive, el modelo
+ * mandó `vivienda:"propia"` (había respondido "propio" hablando de su carro, tras una pregunta de
+ * doble cañón) y eso **decidió la venta** — Hogar pasó a ser la recomendación #1. Y mandó
+ * `CATEGORIA:"B"` para alguien que acababa de decir que no tiene ingresos, lo que **apagó**
+ * `prioriza_prima_baja`, la salvaguarda de asequibilidad.
+ *
+ * La garantía tiene que ser una compuerta en servidor, no una instrucción de prompt: una regla en
+ * el prompt es una petición probabilística, y ya falló dos veces en silencio.
+ *
+ * Estrategia: no le pedimos al modelo que "cite" (eso sería otra petición). El servidor verifica
+ * contra lo que la persona REALMENTE escribió. En el caso real, la palabra "vivienda" aparecía en
+ * el mensaje de Amparito, no en el del usuario — así que el chequeo lo rechaza correctamente.
+ */
+import type { Perfil } from "./types";
+
+export type Origen = "base" | "declarado" | "inferido";
+
+export interface SegmentoBase {
+  GENERO?: string;
+  RANGO_EDAD?: string;
+  CATEGORIA?: string;
+  SEGMENTO_GRUPO_FAMILIAR?: string;
+  SEGMENTO_POBLACIONAL?: string;
+}
+
+export interface SanearCtx {
+  /** Todo lo que la PERSONA escribió (no lo que escribió Amparito), concatenado. */
+  textoUsuario?: string;
+  /** Segmento que vino verificado de la base de afiliados. Manda sobre lo que proponga el LLM. */
+  segmentoBase?: SegmentoBase;
+}
+
+export interface Saneado {
+  perfil: Perfil;
+  /** Qué se descartó y por qué. Se le devuelve al LLM para que pueda preguntarlo si hace falta. */
+  descartes: string[];
+}
+
+/* Mismos valores que el esquema de la tool: cualquier cosa fuera de aquí se cae. */
+const ENUM: Record<string, readonly string[]> = {
+  GENERO: ["F", "M"],
+  RANGO_EDAD: ["Menor de 19 años", "20 a 35 años", "36 a 45 años", "46 a 55 años", "Mayor de 55 años"],
+  CATEGORIA: ["A", "B", "C"],
+  SEGMENTO_GRUPO_FAMILIAR: [
+    "Sin grupo familiar", "Monoparental", "Monoparental ampliada",
+    "Nuclear integral", "Nuclear ampliada", "Pareja conyugal",
+  ],
+  SEGMENTO_POBLACIONAL: ["Básico", "Medio", "Joven", "Alto"],
+};
+
+const norm = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/** Términos que prueban que la persona habló de su VIVIENDA (no de otra cosa "propia"). */
+const TERMINOS_VIVIENDA = ["casa", "apartamento", "apto", "vivienda", "arriend", "inmueble", "finca", "propiedad", "vivo en"];
+
+/** Cada tipo de vehículo se acepta solo si la persona nombró ESE tipo. */
+const TERMINOS_VEHICULO: Record<string, string[]> = {
+  carro: ["carro", "automovil", "auto", "camioneta", "vehiculo"],
+  moto: ["moto", "motocicleta", "scooter"],
+  bici: ["bici", "bicicleta"],
+  patineta: ["patineta", "monopatin", "scooter electric"],
+};
+
+const TERMINOS_MASCOTA: Record<string, string[]> = {
+  perro: ["perro", "perra", "perrito", "cachorro", "mascota"],
+  gato: ["gato", "gata", "gatico", "michi", "mascota"],
+};
+
+export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
+  const src = (bruto ?? {}) as Record<string, unknown>;
+  const texto = norm(ctx.textoUsuario ?? "");
+  const base = ctx.segmentoBase ?? {};
+  const descartes: string[] = [];
+  const origen: Record<string, Origen> = {};
+  const perfil: Record<string, unknown> = {};
+
+  const menciona = (terminos: string[]) => terminos.some((t) => texto.includes(t));
+  const enEnum = (campo: string, v: unknown) =>
+    typeof v === "string" && ENUM[campo].includes(v);
+
+  /* ── Ejes de segmento ──────────────────────────────────────────────────── */
+
+  // Lo que vino de la base MANDA y entra siempre (ya está verificado).
+  for (const campo of Object.keys(ENUM)) {
+    const deBase = (base as Record<string, unknown>)[campo];
+    if (enEnum(campo, deBase)) {
+      perfil[campo] = deBase;
+      origen[campo] = "base";
+    }
+  }
+
+  const propuesto = (campo: string) => {
+    const v = src[campo];
+    if (v === undefined || v === null || v === "") return undefined;
+    if (!enEnum(campo, v)) {
+      descartes.push(`${campo}: valor fuera del enum permitido, descartado`);
+      return undefined;
+    }
+    return v as string;
+  };
+
+  // CATEGORIA · dato ADMINISTRATIVO de Colsubsidio. Un modelo no puede deducirlo y nadie dice
+  // "soy categoría B". Si no vino de la base, no existe — y eso es lo correcto: con categoría
+  // desconocida el gate de asequibilidad activa `prioriza_prima_baja`, que protege a quien
+  // menos tiene. Inventarla la apagaba.
+  if (!origen.CATEGORIA) {
+    const v = propuesto("CATEGORIA");
+    if (v) descartes.push("CATEGORIA: no vino de la base de afiliados; un modelo no puede deducirla");
+  }
+
+  // SEGMENTO_POBLACIONAL · igual, es administrativo.
+  if (!origen.SEGMENTO_POBLACIONAL) {
+    const v = propuesto("SEGMENTO_POBLACIONAL");
+    if (v) descartes.push("SEGMENTO_POBLACIONAL: es un segmento administrativo; solo vale si vino de la base");
+  }
+
+  // RANGO_EDAD · se acepta si la persona mencionó una edad (hay un número plausible en SU texto).
+  if (!origen.RANGO_EDAD) {
+    const v = propuesto("RANGO_EDAD");
+    if (v) {
+      if (/\b(1[89]|[2-9]\d)\b/.test(texto)) {
+        perfil.RANGO_EDAD = v;
+        origen.RANGO_EDAD = "declarado";
+      } else {
+        descartes.push("RANGO_EDAD: la persona no mencionó su edad, descartado");
+      }
+    }
+  }
+
+  // GENERO · no es feature de scoring (solo lo usa el peer-group), así que descartarlo cuando no
+  // está verificado no cuesta nada y evita afirmar una celda con un eje supuesto.
+  if (!origen.GENERO) {
+    const v = propuesto("GENERO");
+    if (v) {
+      if (/\b(hombre|mujer|masculino|femenino|soy el|soy la|señor|senora|señora)\b/.test(texto)) {
+        perfil.GENERO = v;
+        origen.GENERO = "declarado";
+      } else {
+        descartes.push("GENERO: no fue declarado ni vino de la base, descartado");
+      }
+    }
+  }
+
+  // SEGMENTO_GRUPO_FAMILIAR · sí se admite inferido: sale de lo que la persona contó ("mi esposa",
+  // "mi hijo"). Alimenta el scoring, pero al quedar marcado como `inferido` NO habilita la prueba
+  // social, que exige los 4 ejes verificados.
+  if (!origen.SEGMENTO_GRUPO_FAMILIAR) {
+    const v = propuesto("SEGMENTO_GRUPO_FAMILIAR");
+    if (v) {
+      perfil.SEGMENTO_GRUPO_FAMILIAR = v;
+      origen.SEGMENTO_GRUPO_FAMILIAR = "inferido";
+    }
+  }
+
+  /* ── enriquecido ───────────────────────────────────────────────────────── */
+
+  const enrBruto = (src.enriquecido ?? {}) as Record<string, unknown>;
+  const enr: Record<string, unknown> = {};
+
+  // Campos con GATE de posesión: habilitan un producto entero, así que exigen que la persona
+  // haya hablado de eso. Aquí es donde se colaba `vivienda:"propia"`.
+  if (enrBruto.vivienda === "propia" || enrBruto.vivienda === "arriendo") {
+    if (menciona(TERMINOS_VIVIENDA)) {
+      enr.vivienda = enrBruto.vivienda;
+      origen["enriquecido.vivienda"] = "declarado";
+    } else {
+      descartes.push(
+        "enriquecido.vivienda: la persona nunca habló de su vivienda (¿respondiste a otra pregunta?). " +
+          "Descartado: sin esto no se puede ofrecer seguro de hogar. Pregúntaselo directamente."
+      );
+    }
+  }
+
+  if (Array.isArray(enrBruto.tiene_vehiculo)) {
+    const validos = (enrBruto.tiene_vehiculo as unknown[])
+      .map(String)
+      .filter((t) => TERMINOS_VEHICULO[t] && menciona(TERMINOS_VEHICULO[t]));
+    const rechazados = (enrBruto.tiene_vehiculo as unknown[]).map(String).filter((t) => !validos.includes(t));
+    if (validos.length) {
+      enr.tiene_vehiculo = validos;
+      origen["enriquecido.tiene_vehiculo"] = "declarado";
+    }
+    if (rechazados.length) {
+      descartes.push(`enriquecido.tiene_vehiculo: la persona no mencionó ${rechazados.join(", ")}, descartado`);
+    }
+  }
+
+  if (Array.isArray(enrBruto.tiene_mascota)) {
+    const validos = (enrBruto.tiene_mascota as unknown[])
+      .map(String)
+      .filter((t) => TERMINOS_MASCOTA[t] && menciona(TERMINOS_MASCOTA[t]));
+    if (validos.length) {
+      enr.tiene_mascota = validos;
+      origen["enriquecido.tiene_mascota"] = "declarado";
+    } else if ((enrBruto.tiene_mascota as unknown[]).length) {
+      descartes.push("enriquecido.tiene_mascota: la persona no mencionó mascotas, descartado");
+    }
+  }
+
+  // Campos conversacionales sin gate: se aceptan como inferidos (no habilitan productos que la
+  // persona no pueda tener, solo mueven el score).
+  const NUM = ["dependientes"] as const;
+  for (const k of NUM) {
+    const v = enrBruto[k];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 20) {
+      enr[k] = Math.floor(v);
+      origen[`enriquecido.${k}`] = "inferido";
+    }
+  }
+  const BOOL = ["necesidad_salud", "viaja", "tiene_credito", "mascota_veterinario_frecuente", "sin_ingresos"] as const;
+  for (const k of BOOL) {
+    if (typeof enrBruto[k] === "boolean") {
+      enr[k] = enrBruto[k];
+      origen[`enriquecido.${k}`] = "inferido";
+    }
+  }
+
+  if (Object.keys(enr).length) perfil.enriquecido = enr;
+
+  /* ── ya_cubierto y marca ───────────────────────────────────────────────── */
+
+  const COBERTURAS = ["exequial", "vida", "soat", "hogar", "accidentes", "mascota"];
+  if (Array.isArray(src.ya_cubierto)) {
+    const vals = (src.ya_cubierto as unknown[]).map(String).filter((v) => COBERTURAS.includes(v));
+    if (vals.length) perfil.ya_cubierto = vals;
+  }
+  // `marca.*` son datos de consumo de la base: el LLM no los puede conocer.
+  if (src.marca && !ctx.segmentoBase) {
+    descartes.push("marca: son datos de consumo de la base; no se aceptan desde la conversación");
+  }
+
+  perfil._origen = origen;
+  return { perfil: perfil as Perfil, descartes };
+}
+
+/** ¿Los 4 ejes del peer-group están verificados (base o declarados)? */
+export function ejesPeerVerificados(perfil: Perfil): boolean {
+  const o = perfil._origen ?? {};
+  return (["GENERO", "RANGO_EDAD", "SEGMENTO_GRUPO_FAMILIAR", "CATEGORIA"] as const).every(
+    (e) => o[e] === "base" || o[e] === "declarado"
+  );
+}
