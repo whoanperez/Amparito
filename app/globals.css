@@ -374,6 +374,13 @@ a { text-decoration: none; color: inherit; }
 .pp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); margin-top: 6px; flex-shrink: 0; }
 
 .pp-ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Sin anti-venta hay una sola columna: media tarjeta diciendo "Nada aún" era el peor uso del
+   espacio en el elemento que más pesa de la pantalla. */
+.pp-ledger.solo { grid-template-columns: 1fr; }
+/* El segundo NO: "hoy no te sirve". Colsubsidio es una caja, así que sí tiene qué ofrecer. */
+.pp-alt { background: var(--verde-wash, #e7f5ed); border: 1px solid rgba(26,158,92,.35); border-radius: 12px; padding: 14px 16px; }
+.pp-alt p { font-size: 14px; line-height: 1.55; color: var(--tinta); margin-top: 6px; }
+.pp-alt-nota { font-size: 13.5px; line-height: 1.55; color: var(--gris); }
 .pp-col { border-radius: 12px; padding: 12px 14px; }
 .pp-col.risk { background: #fdecea; }
 .pp-col.cov { background: #e8f5ee; }

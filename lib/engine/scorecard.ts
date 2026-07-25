@@ -83,6 +83,27 @@ interface Scored {
 }
 
 export function calcularPropension(perfil: Perfil): PropensionResult {
+  // El segundo NO, y el que más confianza gana: sin ingreso hoy no se recomienda NADA de pago —
+  // ni lo barato, ni el SOAT. Un seguro que no se puede pagar el mes entrante no protege, aprieta.
+  // Y Colsubsidio no es una aseguradora: es una caja, y tiene qué ofrecer en ese momento.
+  if (perfil.enriquecido?.sin_ingresos) {
+    return {
+      recomendaciones: [],
+      obligatorios: [],
+      descartados: [],
+      no_venta: {
+        motivo:
+          "Hoy no hay ingreso con qué sostener una póliza. Un seguro que no se pueda pagar el mes " +
+          "entrante no protege: aprieta.",
+        alternativa:
+          "Como afiliado de Colsubsidio te puede corresponder el subsidio al desempleo, y tienes la " +
+          "agencia de empleo. A eso sí se te puede apuntar hoy mismo.",
+      },
+      ledger: { riesgos_hoy: [], ya_cubierto: [] },
+      peer: null,
+    };
+  }
+
   const cat = perfil.CATEGORIA ?? "";
   const gate = weights.gate_affordability[cat] ?? weights.gate_affordability["(vacío)"];
   const primaBajaPrimero = Boolean(gate?.prioriza_prima_baja);

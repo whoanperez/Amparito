@@ -593,7 +593,35 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   const riesgos = (data.ledger?.riesgos_hoy ?? []) as string[];
   const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
   const peer = data.peer as { descripcion: string; n: number; pct: number } | null;
+  const noVenta = data.no_venta as { motivo: string; alternativa: string } | undefined;
   const top = recs[0];
+
+  // El segundo NO: "hoy no te sirve". Reemplaza la tarjeta entera — no tiene sentido mostrar un
+  // ranking de productos de pago a quien acaba de decir que no tiene con qué.
+  if (noVenta) {
+    return (
+      <div className="propcard">
+        <div className="pp-head">
+          <span className="pp-eyebrow">Lo que de verdad te sirve hoy</span>
+          <div className="pp-title">Hoy no te voy a vender nada</div>
+        </div>
+        <div className="pp-antiventa">
+          <span className="pp-av-ico">✋</span>
+          <div>
+            <b>No te vendo un seguro hoy.</b>
+            <span>{noVenta.motivo}</span>
+          </div>
+        </div>
+        <div className="pp-alt">
+          <div className="pp-col-lbl">Esto sí te sirve</div>
+          <p>{noVenta.alternativa}</p>
+        </div>
+        <p className="pp-alt-nota">
+          Cuando vuelvas a tener entrada, me escribes y en tres minutos te dejo protegido. Aquí voy a estar 💛
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="propcard">
@@ -642,24 +670,22 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {/* GapsLedger — riesgos hoy vs lo que ya tiene (anti-venta) */}
-      <div className="pp-ledger">
-        <div className="pp-col risk">
-          <div className="pp-col-lbl">Riesgos hoy</div>
-          {riesgos.length ? (
+      {/* GapsLedger — riesgos hoy vs lo que ya tiene (anti-venta).
+          La columna "Ya cubierto" solo se pinta si HAY algo: media tarjeta diciendo "Nada aún" era
+          el peor uso del espacio en el elemento más importante de la pantalla. */}
+      <div className={`pp-ledger ${yaCubierto.length ? "" : "solo"}`}>
+        {riesgos.length > 0 && (
+          <div className="pp-col risk">
+            <div className="pp-col-lbl">Riesgos hoy</div>
             <ul>{riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul>
-          ) : (
-            <p className="pp-empty">—</p>
-          )}
-        </div>
-        <div className="pp-col cov">
-          <div className="pp-col-lbl">Ya cubierto</div>
-          {yaCubierto.length ? (
+          </div>
+        )}
+        {yaCubierto.length > 0 && (
+          <div className="pp-col cov">
+            <div className="pp-col-lbl">Ya cubierto</div>
             <ul>{yaCubierto.map((c, i) => <li key={i}>{c.producto}</li>)}</ul>
-          ) : (
-            <p className="pp-empty">Nada aún</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* PeerProof — tamaño REAL del segmento (honesto, sin fracción de compra inventada) */}

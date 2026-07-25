@@ -75,6 +75,12 @@ export const toolDefinitions: Anthropic.Tool[] = [
                 viaja: { type: "boolean" },
                 tiene_credito: { type: "boolean" },
                 mascota_veterinario_frecuente: { type: "boolean" },
+                sin_ingresos: {
+                  type: "boolean",
+                  description:
+                    "true si la persona dice que hoy no tiene ingresos (desempleo, informalidad sin " +
+                    "entrada). El motor devolverá no_venta y NO se recomienda ningún producto de pago.",
+                },
               },
             },
             ya_cubierto: {

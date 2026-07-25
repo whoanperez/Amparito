@@ -152,8 +152,21 @@ export interface Obligatorio {
   consecuencia: string;
 }
 
+/**
+ * El segundo tipo de NO: "hoy no te sirve". Hasta ahora el anti-venta solo sabía decir "ya lo
+ * tienes"; le faltaba el más humano. Lo decide el MOTOR, no el LLM, para que sea la misma regla
+ * de oro: el motor calcula, el modelo redacta.
+ */
+export interface NoVenta {
+  motivo: string;
+  /** Lo que sí sirve hoy. Colsubsidio es una caja: tiene servicios que una aseguradora no. */
+  alternativa: string;
+}
+
 export interface PropensionResult {
   recomendaciones: Recomendacion[];
+  /** Si viene, NO se recomienda ningún producto de pago: no es una venta perdida, es criterio. */
+  no_venta?: NoVenta;
   /** Banda propia, por encima del ranking. Vacía si no aplica o si ya lo tiene. */
   obligatorios: Obligatorio[];
   descartados: Descartado[];
