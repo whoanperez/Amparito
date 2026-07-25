@@ -122,6 +122,13 @@ const INTERES: Record<string, string> = {
 // toque llega al reconocimiento contra la base —el foso— en vez de al camino genérico que
 // cualquier equipo pudo construir. Los tres existen en data/afiliados_muestra.json con sus 4
 // ejes completos, así que el momento sobrevive aunque la red del salón falle.
+/**
+ * La invitación que acompaña a las pastillas. Es copy con una propiedad verificable: NO puede
+ * confesar que esto es un demo ni nombrar "la base". Se enmarca como lo que de verdad es —ver el
+ * producto funcionando con alguien afiliado— y por eso tiene gate, como el saludo.
+ */
+export const INVITACION_EJEMPLO = "O mira cómo funciona con alguien afiliado:";
+
 export const PERSONAS_DEMO = [
   { key: "Carolina", n: "Carolina Ramírez", msg: "Soy Carolina Ramírez López" },
   { key: "Andres", n: "Andrés Gómez", msg: "Soy Andrés Gómez Ruiz" },
@@ -165,7 +172,7 @@ function insurerOf(name: string) {
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-export default function Chat({ interes, evento, offline, jurado }: { interes?: string | null; evento?: string | null; offline?: boolean; jurado?: boolean }) {
+export default function Chat({ interes, evento, offline }: { interes?: string | null; evento?: string | null; offline?: boolean }) {
   const proactivo = (evento && EVENTOS[evento.toLowerCase()]) || null;
   const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: proactivo ?? GREETING }]);
   const [input, setInput] = useState("");
@@ -429,21 +436,23 @@ export default function Chat({ interes, evento, offline, jurado }: { interes?: s
               ))}
             </div>
             {/*
-              El atajo del jurado solo aparece con ?jurado=1. La etiqueta decía "Prueba con uno de
-              la base:" junto a tres nombres: el producto le confesaba a quien mira que es un demo,
-              en el primer frame y antes de haber demostrado nada (#27). El atajo sigue existiendo
-              —es la red por si falla la conexión del salón— pero no se anuncia solo.
+              Estas pastillas son el ÚNICO camino de un toque al arranque caliente para alguien que
+              llega solo con un enlace: si teclea su propio nombre no está en el padrón y solo ve el
+              camino genérico, así que nunca llega al diferencial. Por eso van visibles siempre.
+
+              Lo que sí sobraba era la etiqueta: decía "Prueba con uno de la base:", que le confiesa
+              a quien mira que esto es un demo, en el primer frame y antes de haber demostrado nada
+              (#27). Ahora se enmarcan como lo que de verdad son — una demostración honesta del
+              producto con alguien que sí está afiliado.
             */}
-            {jurado && (
-              <div className="pf-jurado">
-                <span className="pf-jurado-lbl">Atajo de demo:</span>
-                <div className="pf-jurado-row">
-                  {PERSONAS_DEMO.map((p) => (
-                    <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
-                  ))}
-                </div>
+            <div className="pf-ejemplo">
+              <span className="pf-ejemplo-lbl">{INVITACION_EJEMPLO}</span>
+              <div className="pf-ejemplo-row">
+                {PERSONAS_DEMO.map((p) => (
+                  <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         )}
 

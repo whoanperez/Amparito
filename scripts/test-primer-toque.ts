@@ -27,7 +27,7 @@ const check = (label: string, cond: boolean, detalle?: string) => {
 // Se IMPORTAN de la pantalla, no se copian. Con dos listas sincronizadas a mano volvería a pasar
 // lo de B5: alguien cambia el `msg`, el gate sigue verde probando un string que ya nadie usa, y el
 // jurado toca un botón que no reconoce a nadie.
-import { CHIPS_ENTRADA, PERSONAS_DEMO, chipDeOpcion } from "../components/Chat";
+import { CHIPS_ENTRADA, PERSONAS_DEMO, chipDeOpcion, INVITACION_EJEMPLO } from "../components/Chat";
 
 const PASTILLAS = PERSONAS_DEMO.map((p) => p.msg);
 const CHIP_SIN_TRABAJO = CHIPS_ENTRADA.find((c) => /sin trabajo/i.test(c.texto))!;
@@ -42,6 +42,17 @@ check("y su etiqueta lo dice, en vez de mostrar una palabra suelta",
   `→ "${chipNombre.etiqueta}"`);
 check("una opción del modelo abierta se marca como incompleta", !chipDeOpcion("Vivo en ").completa);
 check("y una respuesta entera, como completa", chipDeOpcion("Sí, avancemos").completa);
+
+/*
+ * #27 · La invitación de las pastillas no puede confesar que esto es un demo. Y las pastillas
+ * TIENEN que existir: son el único camino de un toque al arranque caliente para alguien que llega
+ * solo con un enlace. Si teclea su propio nombre no está en el padrón, ve el camino genérico, y
+ * nunca llega al diferencial — que es justo lo que este gate existe para proteger.
+ */
+check("hay un camino de un toque al reconocimiento", PERSONAS_DEMO.length > 0);
+check("y la invitación no confiesa el demo",
+  !/demo|de la base|prueba con|ficticio|ejemplo de prueba/i.test(INVITACION_EJEMPLO),
+  `→ "${INVITACION_EJEMPLO}"`);
 
 async function main() {
   /* ── 1 · un toque en una pastilla → reconocimiento ─────────────────────── */
