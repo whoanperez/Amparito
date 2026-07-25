@@ -19,7 +19,7 @@ import type { ConsultaIdentidad, EstadoConversacion, UiEvent } from "@/lib/estad
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
-import { SALUDO_INICIAL } from "@/lib/estado/vista";
+import { SALUDO_INICIAL, opcionesDeEventos } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";
@@ -275,5 +275,13 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   }
 
   estado = cerrarTurno(estado, { eventos: events, perfilUsado, descartes });
+
+  // Compat · MUERE EN EL PASO 3. El cliente actual saca las quick-replies del texto con una
+  // regex. Ahora llegan por `ofrecer_opciones`, así que sin este puente desaparecerían de la
+  // pantalla justo durante la ventana de compatibilidad — una regresión visible metida por un
+  // paso que promete ser aditivo. Se reescribe el protocolo SOLO para el cliente viejo.
+  const opciones = opcionesDeEventos(events);
+  if (!entrada.estado && opciones.length) reply += `\nOPCIONES: ${opciones.join(" | ")}`;
+
   return { reply, events, estado: sellar(estado) };
 }

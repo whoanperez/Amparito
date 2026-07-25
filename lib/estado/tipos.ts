@@ -23,7 +23,9 @@ import type { SegmentoBase } from "../engine/sanear";
 export interface UiEvent {
   type:
     | "quote" | "policy" | "escalation" | "compliance" | "form"
-    | "propension" | "impacto" | "afiliado" | "feedback";
+    | "propension" | "impacto" | "afiliado" | "feedback"
+    /** Quick-replies. Es ESTADO, no contenido: alimenta `ui.sugerencias`, no pinta tarjeta. */
+    | "opciones";
   data: Record<string, unknown>;
 }
 

@@ -187,6 +187,27 @@ export const toolDefinitions: Anthropic.Tool[] = [
       required: ["motivo"],
     },
   },
+  {
+    name: "ofrecer_opciones",
+    description:
+      "Ofrece de 2 a 4 respuestas rápidas que la persona puede tocar en vez de escribir. " +
+      "Úsala junto a una pregunta cuyas respuestas típicas sean pocas, cortas y claras. " +
+      "Son RESPUESTAS que la persona daría, nunca preguntas. Al tocarlas se pre-llena la casilla " +
+      "de texto, así que cuando la respuesta necesita un dato (un monto, una ciudad, una cantidad) " +
+      "deja la opción abierta para completar: \"Vivo en\", \"Tengo un presupuesto de\". " +
+      "No la uses cuando esperas un texto largo y libre.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        opciones: {
+          type: "array",
+          items: { type: "string" },
+          description: "De 2 a 4 respuestas muy cortas, en las palabras de la persona.",
+        },
+      },
+      required: ["opciones"],
+    },
+  },
 ];
 
 /**
@@ -290,6 +311,23 @@ async function ejecutar(
               "como ella hay en Colsubsidio.",
         },
         event: { type: "propension", data: prop as unknown as Record<string, unknown> },
+      };
+    }
+
+    case "ofrecer_opciones": {
+      // Reemplaza al protocolo `OPCIONES: a | b | c` que el modelo escribía en el texto y el
+      // cliente sacaba con una regex — el mismo transporte frágil que `RECOMENDACION:`, que ya se
+      // había eliminado por eso mismo. El modelo sigue ELIGIENDO las opciones, que es donde
+      // aporta; lo que deja de ser prosa es el transporte.
+      const crudas = Array.isArray(input.opciones) ? (input.opciones as unknown[]) : [];
+      const opciones = crudas.map(String).map((s) => s.trim()).filter(Boolean).slice(0, 4);
+      return {
+        result: opciones.length
+          ? { ok: true, opciones }
+          : { ok: false, nota: "No se ofreció ninguna opción válida: haz la pregunta en texto." },
+        // Sin opciones válidas no hay evento: un evento vacío pintaría una fila de botones
+        // fantasma.
+        event: opciones.length ? { type: "opciones", data: { opciones } } : undefined,
       };
     }
 

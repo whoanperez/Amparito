@@ -17,7 +17,10 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { ejecutarTurno, type DepsTurno, type Msg } from "../lib/turno";
 import type { ConsultaIdentidad, UiEvent } from "../lib/estado/tipos";
 import type { HallazgoIdentidad } from "../lib/estado/reducir";
-import { abrir } from "../lib/estado/sello";
+import { abrir, sellar } from "../lib/estado/sello";
+import { estadoInicial } from "../lib/estado/tipos";
+import { vistaDeEstado, opcionesDeEventos } from "../lib/estado/vista";
+import { executeTool } from "../lib/tools";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { SALUDO_INICIAL } from "../lib/estado/vista";
 import type { ToolCtx } from "../lib/tools";
@@ -137,6 +140,36 @@ async function main() {
     checkEq("se reintenta y gana la versión corregida", r.reply, "¿Tienes vehículo?");
     checkEq("costó una llamada extra", llamadas.length, 2);
     check("el reintento lleva la corrección en el system", String(llamadas[1].system).includes("CORRECCIÓN INMEDIATA"));
+  }
+
+  titulo("Las quick-replies dejan de ser un protocolo de texto");
+  {
+    // Adversos primero. La lista vacía es el que importa: un evento sin opciones pintaría una
+    // fila de botones fantasma.
+    const vacio = await executeTool("ofrecer_opciones", { opciones: [] });
+    checkEq("sin opciones válidas no se emite evento", vacio.event, undefined);
+    const sucio = await executeTool("ofrecer_opciones", { opciones: ["  ", "Sí", "", "No", "Tal vez", "Otra", "Sexta"] });
+    checkEq("se limpian los vacíos y se topa en 4", (sucio.event?.data.opciones as string[]).join("|"), "Sí|No|Tal vez|Otra");
+    const noEsArray = await executeTool("ofrecer_opciones", { opciones: "Sí" });
+    checkEq("un valor que no es lista no rompe nada", noEsArray.event, undefined);
+
+    // Y el camino feliz, de punta a punta.
+    const { d } = deps([usaTool("ofrecer_opciones", { opciones: ["Para el diario", "Para trabajar"] }), dice("¿Para qué la usas?")], {
+      ejecutarTool: executeTool,
+    });
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "Tengo una moto" }], estado: sellar(estadoInicial()) }, d);
+    const vista = vistaDeEstado(abrir(r.estado)!, r.reply, r.events);
+    checkEq("las opciones llegan a la vista", vista.sugerencias.join("|"), "Para el diario|Para trabajar");
+    checkEq("y NO pintan tarjeta: son estado, no contenido", vista.bloques.filter((b) => b.t === "evento").length, 0);
+    checkEq("el texto del modelo queda limpio de protocolo", r.reply.includes("OPCIONES:"), false);
+
+    // Puente de compatibilidad: el cliente viejo saca las opciones del texto con una regex, así
+    // que sin `estado` en la petición se le reescribe el protocolo. Muere en el paso 3.
+    const { d: dViejo } = deps([usaTool("ofrecer_opciones", { opciones: ["Sí", "No"] }), dice("¿Avanzamos?")], {
+      ejecutarTool: executeTool,
+    });
+    const viejo = await ejecutarTurno({ messages: [{ role: "user", content: "Tengo una moto" }] }, dViejo);
+    check("al cliente viejo se le reescribe el protocolo", viejo.reply.includes("OPCIONES: Sí | No"));
   }
 
   /* 1b · El estado va y vuelve ───────────────────────────────────────────── */
@@ -296,6 +329,30 @@ async function main() {
   }
 
   /* 2 · Caracterización de los defectos que arregla el bloque 2 ──────────── */
+
+  titulo("HOY · el texto que acompaña a una tool se pierde");
+  {
+    // El modelo suele escribir la pregunta Y llamar la tool en el MISMO mensaje. `reply` se toma
+    // solo de la respuesta FINAL del loop, así que ese texto nunca llega a la persona: el modelo
+    // tiene que repetirlo en la ronda siguiente, y si no lo hace el turno sale mudo.
+    //
+    // No lo introduce este commit —pasa con cualquier tool desde siempre— pero `ofrecer_opciones`
+    // lo vuelve MUCHO más probable, porque "pregunta + ofrece opciones" es el patrón natural.
+    // Es de la familia del defecto #6 y se arregla en el bloque 2, acumulando el texto de todas
+    // las rondas en vez de quedarse con el de la última.
+    const conTextoYTool = msg(
+      [
+        { type: "text", text: "¿Para qué usas la moto?" },
+        { type: "tool_use", id: "toolu_x", name: "ofrecer_opciones", input: { opciones: ["Trabajo", "Diario"] } },
+      ],
+      "tool_use"
+    );
+    const { d } = deps([conTextoYTool, dice("")], { ejecutarTool: executeTool });
+    const r = await ejecutarTurno({ messages: HOLA, estado: sellar(estadoInicial()) }, d);
+    checkEq("HOY: el texto escrito junto a la tool NO llega a la persona", r.reply, "");
+    checkEq("aunque las opciones sí llegaron", opcionesDeEventos(r.events).length, 2);
+    console.log("      ↑ amplificado por ofrecer_opciones. Familia del #6. Bloque 2.");
+  }
 
   titulo("HOY · defecto #6 — el turno muerto silencioso");
   {

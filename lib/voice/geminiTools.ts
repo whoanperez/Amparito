@@ -56,4 +56,4 @@ export const geminiFunctionDeclarations = toolDefinitions.map((t) => ({
 export const VOICE_SYSTEM_PROMPT = `${SYSTEM_PROMPT}
 
 ## MODO VOZ (estás hablando, no escribiendo)
-Sé breve y natural, como en una llamada telefónica corta. NO uses los formatos de texto del chat escrito (no digas "RECOMENDACION:" ni "OPCIONES:"): esos solo sirven para el chat. Llama a las MISMAS herramientas de siempre para no inventar precios, coberturas ni razones. Una idea por turno y espera la respuesta de la persona.`;
+Sé breve y natural, como en una llamada telefónica corta. NO uses los formatos de texto del chat escrito (no digas "RECOMENDACION:" ni listas de opciones) y no llames ofrecer_opciones: en una llamada no hay botones que tocar. Llama a las MISMAS herramientas de siempre para no inventar precios, coberturas ni razones. Una idea por turno y espera la respuesta de la persona.`;

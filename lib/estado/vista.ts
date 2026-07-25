@@ -28,7 +28,7 @@ export const SALUDO_INICIAL =
   "Soy Amparito — de amparar, protegerte. Y a veces te voy a decir que no.";
 
 /** Eventos que son ESTADO, no contenido: no pintan tarjeta. */
-const NO_PINTAN = new Set(["form", "afiliado"]);
+const NO_PINTAN = new Set(["form", "afiliado", "opciones"]);
 
 /**
  * Quita el markdown que Amparito no debería estar escribiendo. Vive en el servidor porque el
@@ -76,11 +76,17 @@ function vaElegirProteccion(estado: EstadoConversacion, texto: string, eventos: 
   );
 }
 
+/** Las quick-replies que el modelo eligió este turno, si llamó a `ofrecer_opciones`. */
+export function opcionesDeEventos(eventos: UiEvent[]): string[] {
+  const ev = eventos.filter((e) => e.type === "opciones").at(-1);
+  const ops = ev?.data.opciones;
+  return Array.isArray(ops) ? ops.map(String).slice(0, 4) : [];
+}
+
 export function vistaDeEstado(
   estado: EstadoConversacion,
   textoDelModelo: string,
-  eventos: UiEvent[],
-  opciones?: string[]
+  eventos: UiEvent[]
 ): UiVista {
   const texto = limpiarTexto(textoDelModelo ?? "");
   const bloques: Bloque[] = [];
@@ -116,9 +122,10 @@ export function vistaDeEstado(
   // Se ofrecen el turno en que la recomendación ATERRIZA, no para siempre. Colgarlas de
   // `estado.veredicto` las dejaba fijas en todos los turnos posteriores —el veredicto no se
   // limpia nunca— y acabarían compitiendo con lo que el agente pregunte después.
+  const opciones = opcionesDeEventos(eventos);
   const recomendoAhora = !!ultimaPropension && !ultimaPropension.data.no_venta;
   const sugerencias =
-    opciones?.length ? opciones.slice(0, 4)
+    opciones.length ? opciones
     : recomendoAhora ? PREGUNTAS_ASESOR
     : [];
 
