@@ -40,8 +40,6 @@ export async function POST(req: NextRequest) {
         // Sin estado: el turno se pierde, pero el siguiente arranca de cero en vez de heredar
         // uno a medio construir.
         estado: "",
-        reply: disculpa,
-        events: [],
       },
       { status: 200 }
     );

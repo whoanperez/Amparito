@@ -23,7 +23,9 @@ import type { SegmentoBase } from "../engine/sanear";
 export interface UiEvent {
   type:
     | "quote" | "policy" | "escalation" | "compliance" | "form"
-    | "propension" | "impacto" | "afiliado" | "feedback"
+    // "afiliado" vivía aquí: era el hallazgo de identidad que el cliente tenía que recordar y
+    // reenviar. Murió con el estado sellado, que es ahora su único portador.
+    | "propension" | "impacto" | "feedback"
     /** Quick-replies. Es ESTADO, no contenido: alimenta `ui.sugerencias`, no pinta tarjeta. */
     | "opciones";
   data: Record<string, unknown>;

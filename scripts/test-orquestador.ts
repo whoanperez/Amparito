@@ -14,7 +14,7 @@
  * "no cambio nada" solo es creíble si "nada" está escrito en algún sitio.
  */
 import type Anthropic from "@anthropic-ai/sdk";
-import { ejecutarTurno, type DepsTurno, type Msg } from "../lib/turno";
+import { ejecutarTurno, type DepsTurno, type Msg, type SalidaTurno } from "../lib/turno";
 import type { ConsultaIdentidad, UiEvent } from "../lib/estado/tipos";
 import type { HallazgoIdentidad } from "../lib/estado/reducir";
 import { abrir, sellar } from "../lib/estado/sello";
@@ -36,6 +36,16 @@ const checkEq = <T>(label: string, actual: T, esperado: T) =>
   check(`${label} === ${JSON.stringify(esperado)}`, Object.is(actual, esperado), `→ ${JSON.stringify(actual)}`);
 const checkPresente = (label: string, v: unknown) =>
   check(`${label} presente`, v !== undefined && v !== null, `→ ${JSON.stringify(v)}`);
+
+/**
+ * Lo que la persona REALMENTE ve. Antes estas aserciones leían `salida.reply` y `salida.events`,
+ * campos de compatibilidad que ya no existen. Leer de la vista es además más honesto: `reply`
+ * podía traer cosas que nunca se pintaban.
+ */
+const textoDe = (s: SalidaTurno) =>
+  s.ui.bloques.filter((b) => b.t === "texto").map((b) => (b as { contenido: string }).contenido).join("\n");
+const tarjetasDe = (s: SalidaTurno) =>
+  s.ui.bloques.filter((b) => b.t === "evento").map((b) => (b as { evento: UiEvent }).evento);
 const titulo = (t: string) => console.log(`\n===== ${t} =====`);
 
 /* ── El doble del modelo ──────────────────────────────────────────────────── */
@@ -97,8 +107,8 @@ async function main() {
   {
     const { d, llamadas } = deps([dice("Soy Amparito, de amparar.")]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("devuelve el texto del modelo", r.reply, "Soy Amparito, de amparar.");
-    checkEq("sin eventos", r.events.length, 0);
+    checkEq("devuelve el texto del modelo", textoDe(r), "Soy Amparito, de amparar.");
+    checkEq("sin tarjetas", tarjetasDe(r).length, 0);
     checkEq("con una sola llamada al modelo", llamadas.length, 1);
     check("y el system prompt viaja", typeof llamadas[0].system === "string" && llamadas[0].system.length > 100);
   }
@@ -107,9 +117,9 @@ async function main() {
   {
     const { d, llamadas } = deps([usaTool("calcular_propension"), dice("Míralo abajo con calma.")]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("la tool se ejecutó y su evento se acumuló", r.events.length, 1);
-    checkEq("el evento es el del motor", r.events[0].type, "propension");
-    checkEq("el texto final es el de la segunda vuelta", r.reply, "Míralo abajo con calma.");
+    checkEq("la tool se ejecutó y su tarjeta llegó a la vista", tarjetasDe(r).length, 1);
+    checkEq("la tarjeta es la del motor", tarjetasDe(r)[0].type, "propension");
+    checkEq("el texto final es el de la segunda vuelta", textoDe(r), "Míralo abajo con calma.");
     checkEq("se llamó al modelo dos veces", llamadas.length, 2);
 
     const ultimo = llamadas[1].messages.at(-1);
@@ -127,9 +137,12 @@ async function main() {
     });
     const { d, llamadas } = deps([dice("Bienvenida, Carolina.")], { resolver });
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("se emite el evento de afiliado", r.events[0]?.type, "afiliado");
-    checkEq("con el nombre que se persiste", (r.events[0]?.data as { nombre: string }).nombre, "Carolina Ramírez López");
-    check("y el contexto verificado entra al prompt", String(llamadas[0].system).includes("## SEGMENTO VERIFICADO"));
+    // La identidad ya no viaja como evento para que el cliente la recuerde: vive en el estado
+    // sellado, que es su único portador.
+    checkEq("la identidad queda en el estado", abrir(r.estado)?.identidad.nombre, "Carolina Ramírez López");
+    checkEq("con su segmento verificado", abrir(r.estado)?.identidad.segmento?.CATEGORIA, "B");
+    checkEq("y no se pinta como tarjeta", tarjetasDe(r).length, 0);
+    check("el contexto verificado entra al prompt", String(llamadas[0].system).includes("## SEGMENTO VERIFICADO"));
   }
 
   titulo("La guarda del doble cañón");
@@ -139,24 +152,21 @@ async function main() {
       dice("¿Tienes vehículo?"),
     ]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("se reintenta y gana la versión corregida", r.reply, "¿Tienes vehículo?");
+    checkEq("se reintenta y gana la versión corregida", textoDe(r), "¿Tienes vehículo?");
     checkEq("costó una llamada extra", llamadas.length, 2);
     check("el reintento lleva la corrección en el system", String(llamadas[1].system).includes("CORRECCIÓN INMEDIATA"));
   }
 
   titulo("El turno publica la vista");
   {
-    // Adverso primero, y es el que casi se me cuela: el puente de compatibilidad ensucia `reply`
-    // con el protocolo viejo. Si la vista se armara DESPUÉS, ese protocolo aparecería dentro de
-    // `ui.bloques` — el cliente nuevo pintaría "OPCIONES: Sí | No" como texto de Amparito.
+    // La vista es lo ÚNICO que sale del turno: no hay ya un `reply` paralelo por el que se pueda
+    // colar el protocolo viejo. Se comprueba que el texto sale limpio y las sugerencias aparte.
     const { d } = deps([usaTool("ofrecer_opciones", { opciones: ["Sí", "No"] }), dice("¿Avanzamos?")], {
       ejecutarTool: executeTool,
     });
-    const viejo = await ejecutarTurno({ messages: HOLA }, d); // sin `estado` → cliente viejo
-    check("al cliente viejo se le reescribe el protocolo en reply", viejo.reply.includes("OPCIONES:"));
-    const textos = viejo.ui.bloques.filter((b) => b.t === "texto").map((b) => (b as { contenido: string }).contenido);
-    checkEq("pero la vista NUNCA lo ve", textos.some((t) => t.includes("OPCIONES:")), false);
-    checkEq("y las sugerencias vienen del evento, no del texto", viejo.ui.sugerencias.join("|"), "Sí|No");
+    const conOpciones = await ejecutarTurno({ messages: HOLA }, d);
+    checkEq("el texto sale limpio de protocolo", textoDe(conOpciones).includes("OPCIONES:"), false);
+    checkEq("y las sugerencias vienen del evento, no del texto", conOpciones.ui.sugerencias.join("|"), "Sí|No");
 
     // El turno 0 también publica vista.
     const t0 = await ejecutarTurno({ messages: [] }, deps([dice("no se usa")]).d);
@@ -192,18 +202,9 @@ async function main() {
       ejecutarTool: executeTool,
     });
     const r = await ejecutarTurno({ messages: [{ role: "user", content: "Tengo una moto" }], estado: sellar(estadoInicial()) }, d);
-    const vista = vistaDeEstado(abrir(r.estado)!, r.reply, r.events);
-    checkEq("las opciones llegan a la vista", vista.sugerencias.join("|"), "Para el diario|Para trabajar");
-    checkEq("y NO pintan tarjeta: son estado, no contenido", vista.bloques.filter((b) => b.t === "evento").length, 0);
-    checkEq("el texto del modelo queda limpio de protocolo", r.reply.includes("OPCIONES:"), false);
-
-    // Puente de compatibilidad: el cliente viejo saca las opciones del texto con una regex, así
-    // que sin `estado` en la petición se le reescribe el protocolo. Muere en el paso 3.
-    const { d: dViejo } = deps([usaTool("ofrecer_opciones", { opciones: ["Sí", "No"] }), dice("¿Avanzamos?")], {
-      ejecutarTool: executeTool,
-    });
-    const viejo = await ejecutarTurno({ messages: [{ role: "user", content: "Tengo una moto" }] }, dViejo);
-    check("al cliente viejo se le reescribe el protocolo", viejo.reply.includes("OPCIONES: Sí | No"));
+    checkEq("las opciones llegan a la vista", r.ui.sugerencias.join("|"), "Para el diario|Para trabajar");
+    checkEq("y NO pintan tarjeta: son estado, no contenido", tarjetasDe(r).length, 0);
+    checkEq("el texto del modelo queda limpio de protocolo", textoDe(r).includes("OPCIONES:"), false);
   }
 
   /* 1b · El estado va y vuelve ───────────────────────────────────────────── */
@@ -214,14 +215,14 @@ async function main() {
     // cliente. Ninguno puede corromper el estado ni gastar una llamada al modelo.
     const { d, llamadas } = deps([dice("esto no debería usarse")]);
     const t0 = await ejecutarTurno({ messages: [] }, d);
-    checkEq("devuelve el saludo", t0.reply, SALUDO_INICIAL);
+    checkEq("devuelve el saludo", textoDe(t0), SALUDO_INICIAL);
     checkEq("sin llamar al modelo", llamadas.length, 0);
-    checkEq("sin eventos", t0.events.length, 0);
+    checkEq("sin tarjetas", tarjetasDe(t0).length, 0);
     checkEq("y sin avanzar el turno", abrir(t0.estado)?.turno, 0);
     checkEq("deja constancia de que ya saludó", abrir(t0.estado)?.dichoUnaVez.saludo, true);
 
     const repetido = await ejecutarTurno({ messages: [], estado: t0.estado }, d);
-    checkEq("pedirlo dos veces devuelve lo mismo", repetido.reply, SALUDO_INICIAL);
+    checkEq("pedirlo dos veces devuelve lo mismo", textoDe(repetido), SALUDO_INICIAL);
     checkEq("y sigue sin avanzar el turno", abrir(repetido.estado)?.turno, 0);
 
     // A mitad de conversación (cliente mal portado): no debe borrar lo acumulado.
@@ -276,7 +277,7 @@ async function main() {
     checkEq("el turno avanzó", abrir(t2.estado)?.turno, 2);
   }
 
-  titulo("La ventana de compatibilidad no pierde la identidad");
+  titulo("Perder el estado a mitad no devuelve a la persona al saludo");
   {
     const consultas: ConsultaIdentidad[] = [];
     const resolver = async (c: ConsultaIdentidad): Promise<HallazgoIdentidad> => {
@@ -287,7 +288,9 @@ async function main() {
         segmento: { GENERO: "F", CATEGORIA: "B" },
       };
     };
-    // El cliente viejo: manda `afiliado`, no manda `estado`.
+    // Estado perdido a mitad de conversación: sello inválido, o un lambda con otro secreto. No es
+    // compatibilidad, es RECUPERACIÓN — y lo que no puede pasar es que la persona vuelva a la
+    // fase SALUDO y Amparito se presente de nuevo en el mensaje seis.
     const r = await ejecutarTurno(
       {
         messages: [
@@ -295,19 +298,17 @@ async function main() {
           { role: "assistant", content: "Bienvenida." },
           { role: "user", content: "tengo un carro" },
         ],
-        afiliado: { nombre: "Carolina Ramírez López", ciudad: "Soacha" },
+        estado: "sello-invalido.deadbeef",
       },
       deps([dice("Cuéntame más.")], { resolver }).d
     );
-    // Reproduce la conducta vieja a propósito: sin estado no hay dónde congelar, así que se
-    // vuelve a buscar. Lo que NO puede pasar es perder la identidad — eso sería una regresión
-    // metida por un refactor que promete ser aditivo.
-    checkEq("se busca por el nombre persistido", consultas[0]?.modo, "ciudad");
-    checkEq("y la persona sigue reconocida", r.events[0]?.type, "afiliado");
-    checkEq("con su nombre", (r.events[0]?.data as { nombre: string }).nombre, "Carolina Ramírez López");
+    // Dos mensajes de la persona en el historial → este es su turno 2, no el 1.
+    checkEq("se recupera el número de turno del historial", abrir(r.estado)?.turno, 2);
+    checkEq("así que NO se vuelve a la fase SALUDO", abrir(r.estado)?.fase, "RECONOCIDO");
+    checkEq("y se vuelve a resolver la identidad desde el mensaje", consultas[0]?.modo, "detectar");
   }
 
-  titulo("Un nombre que no aparece NO se persiste");
+  titulo("Un nombre que no aparece se recuerda, pero no se pinta");
   {
     const resolver = async (): Promise<HallazgoIdentidad> => ({
       estado: "no_encontrado",
@@ -317,11 +318,10 @@ async function main() {
       { messages: [{ role: "user", content: "Soy Zulema Trastamara Quispe Vergara" }] },
       deps([dice("No apareces en la base, pero te atiendo igual.")], { resolver }).d
     );
-    // Si se persistiera, el cliente lo reenviaría cada turno y la base se consultaría en vano
-    // para siempre. El resolver viejo solo persistía `reconocido` y `ambiguo`.
-    checkEq("no se emite evento de afiliado", r.events.filter((e) => e.type === "afiliado").length, 0);
-    // Pero el ESTADO sí lo recuerda: es lo que permite no volver a insistir con el tema.
-    checkEq("y aun así el estado lo recuerda", abrir(r.estado)?.identidad.resultado, "no_encontrado");
+    checkEq("no se pinta ninguna tarjeta de identidad", tarjetasDe(r).length, 0);
+    // El ESTADO sí lo recuerda: es lo que permite no volver a insistir con el tema.
+    checkEq("pero el estado lo recuerda", abrir(r.estado)?.identidad.resultado, "no_encontrado");
+    checkPresente("con el turno en que se le dijo", abrir(r.estado)?.identidad.avisadoEnTurno);
   }
 
   titulo("El perfil sobrevive aunque el modelo no lo retranscriba");
@@ -379,15 +379,15 @@ async function main() {
     );
     const { d } = deps([conTextoYTool, dice("")], { ejecutarTool: executeTool });
     const r = await ejecutarTurno({ messages: HOLA, estado: sellar(estadoInicial()) }, d);
-    checkEq("el texto escrito junto a la tool SÍ llega a la persona", r.reply, "¿Para qué usas la moto?");
-    checkEq("y las opciones también", opcionesDeEventos(r.events).length, 2);
+    checkEq("el texto escrito junto a la tool SÍ llega a la persona", textoDe(r), "¿Para qué usas la moto?");
+    checkEq("y las opciones también", r.ui.sugerencias.length, 2);
 
     // Es un RESCATE, no una acumulación: si la ronda final trae texto, manda ella. Acumular
     // duplicaría el mensaje cuando el modelo se repite.
     const { d: d2 } = deps([conTextoYTool, dice("Cuéntame para qué la usas.")], { ejecutarTool: executeTool });
     const r2 = await ejecutarTurno({ messages: HOLA, estado: sellar(estadoInicial()) }, d2);
-    checkEq("si la ronda final habla, manda ella", r2.reply, "Cuéntame para qué la usas.");
-    checkEq("y no se duplica con la intermedia", r2.reply.includes("¿Para qué usas la moto?"), false);
+    checkEq("si la ronda final habla, manda ella", textoDe(r2), "Cuéntame para qué la usas.");
+    checkEq("y no se duplica con la intermedia", textoDe(r2).includes("¿Para qué usas la moto?"), false);
   }
 
   titulo("HOY · defecto #6 — el turno muerto silencioso");
@@ -395,11 +395,12 @@ async function main() {
     // El modelo se queda pidiendo tools para siempre: se agotan las 8 rondas.
     const { d, llamadas } = deps([usaTool("get_catalog")]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("HOY: al agotar las rondas el reply queda VACÍO", r.reply, "");
-    // Los eventos SÍ vuelven —uno por ronda—; lo que deja el turno mudo es el texto vacío.
-    checkEq("HOY: y sin embargo se acumularon 8 eventos, uno por ronda", r.events.length, 8);
+    checkEq("HOY: al agotar las rondas la vista sale sin texto", textoDe(r), "");
+    // Ojo al matiz: la tarjeta SÍ aparece. Lo que falta es la frase que la explica — el turno no
+    // sale en blanco, sale MUDO, que en pantalla es peor: una tarjeta sin nadie que la presente.
+    checkEq("aunque la tarjeta del motor sí se pinta", tarjetasDe(r).length, 1);
     checkEq("se gastaron las 8 rondas + la inicial", llamadas.length, 9);
-    console.log("      ↑ el usuario ve desaparecer el 'escribiendo…' y nada más. Bloque 2.");
+    console.log("      ↑ una tarjeta aparece sola, sin una frase que la acompañe. Bloque 2.");
   }
 
   titulo("HOY · defecto #7 — una excepción se lleva el turno y los eventos");
@@ -428,13 +429,20 @@ async function main() {
     console.log("        modelo tampoco ve el fallo para recuperarse. Bloque 2.");
   }
 
-  titulo("HOY · defecto #8 — doble tarjeta de propensión");
+  titulo("Defecto #8 — la doble tarjeta ya no se ve, pero el motor sí corre dos veces");
   {
-    const { d } = deps([usaDosTools("calcular_propension"), dice("Míralo abajo.")]);
+    let corridas = 0;
+    const ejecutarTool = async () => {
+      corridas++;
+      return { result: { ok: true }, event: eventoPropension };
+    };
+    const { d } = deps([usaDosTools("calcular_propension"), dice("Míralo abajo.")], { ejecutarTool });
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("HOY: dos llamadas en un turno producen DOS eventos", r.events.length, 2);
-    console.log("      ↑ `vistaDeEstado` ya lo dedupe en el cliente, pero el orquestador");
-    console.log("        sigue emitiendo los dos. Bloque 2.");
+    // El SÍNTOMA visible está cerrado: la capa de presentación se queda con el último evento.
+    checkEq("la persona ve UNA sola tarjeta", tarjetasDe(r).length, 1);
+    // Lo que queda es coste, no un bug de pantalla: el motor se ejecutó dos veces.
+    checkEq("HOY: pero el motor corrió dos veces", corridas, 2);
+    console.log("      ↑ ya no es un defecto visual: es trabajo pagado dos veces. Bloque 2.");
   }
 
   titulo("HOY · defecto #9 — el reintento pasa tools y tira lo que reciba");
@@ -444,7 +452,7 @@ async function main() {
       usaTool("get_catalog"), // el reintento responde con tool_use
     ]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("HOY: se conserva la respuesta de doble cañón sin corregir", r.reply, "¿Tienes vehículo, o tu vivienda es propia?");
+    checkEq("HOY: se conserva la respuesta de doble cañón sin corregir", textoDe(r), "¿Tienes vehículo, o tu vivienda es propia?");
     checkEq("HOY: y la llamada del reintento se pagó igual", llamadas.length, 2);
     check("el reintento sí llevaba tools", Array.isArray(llamadas[1].tools) && llamadas[1].tools!.length > 0);
     console.log("      ↑ 1-2 s y un turno de modelo tirados en silencio. Bloque 2.");

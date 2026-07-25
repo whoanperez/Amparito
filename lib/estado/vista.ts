@@ -28,7 +28,7 @@ export const SALUDO_INICIAL =
   "Soy Amparito — de amparar, protegerte. Y a veces te voy a decir que no.";
 
 /** Eventos que son ESTADO, no contenido: no pintan tarjeta. */
-const NO_PINTAN = new Set(["form", "afiliado", "opciones"]);
+const NO_PINTAN = new Set(["form", "opciones"]);
 
 /**
  * Quita el markdown que Amparito no debería estar escribiendo. Vive en el servidor porque el

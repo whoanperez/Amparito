@@ -39,22 +39,16 @@ export interface EntradaTurno {
   estado?: string;
   /** Cómo entró la persona, si fue por un enlace profundo. Solo se lee en el primer turno. */
   origen?: "interes" | "evento";
-  /* ── Ventana de compatibilidad · muere en el paso 3, cuando el cliente obedezca la vista ── */
-  afiliado?: { nombre?: string; ciudad?: string };
-  yaRecomendo?: boolean;
 }
 
 export interface SalidaTurno {
   /**
-   * Lo único que el cliente necesita renderizar: bloques ya ORDENADOS por el servidor,
-   * sugerencias y estado de la casilla. El componente pasa de decidir a pintar.
+   * Lo único que el cliente renderiza: bloques ya ORDENADOS por el servidor, sugerencias y
+   * estado de la casilla. El componente pinta; no decide.
    */
   ui: UiVista;
   /** Sellado. El cliente lo devuelve tal cual en el turno siguiente. */
   estado: string;
-  /* ── Compat · mueren en el paso 3, cuando el cliente obedezca la vista ── */
-  reply: string;
-  events: UiEvent[];
 }
 
 /** Lo mínimo del SDK que el turno necesita, para que un doble de prueba pueda cumplirlo. */
@@ -83,42 +77,19 @@ export function depsReales(client: Anthropic): DepsTurno {
   };
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Ventana de compatibilidad · MUERE EN EL PASO 3
-
-   El cliente todavía no guarda el estado: manda `afiliado` y `yaRecomendo` como antes. Sin esto,
-   el estado se reconstruiría de cero en cada turno y el cliente actual PERDERÍA la identidad
-   entre mensajes — una regresión introducida por un refactor, que es lo peor que puede pasar en
-   un paso que promete ser aditivo.
-
-   Reproduce a propósito la conducta vieja, round-trip a la base incluido: en modo compat no hay
-   estado donde congelar el segmento.
-   ────────────────────────────────────────────────────────────────────────── */
-function estadoDeCompat(entrada: EntradaTurno): EstadoConversacion {
+/**
+ * Estado de arranque cuando no llega ninguno válido: primer turno, sello manipulado, o un
+ * secreto distinto (un lambda sin `AMPARITO_ESTADO_SECRET` firma con uno aleatorio por proceso).
+ *
+ * No es compatibilidad, es RECUPERACIÓN, y por eso sobrevive al borrado de las ventanas: sin el
+ * relleno del turno, perder el estado a mitad de conversación devolvería a la persona a la fase
+ * SALUDO en el mensaje seis, y Amparito volvería a presentarse.
+ */
+function estadoRecuperado(messages: Msg[]): EstadoConversacion {
   const e = estadoInicial();
   // `iniciarTurno` suma uno, así que se deja en el turno anterior.
-  e.turno = Math.max(0, entrada.messages.filter((m) => m.role === "user").length - 1);
-  if (entrada.afiliado?.nombre) {
-    e.identidad.nombre = entrada.afiliado.nombre;
-    e.identidad.ciudad = entrada.afiliado.ciudad || undefined;
-  }
-  if (entrada.yaRecomendo) {
-    e.veredicto = {
-      entregado: true,
-      tipo: "recomendacion",
-      recomendaciones: [],
-      obligatorios: [],
-      peer: null,
-    };
-  }
+  e.turno = Math.max(0, messages.filter((m) => m.role === "user").length - 1);
   return e;
-}
-
-function consultaDeCompat(entrada: EntradaTurno): ConsultaIdentidad | null {
-  const nombre = entrada.afiliado?.nombre?.trim();
-  if (!nombre) return null;
-  const ciudad = entrada.afiliado?.ciudad?.trim();
-  return ciudad ? { modo: "ciudad", nombre, ciudad } : { modo: "nombre", nombre };
 }
 
 const textoDe = (r: Anthropic.Message) =>
@@ -139,7 +110,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
 
   // Un sello inválido o ausente no es un error: se arranca de cero. El jurado ve un saludo, no
   // un 500.
-  const previo = abrir(entrada.estado) ?? estadoDeCompat(entrada);
+  const previo = abrir(entrada.estado) ?? estadoRecuperado(messages);
 
   // Turno 0: el saludo lo produce el SERVIDOR, sin llamar al modelo. Antes vivía en el componente
   // y se inyectaba como `messages[0]` con rol `assistant` — un turno que el modelo nunca escribió,
@@ -149,12 +120,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // error del cliente, devuelve lo mismo sin corromper el estado ni gastar una llamada.
   if (!messages.some((m) => m.role === "user" && m.content.trim())) {
     const saludado = { ...previo, dichoUnaVez: { ...previo.dichoUnaVez, saludo: true } };
-    return {
-      ui: vistaDeEstado(saludado, SALUDO_INICIAL, []),
-      estado: sellar(saludado),
-      reply: SALUDO_INICIAL,
-      events: [],
-    };
+    return { ui: vistaDeEstado(saludado, SALUDO_INICIAL, []), estado: sellar(saludado) };
   }
 
   const ultimoDelUsuario = messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
@@ -163,31 +129,13 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // aparece un nombre, busca" es determinista y no debe depender de que el modelo llame una tool
   // en el momento justo. Ahora QUÉ se busca lo decide el reducer, que es quien sabe qué preguntó.
   const abierto = iniciarTurno(previo, ultimoDelUsuario);
-  // En modo compat manda el nombre que trae el cliente; en el camino nuevo, lo que decidió el
-  // reducer. Se escribe con un `if` a propósito: la versión en una línea con `&&` y `||` esconde
-  // cuál de los dos caminos se está tomando.
-  let consulta = abierto.consulta;
-  if (!entrada.estado) {
-    const deCompat = consultaDeCompat(entrada);
-    if (deCompat) consulta = deCompat;
-  }
-  const hallazgo = await deps.resolver(consulta);
+  const hallazgo = await deps.resolver(abierto.consulta);
   let estado = aplicarIdentidad(abierto.estado, hallazgo);
   // Se recuerda una sola vez, en el turno en que entra: después el cliente ya no lo manda.
   if (entrada.origen && !estado.origen) estado = { ...estado, origen: entrada.origen };
 
-  // Compat: el cliente actual guarda la identidad en un ref propio. Muere en el paso 3, cuando
-  // el estado sellado sea el único portador.
-  //
-  // Solo `reconocido` y `ambiguo`, que es exactamente cuando el resolver viejo devolvía
-  // `persistir`. Emitirlo también en `no_encontrado` haría que el cliente guardara un nombre que
-  // no existe y lo reenviara cada turno, disparando una búsqueda inútil a la base para siempre.
-  if ((hallazgo.estado === "reconocido" || hallazgo.estado === "ambiguo") && estado.identidad.nombre) {
-    events.push({
-      type: "afiliado",
-      data: { nombre: estado.identidad.nombre, ciudad: estado.identidad.ciudad ?? "" },
-    });
-  }
+  // Aquí se emitía el evento `afiliado`, con el que el cliente guardaba la identidad en un ref
+  // propio. Ya no hace falta: la identidad vive en el estado sellado, que es su único portador.
 
   const textoUsuario = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
 
@@ -301,17 +249,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
 
   estado = cerrarTurno(estado, { eventos: events, perfilUsado, descartes });
 
-  // La vista se arma ANTES del puente de compatibilidad, y el orden importa: el puente ensucia
-  // `reply` con el protocolo viejo, y construir la vista después lo colaría dentro de
-  // `ui.bloques`. La vista nunca debe ver un protocolo que este bloque existe para eliminar.
-  const ui = vistaDeEstado(estado, reply, events);
-
-  // Compat · MUERE EN EL PASO 3. El cliente actual saca las quick-replies del texto con una
-  // regex. Ahora llegan por `ofrecer_opciones`, así que sin este puente desaparecerían de la
-  // pantalla justo durante la ventana de compatibilidad — una regresión visible metida por un
-  // paso que promete ser aditivo. Se reescribe el protocolo SOLO para el cliente viejo.
-  const opciones = opcionesDeEventos(events);
-  if (!entrada.estado && opciones.length) reply += `\nOPCIONES: ${opciones.join(" | ")}`;
-
-  return { ui, estado: sellar(estado), reply, events };
+  // Aquí se reescribía `OPCIONES: a | b` sobre el texto, para el cliente que las sacaba con una
+  // regex. Ese cliente ya no existe: las quick-replies llegan en `ui.sugerencias`.
+  return { ui: vistaDeEstado(estado, reply, events), estado: sellar(estado) };
 }
