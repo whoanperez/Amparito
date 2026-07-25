@@ -35,6 +35,17 @@ export interface SanearCtx {
   textoUsuario?: string;
   /** Segmento que vino verificado de la base de afiliados. Manda sobre lo que proponga el LLM. */
   segmentoBase?: SegmentoBase;
+  /**
+   * Lo que ya se sabía al empezar el turno. Es un PISO, no un reemplazo: el modelo sigue
+   * proponiendo y esta compuerta sigue verificando contra el texto de la persona.
+   *
+   * Sin esto, el perfil lo re-inferí­a el LLM en CADA turno y `_origen` —del que depende la
+   * prueba social— nacía y moría dentro del mismo request. El motor, que es la pieza
+   * determinista y auditable del sistema, recibía cada turno un input retecleado por el
+   * componente menos determinista. Lo único que cambia es que lo ya ganado no se pierde porque
+   * el modelo olvidó retranscribirlo.
+   */
+  perfilPrevio?: Perfil;
 }
 
 export interface Saneado {
@@ -96,8 +107,12 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   const texto = norm(ctx.textoUsuario ?? "");
   const base = ctx.segmentoBase ?? {};
   const descartes: string[] = [];
-  const origen: Record<string, Origen> = {};
-  const perfil: Record<string, unknown> = {};
+
+  // El PISO: lo ya ganado en turnos anteriores entra con su procedencia intacta. `_origen` se
+  // reescribe al final, y `enriquecido` se copia aparte porque es el único campo anidado.
+  const { _origen: origenPrevio, enriquecido: enrPrevio, ...restoPrevio } = ctx.perfilPrevio ?? {};
+  const origen: Record<string, Origen> = { ...(origenPrevio ?? {}) };
+  const perfil: Record<string, unknown> = { ...restoPrevio };
 
   const menciona = (terminos: string[]) => terminos.some((t) => texto.includes(t));
   const enEnum = (campo: string, v: unknown) =>
@@ -180,7 +195,7 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   /* ── enriquecido ───────────────────────────────────────────────────────── */
 
   const enrBruto = (src.enriquecido ?? {}) as Record<string, unknown>;
-  const enr: Record<string, unknown> = {};
+  const enr: Record<string, unknown> = { ...(enrPrevio ?? {}) };
 
   // Campos con GATE de posesión: habilitan un producto entero, así que exigen que la persona
   // haya hablado de eso. Aquí es donde se colaba `vivienda:"propia"`.
@@ -293,23 +308,34 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
  * Es determinista y no necesita estado en el cliente: usa las mismas listas de términos con las
  * que `sanearPerfil` verifica la evidencia.
  */
-export function resumenEvidencia(textoUsuario: string): string | null {
+export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): string | null {
   const texto = norm(textoUsuario);
-  if (!texto.trim()) return null;
+  const enr = perfilPrevio?.enriquecido ?? {};
+  const tienePerfil = Object.keys(enr).length > 0;
+  if (!texto.trim() && !tienePerfil) return null;
   const menciona = (t: string[]) => t.some((x) => texto.includes(x));
 
-  const vehiculos = Object.entries(TERMINOS_VEHICULO)
-    .filter(([, t]) => menciona(t))
-    .map(([k]) => k);
-  const mascotas = Object.entries(TERMINOS_MASCOTA)
-    .filter(([, t]) => menciona(t))
-    .map(([k]) => k);
-  const hablóDeVivienda = menciona(TERMINOS_VIVIENDA);
-  const hablóDeDependientes = menciona([
-    "hijo", "hija", "hijos", "esposa", "esposo", "pareja", "mama", "papa", "madre", "padre",
-    "depende", "dependen", "a cargo", "solo yo", "nadie",
-  ]);
-  const hablóDeIngreso = menciona(["ingreso", "gano", "sueldo", "salario", "trabajo", "empleo", "desemplead"]);
+  // El TEXTO manda para decidir qué no volver a preguntar: recoge lo que la persona mencionó,
+  // aunque el modelo no lo haya capturado en el perfil. El PERFIL suma lo que además ya está
+  // confirmado y sobrevivió la compuerta. Quedarse solo con el perfil haría repreguntar cosas
+  // que la persona sí dijo pero el modelo no transcribió.
+  const vehiculos = Array.from(new Set([
+    ...Object.entries(TERMINOS_VEHICULO).filter(([, t]) => menciona(t)).map(([k]) => k),
+    ...(enr.tiene_vehiculo ?? []),
+  ]));
+  const mascotas = Array.from(new Set([
+    ...Object.entries(TERMINOS_MASCOTA).filter(([, t]) => menciona(t)).map(([k]) => k),
+    ...(enr.tiene_mascota ?? []),
+  ]));
+  const hablóDeVivienda = menciona(TERMINOS_VIVIENDA) || enr.vivienda !== undefined;
+  const hablóDeDependientes =
+    menciona([
+      "hijo", "hija", "hijos", "esposa", "esposo", "pareja", "mama", "papa", "madre", "padre",
+      "depende", "dependen", "a cargo", "solo yo", "nadie",
+    ]) || enr.dependientes !== undefined;
+  const hablóDeIngreso =
+    menciona(["ingreso", "gano", "sueldo", "salario", "trabajo", "empleo", "desemplead"]) ||
+    enr.sin_ingresos !== undefined;
 
   const sabe: string[] = [];
   const falta: string[] = [];

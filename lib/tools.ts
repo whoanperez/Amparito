@@ -4,7 +4,7 @@ import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
-import { sanearPerfil, type SegmentoBase } from "./engine/sanear";
+import { sanearPerfil, type SanearCtx } from "./engine/sanear";
 import { registrar } from "./auditoria";
 import { Perfil } from "./engine/types";
 
@@ -205,12 +205,13 @@ import type { UiEvent } from "./estado/tipos";
  * Contexto que el servidor le da a las tools. Lo necesita `sanearPerfil` para verificar que un
  * campo del perfil venga de la base o de algo que la persona escribió de verdad.
  */
-export interface ToolCtx {
-  /** Todo lo que la PERSONA escribió, concatenado (no lo que escribió Amparito). */
-  textoUsuario?: string;
-  /** Segmento verificado del afiliado. Manda sobre lo que proponga el modelo. */
-  segmentoBase?: SegmentoBase;
-}
+/**
+ * Es exactamente el contexto de la compuerta: `executeTool` se lo pasa tal cual a `sanearPerfil`.
+ * Se declaraba aparte con los mismos dos campos, que es cómo dos tipos que deben ser el mismo
+ * empiezan a divergir — uno gana `perfilPrevio` y el otro no, y el turno deja de acumular sin
+ * que nada se queje.
+ */
+export interface ToolCtx extends SanearCtx {}
 
 /**
  * Punto ÚNICO por donde pasan las 9 tools. Aquí se registra la decisión (RNF-6): no en nueve

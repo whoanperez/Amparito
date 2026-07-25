@@ -7,7 +7,7 @@
  * pregunta de doble cañón) y eso decidió la venta. Y mandó `CATEGORIA:"B"` para alguien que
  * acababa de decir que no tiene ingresos, apagando `prioriza_prima_baja`.
  */
-import { sanearPerfil } from "../lib/engine/sanear";
+import { sanearPerfil, resumenEvidencia } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
 let ok = true;
@@ -102,6 +102,59 @@ check(
   "marca.* no se acepta desde la conversación",
   sanearPerfil({ marca: { VIVIENDA: "SI" } }, { textoUsuario: "hola" }).perfil.marca === undefined
 );
+
+/* ── 4 · el perfil acumulado es un PISO, no un reemplazo ─────────────────────
+   El hallazgo más profundo del sistema: el perfil lo re-inferí­a el LLM en cada turno y `_origen`
+   —del que depende la prueba social— nacía y moría dentro del mismo request. El motor, la pieza
+   determinista y auditable, recibía cada turno un input retecleado por el componente menos
+   determinista.
+
+   El piso es de fiar porque el perfil previo llega dentro del estado SELLADO: ya pasó por esta
+   misma compuerta en su turno, y el HMAC impide que el navegador lo edite por el camino. */
+console.log("\n===== El perfil acumulado (piso, no reemplazo) =====");
+
+const turno1 = sanearPerfil(
+  { enriquecido: { tiene_vehiculo: ["moto"] } },
+  { textoUsuario: "tengo una moto y la uso para trabajar" }
+);
+check("turno 1 · la compuerta acepta la moto", turno1.perfil.enriquecido?.tiene_vehiculo?.join() === "moto");
+check("turno 1 · con su procedencia", turno1.perfil._origen?.["enriquecido.tiene_vehiculo"] === "declarado");
+
+// Turno 2: el modelo NO retranscribe nada. Antes, aquí se perdía todo.
+const turno2 = sanearPerfil(
+  {},
+  { textoUsuario: "tengo una moto y la uso para trabajar\n¿y eso qué cubre?", perfilPrevio: turno1.perfil }
+);
+check("turno 2 · la moto sigue ahí aunque el modelo no la mande",
+  turno2.perfil.enriquecido?.tiene_vehiculo?.join() === "moto");
+check("turno 2 · y su procedencia también", turno2.perfil._origen?.["enriquecido.tiene_vehiculo"] === "declarado");
+
+// El piso no relaja la compuerta: lo que el modelo propone AHORA sigue verificándose.
+const turno3 = sanearPerfil(
+  { enriquecido: { vivienda: "propia" } },
+  { textoUsuario: "tengo una moto y la uso para trabajar", perfilPrevio: turno2.perfil }
+);
+check("el piso NO relaja la compuerta: vivienda sin evidencia se sigue cayendo",
+  turno3.perfil.enriquecido?.vivienda === undefined);
+check("y se explica por qué", turno3.descartes.some((d) => d.includes("vivienda")));
+check("mientras lo ya ganado se conserva", turno3.perfil.enriquecido?.tiene_vehiculo?.join() === "moto");
+
+// El segmento de la base sigue mandando por encima del piso.
+const conBaseNueva = sanearPerfil(
+  {},
+  { textoUsuario: "hola", perfilPrevio: { CATEGORIA: "C", _origen: { CATEGORIA: "base" } }, segmentoBase: { CATEGORIA: "A" } }
+);
+check("la base manda sobre el piso", conBaseNueva.perfil.CATEGORIA === "A");
+
+/* ── 5 · el resumen de evidencia usa texto Y perfil ────────────────────────── */
+console.log("\n===== Lo que ya te contó =====");
+const soloTexto = resumenEvidencia("tengo una moto") ?? "";
+check("el texto solo ya reconoce la moto", soloTexto.includes("moto"));
+// Un campo confirmado en un turno anterior cuenta como sabido aunque el texto de ESTE turno no
+// lo mencione: es lo que impide repreguntar lo mismo tres turnos después.
+const conPerfil = resumenEvidencia("¿y eso qué cubre?", turno2.perfil) ?? "";
+check("un campo ya confirmado cuenta como sabido", conPerfil.includes("moto"));
+check("y por tanto no aparece como pendiente", !/Falta por saber:[^\n]*vehículo/.test(conPerfil));
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

@@ -22,6 +22,7 @@ import { contextoDeEstado } from "@/lib/estado/contexto";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";
+import type { Perfil } from "@/lib/engine/types";
 
 export const MODELO_POR_DEFECTO = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
 export const MAX_TOOL_ROUNDS = 8;
@@ -124,6 +125,8 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   const maxRondas = deps.maxRondas ?? MAX_TOOL_ROUNDS;
 
   const events: UiEvent[] = [];
+  let perfilUsado: Perfil | undefined;
+  let descartes: string[] | undefined;
 
   // Un sello inválido o ausente no es un error: se arranca de cero. El jurado ve un saludo, no
   // un 500.
@@ -160,15 +163,24 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
 
   const textoUsuario = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
 
-  const evidencia = estado.fase === "DESCUBRIENDO" ? resumenEvidencia(textoUsuario) : null;
+  // Corre también en RECONOCIDO. Antes solo en DESCUBRIENDO, así que un afiliado reconocido no
+  // tenía ninguna protección contra preguntas repetidas — y en la conversación real preguntó dos
+  // veces por los dependientes y dos por el uso del carro, con las mismas palabras.
+  const puedePreguntar = estado.fase === "DESCUBRIENDO" || estado.fase === "RECONOCIDO";
+  const evidencia = puedePreguntar ? resumenEvidencia(textoUsuario, estado.perfil) : null;
   const system = buildSystemPrompt(
     estado.fase,
     [contextoDeEstado(estado), evidencia].filter(Boolean).join("\n\n")
   );
 
   // El segmento verificado va al motor por el SERVIDOR, no retranscrito por el modelo: así un
-  // error de transcripción no puede producir una celda de peer-group falsa.
-  const toolCtx: ToolCtx = { textoUsuario, segmentoBase: estado.identidad.segmento };
+  // error de transcripción no puede producir una celda de peer-group falsa. Y el perfil acumulado
+  // entra como piso, para que el motor deje de recibir lo que el LLM alcance a reteclear.
+  const toolCtx: ToolCtx = {
+    textoUsuario,
+    segmentoBase: estado.identidad.segmento,
+    perfilPrevio: estado.perfil,
+  };
 
   const convo: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
@@ -196,6 +208,15 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
           toolCtx
         );
         if (event) events.push(event);
+        // `calcular_propension` devuelve el perfil que la compuerta aceptó. Es lo que se guarda
+        // en el estado para que el turno siguiente arranque desde ahí en vez de desde cero.
+        // Se lee por el campo y no por el nombre de la tool: si mañana otra tool también sanea,
+        // no hay que acordarse de añadirla a una lista.
+        const conPerfil = result as { perfil_usado?: Perfil; descartado_por_falta_de_evidencia?: string[] };
+        if (conPerfil?.perfil_usado) {
+          perfilUsado = conPerfil.perfil_usado;
+          descartes = conPerfil.descartado_por_falta_de_evidencia ?? [];
+        }
         toolResults.push({
           type: "tool_result",
           tool_use_id: block.id,
@@ -240,6 +261,6 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     if (corregido && contarPreguntas(corregido) <= 1 && !esDobleCanon(corregido)) reply = corregido;
   }
 
-  estado = cerrarTurno(estado, { eventos: events });
+  estado = cerrarTurno(estado, { eventos: events, perfilUsado, descartes });
   return { reply, events, estado: sellar(estado) };
 }

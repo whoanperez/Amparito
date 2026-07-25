@@ -18,6 +18,8 @@ import { ejecutarTurno, type DepsTurno, type Msg } from "../lib/turno";
 import type { ConsultaIdentidad, UiEvent } from "../lib/estado/tipos";
 import type { HallazgoIdentidad } from "../lib/estado/reducir";
 import { abrir } from "../lib/estado/sello";
+import { sanearPerfil } from "../lib/engine/sanear";
+import type { ToolCtx } from "../lib/tools";
 
 let ok = true;
 let total = 0;
@@ -227,6 +229,44 @@ async function main() {
     checkEq("no se emite evento de afiliado", r.events.filter((e) => e.type === "afiliado").length, 0);
     // Pero el ESTADO sí lo recuerda: es lo que permite no volver a insistir con el tema.
     checkEq("y aun así el estado lo recuerda", abrir(r.estado)?.identidad.resultado, "no_encontrado");
+  }
+
+  titulo("El perfil sobrevive aunque el modelo no lo retranscriba");
+  {
+    const ctxVistos: ToolCtx[] = [];
+    // La tool falsa usa la compuerta REAL: así el test ejercita el saneamiento de verdad, no una
+    // imitación que podría divergir de él.
+    const ejecutarTool = async (_n: string, input: Record<string, unknown>, ctx?: ToolCtx) => {
+      ctxVistos.push(ctx ?? {});
+      const { perfil, descartes } = sanearPerfil(input.perfil, ctx);
+      return {
+        result: { perfil_usado: perfil, descartado_por_falta_de_evidencia: descartes },
+        event: { type: "propension" as const, data: { recomendaciones: [] } },
+      };
+    };
+
+    const t1 = await ejecutarTurno(
+      { messages: [{ role: "user", content: "Tengo una moto y la uso para trabajar" }] },
+      deps([usaTool("calcular_propension", { perfil: { enriquecido: { tiene_vehiculo: ["moto"] } } }), dice("Listo.")], { ejecutarTool }).d
+    );
+    checkEq("turno 1 · la moto queda en el estado", abrir(t1.estado)?.perfil.enriquecido?.tiene_vehiculo?.[0], "moto");
+    checkEq("turno 1 · con su procedencia", abrir(t1.estado)?.perfil._origen?.["enriquecido.tiene_vehiculo"], "declarado");
+
+    // Turno 2: el modelo NO retranscribe el perfil. Antes, aquí el motor lo perdía entero.
+    const t2 = await ejecutarTurno(
+      {
+        messages: [
+          { role: "user", content: "Tengo una moto y la uso para trabajar" },
+          { role: "assistant", content: "Listo." },
+          { role: "user", content: "¿y eso qué cubre?" },
+        ],
+        estado: t1.estado,
+      },
+      deps([usaTool("calcular_propension", { perfil: {} }), dice("Te cuento.")], { ejecutarTool }).d
+    );
+    checkEq("la tool recibió el perfil previo como piso", ctxVistos[1]?.perfilPrevio?.enriquecido?.tiene_vehiculo?.[0], "moto");
+    checkEq("turno 2 · la moto SIGUE en el estado", abrir(t2.estado)?.perfil.enriquecido?.tiene_vehiculo?.[0], "moto");
+    checkEq("y su procedencia intacta", abrir(t2.estado)?.perfil._origen?.["enriquecido.tiene_vehiculo"], "declarado");
   }
 
   /* 2 · Caracterización de los defectos que arregla el bloque 2 ──────────── */

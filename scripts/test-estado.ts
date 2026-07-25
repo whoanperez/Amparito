@@ -311,6 +311,13 @@ titulo("El sello rechaza lo que no firmó el servidor");
   checkEq("una versión desconocida del formato se rechaza", abrir(sellar({ ...e, v: 99 as 1 })), null);
 
   // Falla CERRADO pero sin excepción: el jurado nunca ve un error, ve un saludo.
+  // El estado viaja en CADA request y respuesta. Medido con un perfil realista (afiliada
+  // reconocida, perfil completo y veredicto con recomendaciones) da ~2,3 KB. La guarda existe
+  // para que crecer no sea gratis y en silencio: si esto se dispara, el primer candidato a salir
+  // es `descartes`, que hoy se guarda y nadie lee entre turnos.
+  const gordo = { ...e, perfil: { enriquecido: { tiene_vehiculo: ["moto", "carro"], dependientes: 2, vivienda: "propia" as const } } };
+  check("el estado sellado se mantiene por debajo de 8 KB", sellar(gordo).length < 8192, `→ ${sellar(gordo).length} bytes`);
+
   checkEq("ante un sello inválido se arranca en turno 0", abrirOInicial("basura").turno, 0);
   checkEq("y en fase SALUDO", abrirOInicial("basura").fase, "SALUDO");
   checkEq("sin segmento heredado de nadie", abrirOInicial("basura").identidad.segmento, undefined);
