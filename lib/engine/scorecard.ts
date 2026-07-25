@@ -122,7 +122,21 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
 
   const primaBase = (id: string) => getProduct(id)?.prima_regla.base ?? Number.MAX_SAFE_INTEGER;
 
+  // Jerarquía de protección: cuando hay personas que dependen de ese ingreso, reemplazarlo va
+  // antes que proteger un bien o un gusto. Sin esta capa, alguien que sostiene sola su hogar y
+  // menciona que tiene perro recibía Mascotas (57) por encima de Vida (55).
+  const GRUPOS_SOSTEN = ["Monoparental", "Monoparental ampliada"];
+  const sostieneAOtros =
+    (perfil.enriquecido?.dependientes ?? 0) >= 1 ||
+    GRUPOS_SOSTEN.includes(perfil.SEGMENTO_GRUPO_FAMILIAR ?? "");
+
   const ordenar = (a: Scored, b: Scored) => {
+    // Prioridad por encima del score: no recalibra ningún peso, cambia el orden.
+    if (sostieneAOtros) {
+      const pa = a.w.protege_ingreso ? 1 : 0;
+      const pb = b.w.protege_ingreso ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+    }
     if (b.score !== a.score) return b.score - a.score;
     // Desempate 1: cat A prioriza prima baja (gate de asequibilidad).
     if (primaBajaPrimero) {

@@ -94,7 +94,8 @@
           "razon": "Ya cuentas con un seguro de vida"
         }
       ],
-      "motivo_descarte": "Protege el ingreso de quien depende de ti; hoy no vimos esa dependencia como lo más urgente."
+      "motivo_descarte": "Protege el ingreso de quien depende de ti; hoy no vimos esa dependencia como lo más urgente.",
+      "protege_ingreso": true
     },
     "accidentes_personales_metlife": {
       "linea": "personal_familiar",
@@ -562,7 +563,8 @@
         }
       ],
       "redundancia": [],
-      "motivo_descarte": "Protege un crédito específico; sin crédito vigente no aporta."
+      "motivo_descarte": "Protege un crédito específico; sin crédito vigente no aporta.",
+      "protege_ingreso": true
     }
   }
 }

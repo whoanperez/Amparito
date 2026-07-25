@@ -63,5 +63,20 @@ for (const [nombre, perfil] of Object.entries(PERSONAS)) {
   }
 }
 
+// Jerarquía de protección: quien sostiene a otros no puede recibir un seguro de mascotas por
+// encima del de vida, aunque el score de Mascotas sea mayor. Y a quien NO sostiene a nadie, la
+// jerarquía no le debe aplicar (si no, Vida volvería a colarse y rompería el anti-venta 1).
+console.log("\n===== Jerarquía de protección =====");
+{
+  const conPerro = calcularPropension({ ...PERSONAS.Carolina, enriquecido: { ...PERSONAS.Carolina.enriquecido, tiene_mascota: ["perro"] } });
+  console.log("Carolina + perro:", conPerro.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  "));
+  check("Vida sigue siendo #1 con mascota declarada", conPerro.recomendaciones[0]?.nombre === "Seguro de Vida");
+  check("Mascotas se sigue ofreciendo (no se elimina)", conPerro.recomendaciones.some((x) => /mascotas/i.test(x.nombre)));
+
+  const andresPerro = calcularPropension({ ...PERSONAS.Andres, enriquecido: { ...PERSONAS.Andres.enriquecido, tiene_mascota: ["perro"] } });
+  console.log("Andrés + perro:", andresPerro.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  "));
+  check("sin dependientes la jerarquía NO aplica (Vida ausente)", !andresPerro.recomendaciones.some((x) => x.nombre === "Seguro de Vida"));
+}
+
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

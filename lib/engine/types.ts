@@ -78,6 +78,13 @@ export interface ProductoWeights {
   consecuencia_legal?: string;
   /** Motivo específico de descarte. Sin esto, todos los descartados dicen la misma frase. */
   motivo_descarte?: string;
+  /**
+   * Protege el INGRESO de quien sostiene el hogar (no un bien ni un gusto). Cuando hay
+   * personas que dependen de ese ingreso, estos productos encabezan el ranking: sin esto,
+   * un seguro de mascotas podía quedar sobre el de vida de una madre cabeza de hogar.
+   * No cambia ningún peso — cambia la prioridad.
+   */
+  protege_ingreso?: boolean;
 }
 
 export interface GateAffordability {
