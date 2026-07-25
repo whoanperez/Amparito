@@ -19,6 +19,8 @@ export interface PerfilEnriquecido {
   viaja?: boolean;
   tiene_credito?: boolean;
   mascota_veterinario_frecuente?: boolean;
+  /** No tiene ingresos hoy (desempleo, informalidad sin entrada). Dispara el "hoy no te vendo". */
+  sin_ingresos?: boolean;
 }
 
 /**
@@ -35,6 +37,14 @@ export interface Perfil {
   enriquecido?: PerfilEnriquecido;
   marca?: Record<string, "SI" | "NO">; // DROGUERIA, VIVIENDA, AGENCIAS, HOTELES, PISCILAGO
   ya_cubierto?: string[]; // coberturas que YA tiene: "exequial" | "vida" | "soat" | "hogar" | "accidentes" | "mascota"
+  /**
+   * Procedencia por campo, la pone el SERVIDOR (`sanearPerfil`), nunca el LLM.
+   * "base" = vino verificado de la base de afiliados · "declarado" = la persona lo dijo y el
+   * servidor lo verificó contra su texto · "inferido" = el modelo lo supuso.
+   * Un campo `inferido` puede mover el score, pero NO habilita afirmaciones sobre la base
+   * (la prueba social exige los 4 ejes en "base" o "declarado").
+   */
+  _origen?: Record<string, "base" | "declarado" | "inferido">;
 }
 
 // --- Forma de data/weights.json (subconjunto que consume el motor) ---
@@ -69,6 +79,22 @@ export interface ProductoWeights {
   "señales": Senal[];
   redundancia?: Redundancia[];
   nota?: string;
+  /**
+   * Obligatorio por ley (ej. SOAT, Ley 769/2002). NO compite por un cupo del ranking y NUNCA
+   * puede caer en descartados: si la persona no lo tiene, va en su propia banda arriba.
+   */
+  obligatorio_legal?: boolean;
+  /** Consecuencia real de no tenerlo. Se muestra en la banda de obligatorios. */
+  consecuencia_legal?: string;
+  /** Motivo específico de descarte. Sin esto, todos los descartados dicen la misma frase. */
+  motivo_descarte?: string;
+  /**
+   * Protege el INGRESO de quien sostiene el hogar (no un bien ni un gusto). Cuando hay
+   * personas que dependen de ese ingreso, estos productos encabezan el ranking: sin esto,
+   * un seguro de mascotas podía quedar sobre el de vida de una madre cabeza de hogar.
+   * No cambia ningún peso — cambia la prioridad.
+   */
+  protege_ingreso?: boolean;
 }
 
 export interface GateAffordability {
@@ -113,8 +139,78 @@ export interface Peer {
   pct: number;
 }
 
+/**
+ * Obligatorio por ley que la persona NO tiene. No es una recomendación: es una obligación.
+ * Distinguir las dos cosas es criterio, y evita decirle "esto lo puedes sumar más adelante"
+ * a alguien sobre un seguro sin el cual le inmovilizan el vehículo.
+ */
+export interface Obligatorio {
+  id: string;
+  nombre: string;
+  aseguradora: string;
+  razon: string;
+  consecuencia: string;
+}
+
+/**
+ * El segundo tipo de NO: "hoy no te sirve". Hasta ahora el anti-venta solo sabía decir "ya lo
+ * tienes"; le faltaba el más humano. Lo decide el MOTOR, no el LLM, para que sea la misma regla
+ * de oro: el motor calcula, el modelo redacta.
+ */
+export interface NoVenta {
+  motivo: string;
+  /** Lo que sí sirve hoy. Colsubsidio es una caja: tiene servicios que una aseguradora no. */
+  alternativa: string;
+}
+
+/* ── Traza auditable (RNF-6) ─────────────────────────────────────────────────
+   "Toda recomendación persiste {perfil, reglas, pesos, reason codes, cita de fuente};
+   inspeccionable en pantalla (no caja negra)." Los datos ya existían dentro del motor: las
+   señales se recolectaban con su peso y se tiraban, y al resultado solo llegaba la razón.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/** Una señal que aplicó: qué campo del perfil la disparó, qué dice y cuánto pesó. */
+export interface SenalAplicada {
+  feature: string;
+  razon: string;
+  peso: number;
+}
+
+export interface TrazaProducto {
+  id: string;
+  nombre: string;
+  score: number;
+  senales: SenalAplicada[];
+  /** Dónde terminó, para poder explicar también lo que NO se recomendó. */
+  resultado: "recomendado" | "obligatorio" | "descartado" | "ya_cubierto" | "fuera_del_top";
+}
+
+export interface TrazaDecision {
+  /** Versión del scorecard con el que se decidió. Sin esto dos trazas no son comparables. */
+  version_reglas: string;
+  /** Perfil que ENTRÓ al motor, con la procedencia de cada campo (`_origen`). */
+  perfil: Perfil;
+  gate_asequibilidad: { categoria: string; prioriza_prima_baja: boolean };
+  /** Si la jerarquía de protección movió el orden contra el puntaje. */
+  jerarquia_aplicada: boolean;
+  /** Por qué se afirmó (o no) la prueba social. */
+  peer: { afirmada: boolean; motivo: string };
+  productos: TrazaProducto[];
+}
+
 export interface PropensionResult {
   recomendaciones: Recomendacion[];
+  /** Traza auditable de esta decisión (RNF-6). Aditiva: nada existente cambia de forma. */
+  traza?: TrazaDecision;
+  /** Si viene, NO se recomienda ningún producto de pago: no es una venta perdida, es criterio. */
+  no_venta?: NoVenta;
+  /**
+   * Por qué el orden no es el del puntaje. Solo aparece cuando la jerarquía de protección
+   * efectivamente movió el ranking, para poder explicarlo en pantalla.
+   */
+  jerarquia?: string;
+  /** Banda propia, por encima del ranking. Vacía si no aplica o si ya lo tiene. */
+  obligatorios: Obligatorio[];
   descartados: Descartado[];
   ledger: {
     riesgos_hoy: string[];

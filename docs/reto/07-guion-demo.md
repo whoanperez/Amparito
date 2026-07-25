@@ -1,117 +1,202 @@
-# Guion de demo — Amparito (3 minutos) · la estrella polar
+# Guion de demo — Amparito (3 minutos) · v2
 
-> **Este es el documento del que todo se deriva hacia atrás.** No construimos nada que el guion no
-> toque. Si un beat no emociona en papel, se reescribe antes de codificar. Basado en las decisiones del
-> equipo (adoptar [Amparito](https://github.com/whoanperez/Amparito) + 4 injertos) y en el
-> [requerimiento](./01-requerimiento.md) (pesos oficiales del jurado) y los
-> [datos reales](./02-datos-afiliados.md).
+> **Reescrito el 25-jul** tras dos paneles de primera impresión y posicionamiento. Los dos, por
+> separado, dijeron lo mismo: la mejor escena que el producto tiene **no estaba en el guion**, y las
+> tres personas eran tres ventas. Esta versión abre con la escena que ningún otro equipo puede
+> protagonizar. Los beats están verificados contra el código, no contra la intención.
+>
+> **Lo que cambió respecto a la v1** (por si alguien la recuerda): la entrada ya no son las 6
+> tarjetas "¿qué quieres proteger?" —bajaron al turno 2— sino **una sola pregunta que pide el
+> nombre**. El arranque caliente ya no es por `SERIE` (nadie se sabe su número de afiliado) sino
+> **por nombre**, contra la base real. Y el cierre ya no dice "quedaste asegurado": dice la verdad.
 
-## Las 3 personas (contraste máximo para lucir "variación por perfil" = 20%)
+## La tesis, en una frase (para el ascensor)
 
-| # | Persona | Perfil (variables reales de la base) | Recomendación | El momento que luce |
-|---|---|---|---|---|
-| A | **Andrés, 28** | Soltero · *sin grupo familiar* · cat A · Bogotá · acaba de comprar moto | Accidentes Personales (MetLife) + Movilidad | **Anti-venta 1:** "no te vendo Vida — no tienes quién dependa de tu ingreso" |
-| B | **Carolina, 39** | *Cabeza de hogar monoparental* · cat A · 1 hijo (8) · Soacha | Vida (Pan-American) + Accidentes del menor | **Arranque caliente por SERIE** + **prueba social** + núcleo emocional |
-| C | **Jaime, 58** | Pareja conyugal · cat B · Bogotá · *ya tiene Exequial por Colsubsidio* | Vida (Pan-American) + Hogar | **Anti-venta 2:** "el Exequial ya lo tienes con nosotros — no te lo vendo de nuevo" (ledger de brechas) |
+> *"El 34% que no compra no es que no pueda pagar: cree que esto no es para él. A esa gente no la
+> mueve un descuento, la mueve creer. Y solo le cree a quien puede decirle que no. Colsubsidio es la
+> única que puede hacerlo, porque es la única que cuando hoy no te puede vender, **todavía tiene qué
+> darte**: subsidio al desempleo, agencia de empleo."*
 
-> Las tres salen de segmentos reales y opuestos de la base. Andrés y Jaime disparan el anti-venta por
-> razones distintas; Carolina es el corazón (el 23,5% monoparental = el segmento de mayor necesidad).
+"El único asesor que a veces te dice que NO" es el *tagline*. La tesis es ser **caja**, no aseguradora.
 
 ---
 
 ## El guion, beat por beat (≈3:00)
 
-### 0:00–0:20 · Gancho (el dolor, en una frase)
-**Presentador:** *"Hoy, si un afiliado de Colsubsidio quiere un seguro, la web termina en 'déjanos tus
-datos y te llamamos'. Ni Compensar, ni Cafam, ni Sura cierran la venta digital sin un humano. Nadie lo
-ha construido. Esto es Amparito."*
-→ Pantalla: la web real de Colsubsidio con el botón "te contactaremos" resaltado.
+### 0:00–0:25 · Apertura: la pantalla donde Amparito NO vende
 
-### 0:20–1:10 · Persona B (Carolina) — el corazón + el foso de datos
-- **Entrada pull-first:** tarjetas grandes "¿Qué quieres proteger?" 🐶🏍️👪🏠. Carolina toca **👪 Mi familia**.
-- **Arranque caliente por `SERIE`** (el foso, en 5 segundos): Amparito ya la conoce.
-  > *"Hola Carolina. Veo que eres cabeza de un hogar monoparental con un hijo. ¿Es así?"* → [Sí]
-  *(Ningún competidor puede hacer esto — es el dato único de Colsubsidio.)*
-- **1–2 preguntas de enriquecimiento** (chips): *"¿Quién más aporta al hogar?"* → [Solo yo].
-- **Ledger de brechas** (aparece en pantalla): columna izquierda "Riesgos hoy: tu ingreso sostiene a 2
-  personas · sin respaldo si faltas" · columna derecha "Ya cubierto: —".
-- **WhyThis + recomendación:** Seguro de Vida (Pan-American), *desde $12.000/mes (~$400/día)* con reason
-  codes visibles: *"● Eres el único ingreso de tu hogar · ● Tienes 1 hijo menor · ● Categoría A → plan esencial"*.
-- **Prueba social (mata la autoexclusión), honesta y trazable:** *"No estás sola: hay **62.459 afiliadas
-  como tú** —mujer, 36-45, monoparental, categoría A— en la base de Colsubsidio."* (Es el tamaño **real**
-  del segmento; NO afirmamos una tasa de compra: la base no tiene etiqueta de compra. Dato = `base_stats`.)
+**Presentador:** *"Voy a empezar mostrándoles la conversación en la que Amparito no vende nada."*
 
-### 1:10–1:35 · El "¿y por qué NO?" (pregunta de segundo orden)
-- Presentador toca **"ver descartados"**: Amparito muestra por qué NO le ofreció Salud (BMI) ni Hogar:
-  *"Descartado Salud (BMI): tu prioridad hoy es proteger tu ingreso; ya cuentas con tu EPS y en Categoría A
-  el plan esencial va primero. Descartado Hogar: no declaraste vivienda propia."*
-→ Este beat responde la pregunta exacta del jurado ("¿por qué a ella esto y no lo otro?") **antes de que
-  la hagan**.
+Toca el chip **"Me quedé sin trabajo"** en la pantalla de entrada. Un toque, sin teclear.
 
-### 1:35–2:05 · Contraste secuencial (variación por perfil, mostrada no contada)
-- **Una máquina, dos vidas, dos respuestas.** Corremos las dos personas **una tras otra** (no pantalla
-  partida — la variación se ve igual y no dependemos de un componente que puede fallar en vivo):
-  - Primero **Andrés (28, moto)** → Accidentes Personales + Movilidad. **Anti-venta 1:** *"Andrés, no te
-    vendo un Seguro de Vida: nadie depende hoy de tu ingreso. Con lo tuyo, basta protegerte a ti."*
-  - Luego **Carolina (39, mamá)** → Vida. El presentador lo nombra: *"Misma máquina, mismo motor — dos
-    vidas, dos respuestas honestas."* Las reason codes **se voltean** ante el jurado.
+→ Amparito para el cuestionario, reconoce lo que pasó, y en pantalla:
 
-### 2:05–2:35 · Persona C (Jaime) — anti-venta por el ledger + cierre
-- Jaime (58) pide "un seguro para mi familia". Amparito, con el arranque caliente:
-  > *"Jaime, veo que **ya tienes Exequial con Colsubsidio**. No te lo vendo otra vez. Lo que sí te falta
-  > es respaldo si te incapacitas: mira el Seguro de Vida (Pan-American)."*
-- **Cierre real:** transparencia SÍ/NO cubre en pantalla → consentimiento habeas data explícito →
-  **certificado PDF** → *"Ya quedaste asegurado, Jaime."* (pago mockeado).
+> **Hoy no te voy a vender nada**
+> ✋ No te vendo un seguro hoy. Un seguro que no se pueda pagar el mes entrante no protege: aprieta.
+> **Esto sí te sirve:** como afiliado de Colsubsidio te puede corresponder el subsidio al desempleo,
+> y tienes la agencia de empleo. A eso sí se te puede apuntar hoy mismo.
 
-### 2:35–3:00 · Pitch de cierre (el número + el KPI nuevo)
-**Presentador:** *"En Colombia **menos del 2% de las pólizas se venden por internet** (Fasecolda) —el
-canal digital está casi vacío, y la web hoy termina en 'déjanos tus datos'. Una conversación guiada que
-sí entiende a la persona convierte mucho mejor que un formulario. Y le damos a Colsubsidio un número que
-hoy no puede medir: la **tasa de anti-venta** —cuántas veces Amparito, siendo una caja de compensación
-con misión social, tuvo la honestidad de decir 'no lo necesitas'. Ese es el único asesor que a veces te
-dice que NO. De 'no sé qué necesito' a 'ya quedé asegurado', en 3 minutos, sin un solo humano."*
+**Presentador:** *"Ninguna aseguradora del país puede construir esta pantalla. No porque no sepa
+hacerla: porque no tiene qué poner del otro lado. Nosotros sí, porque somos una caja de
+compensación. Y todo lo que van a ver después —las recomendaciones, los precios, el cierre— lo van
+a creer porque vieron esta primero."*
 
-> **Cifras del pitch (todas citables, sin inventar):** penetración de seguros ≈3,3% del PIB (Fasecolda 2024)
-> · venta online <2% de las pólizas (Fasecolda / La República) · autoexclusión "esto no es para mí" 34%
-> (Fasecolda, estudio de demanda) · 67% de hogares con mascota (DANE 2023). Si un jurado pregunta la
-> fuente, se muestra. *(Dato de apoyo opcional: 2025 Insurance Barometer — 51% usaría IA para investigar
-> un seguro de vida.)*
+> **Por qué va de primero:** es la única escena que solo Colsubsidio puede protagonizar, y convierte
+> el anti-venta de gesto simpático en **credencial que se cobra durante los tres minutos siguientes**.
+> Y es un toque, no una frase que el presentador tenga que provocar.
+>
+> **Nota técnica (por si preguntan):** el motor devuelve cero productos por sí solo —lo decide el
+> scorecard, no el modelo— y el servidor detecta la falta de ingreso del texto, sin depender de que
+> el LLM ponga una bandera. Si además la persona tiene vehículo, **el SOAT sí se advierte**: no
+> mencionarlo la dejaría expuesta a que se lo inmovilicen, y eso cuesta más que la prima. Advertir
+> de una obligación legal es información, no una venta.
+
+### 0:25–1:00 · Carolina — el foso: un nombre y ya la conocemos
+
+- **Un toque** en la pastilla **"Carolina Ramírez"** (o el jurado teclea *"Soy Carolina Ramírez López"*).
+- **Mensaje 2, cero preguntas:**
+  > *"Bienvenida, Carolina. Veo que sostienes sola tu hogar. Con eso ya te preparé esto — si algo no
+  > cuadra, me lo dices y lo ajusto al instante."*
+- En la misma pantalla: **Seguro de Vida** (Pan-American) con sus reason codes visibles, y
+  **"No estás sola: hay 62.459 afiliadas en tu mismo segmento"** — mujer, 36-45, monoparental,
+  categoría A, dato real de `base_stats`.
+
+**Presentador:** *"Escribió cinco palabras. No le preguntamos la edad, ni la categoría, ni cuántos
+hijos tiene: eso ya lo sabe Colsubsidio. Y ese número de abajo no es una tasa de compra inventada —
+es el tamaño real de su segmento en la base."*
+
+> Aquí está el foso: **1.558.501 afiliados respondiendo en vivo a un nombre tecleado por el jurado.**
+> Todos los equipos recibieron la misma base; la diferencia no es tenerla, es que **contesta dentro
+> de la conversación**. Si el pitch dice "usamos la base", empatamos. Si dice "teclee un nombre",
+> ganamos.
+
+### 1:00–1:20 · El "¿y por qué NO lo otro?" — y la traza
+
+- Los **descartados** están abiertos por defecto, con motivos **distintos** por producto (no la misma
+  frase repetida).
+- Si el jurado pregunta *"¿y cómo sé que eso no lo inventó el modelo?"* → se abre
+  **"Ver cómo llegué a esto"**:
+
+```
+Seguro de Vida · score 55 · recomendado
+   +45  [SEGMENTO_GRUPO_FAMILIAR]  Eres el sostén de un hogar monoparental: si te faltas,
+                                   nadie más cubre el ingreso
+   +10  [RANGO_EDAD]               Etapa de mayores responsabilidades familiares
+
+procedencia: GENERO=base · RANGO_EDAD=base · CATEGORIA=base ·
+             SEGMENTO_GRUPO_FAMILIAR=base · SEGMENTO_POBLACIONAL=base
+versión del scorecard: v0.1
+```
+
+*(Salida real, copiada del motor con solo el nombre de Carolina. Si además cuenta que tiene un hijo,
+entra `+25 [enriquecido.dependientes]` marcado como **inferido** y el score sube a 80 — y ahí se ve
+la diferencia entre lo que Colsubsidio sabe y lo que ella acaba de contar.)*
+
+> **La traza es munición, no un beat.** Va colapsada a propósito: no es para el usuario, es para
+> quien pregunta. No la metan en el pitch — úsenla cuando la pregunta llegue, y ahí vale doble.
+> Muestra **de dónde salió cada dato**, cuánto pesó cada regla, y con qué versión se decidió.
+
+### 1:20–1:50 · Andrés — la ley antes que la recomendación
+
+- Un toque en **"Andrés Gómez"**. Cuenta que compró una moto y trabaja en ella.
+- **Banda propia, arriba del ranking:**
+  > **Esto no es recomendación, es obligación**
+  > **SOAT** — Sin él te pueden inmovilizar la moto y te multan. Si trabajas en ella, eso es quedarte
+  > sin ingreso el mismo día. No lo pongo a competir: hay que tenerlo.
+- Y debajo, la recomendación real: **Accidentes Personales**.
+- **Anti-venta 1:** *"No te vendo un Seguro de Vida: hoy nadie depende de tu ingreso."*
+
+**Presentador:** *"Distinguir 'la ley te obliga' de 'yo te sugiero' no es un detalle: es lo que
+diferencia a un asesor de un catálogo. Y fíjense que a Andrés no le recomienda Vida, y a Carolina sí.
+Misma máquina, mismo motor, dos vidas."*
+
+### 1:50–2:20 · Jaime — el segundo NO y el cierre honesto
+
+- Un toque en **"Jaime Ortiz"**. Ya tiene Exequial con Colsubsidio.
+- **Anti-venta 2, como héroe:** *"Lo primero: el Exequial ya lo tienes con nosotros, así que no te lo
+  vuelvo a ofrecer. Lo que sí te falta es respaldo si te incapacitas."*
+- **Cotización:** $28.600 al mes, rotulado **valor de referencia**. Coberturas y exclusiones
+  visibles (Ley 1328 Art. 9). Y si preguntan de cuánto es la póliza: *"el valor asegurado lo define
+  la aseguradora según el plan"* — **no se inventa una cifra**.
+- **Cierre:**
+  > Con esto tu solicitud queda completa. Qué pasa de aquí en adelante: 1) Colsubsidio recibe tu
+  > solicitud; 2) Pan-American Life expide la póliza; 3) te envía el certificado. **Si no te llega,
+  > escríbeme y lo rastreo: no tienes que perseguirlo tú.**
+  >
+  > *Una aclaración: esto es una simulación del proceso. Hoy no se emitió ninguna póliza.*
+- Y al cerrar, **dos preguntas**: qué tan fácil te resultó, y cómo te sentiste con la atención.
+
+**Presentador:** *"El certificado dice SIMULACIÓN, porque no hay aseguradora conectada. Preferimos
+que ustedes lo lean ahí que descubrirlo preguntando."*
+
+### 2:20–2:40 · Modo jurado — les entregamos el control
+
+*"Tecleen lo que quieran. Un nombre, un producto raro, una situación incómoda."*
+
+> El brief lo pide explícitamente: el jurado recorre el flujo **sin apoyo del equipo**. Casi ningún
+> equipo se atreve. Y las dos conversaciones desordenadas que tuvimos nosotros encontraron dos bugs
+> que cuatro rondas de revisión no habían visto.
+
+### 2:40–3:00 · Cierre
+
+**Presentador:** *"En Colombia menos del 2% de las pólizas se venden por internet. No le estamos
+quitando ventas a una máquina que vende: le estamos poniendo ventas a un canal que vende cero. Y el
+freno medido no es el precio (8%) — es la autoexclusión, el 'esto no es para mí' del 34%. A esa
+persona no la mueve un descuento: la mueve creer. Y solo le cree al que demostró poder decirle que
+no. Eso es lo que acaban de ver."*
 
 ---
 
+## Si preguntan "¿un bot que no vende? ¿y la meta comercial?"
+
+Tres movimientos, en este orden:
+
+1. **Aritmética, no moral.** El canal digital coloca **menos del 2%** y la web termina en "déjanos
+   tus datos". Todo NO se lo decimos a alguien que **hoy no le compra a nadie**: el costo de
+   oportunidad del anti-venta es **cero por construcción**.
+2. **El NO es el mecanismo de conversión, no su freno.** El freno es la autoexclusión, no el precio.
+   Y es medible antes de escalar: mismo motor, con y sin el bloque de anti-venta, midiendo conversión
+   y esfuerzo percibido — el instrumento ya está construido (las dos preguntas del cierre).
+3. **El NO tiene destino, no es una fuga.** Quien recibe el NO entra al subsidio al desempleo y a la
+   agencia de empleo: es un **lead para otra línea de la caja**, no una venta perdida.
+
+**La frase que cierra:** *"No estamos pidiendo permiso para vender menos. Estamos pidiendo permiso
+para no vender lo que se cae en tres meses."* Una póliza colocada a quien no la puede pagar en el
+mes 2 no es una venta: es persistencia negativa y una queja ante la SFC.
+
 ## Encuadre regulatorio (munición para preguntas del jurado)
-Tenerlo listo por si preguntan "¿pueden vender seguros así?":
-- **Rol:** Colsubsidio **comercializa** (uso de red / comercialización de seguros, Decreto 034/2015 y
-  Circular 049/2016 SFC); la **aseguradora aliada emite y asume el riesgo**. Amparito hace el *match*.
-- **Consumidor financiero:** se muestran coberturas, exclusiones y forma de pago **antes** de contratar
-  (**Ley 1328/2009, Art. 9**) — ya está en el flujo (tarjeta de cumplimiento).
-- **Datos:** autorización previa, expresa e informada (**Ley 1581/2012**) — consentimiento explícito antes de emitir.
-- **Onboarding:** **SARLAFT 4.0** (Circular 027/2020 SFC) admite **vinculación simplificada** para seguros
-  masivos de bajo valor → encaja con la venta digital sin fricción. *(Ese es el "¿y el lavado de activos?").*
 
-## Bonus · Momento proactivo (timing/canal — el diferencial que casi nadie muestra)
-Beat corto y opcional (si sobra tiempo, o como cierre del modo jurado). Abrimos `/chat?evento=credito_vivienda`
-y **Amparito habla primero**, sin que la persona pida nada: *"Vi que hace poco tomaste un crédito de
-vivienda con Colsubsidio. Podríamos proteger tu hogar y lo que estás pagando. ¿Te cuento cómo?"*
-→ Muestra que Colsubsidio no solo es un canal que espera: **llega en el momento correcto del ciclo de
-vida** apalancando su dato único. Es innovación de canal sin depender de voz. (También `?evento=bebe`.)
+- **Rol:** Colsubsidio **comercializa** (Decreto 034/2015, Circular 049/2016 SFC); la aseguradora
+  aliada **emite y asume el riesgo**. Amparito hace el *match*.
+- **Consumidor financiero:** coberturas, exclusiones y forma de pago **antes** de contratar
+  (**Ley 1328/2009, Art. 9**) — visibles bajo la cotización, en tres capas.
+- **Datos:** autorización previa, expresa e informada (**Ley 1581/2012**), en el formulario.
+- **Onboarding:** **SARLAFT 4.0** admite vinculación simplificada para seguros masivos de bajo valor.
+- **Asegurar a un tercero:** interés asegurable (art. 1137 C. de Comercio) y consentimiento del
+  asegurado (art. 1138). *"Puedo asegurar a tu hijo; a tu vecino no, aunque quieras pagarlo."*
 
-## Modo jurado (el movimiento de mayor recompensa)
-Tras el guion, **entregamos el control**: el jurado teclea/habla lo que quiera (ej. "seguro de hogar",
-"SOAT", un perfil raro). El sistema responde desde el catálogo completo. Esto demuestra la **autogestión
-total** (criterio explícito del brief) que casi ningún equipo se atreve a mostrar.
+## Cifras del pitch (todas citables, ninguna inventada)
 
-## Redes de seguridad (pre-mortem del demo)
-- **Camino crítico 100% local**, sin depender de red en vivo. Respuestas de las 3 personas-guion
-  **pre-cacheadas** por si el LLM o la red del salón fallan.
-- **Voz (Gemini Live) = bonus, tras feature flag:** construida pero **apagada por defecto**
-  (`NEXT_PUBLIC_VOICE_ENABLED`). Se prende solo para validar/demostrar (requiere `GEMINI_API_KEY`); si falla
-  latencia/ruido, se apaga el flag y el flujo sigue en chat+tarjetas sin romperse. Ver `docs/reto/12-build-tracker.md`.
-- **Cero PII en pantalla:** `SERIE` y segmento, nunca `NOMBRE_COMPLETO` real (los nombres del demo son
-  sintéticos).
-- **Contraste secuencial** (Andrés→Carolina) grabado en video de respaldo por si la red del salón falla.
+Venta online **<2%** de las pólizas (Fasecolda / La República) · autoexclusión **34%** (Fasecolda,
+estudio de demanda) · precio como freno **8%** · penetración ≈**3,3%** del PIB (Fasecolda 2024) ·
+**67%** de hogares con mascota (DANE 2023). Si preguntan la fuente, se muestra.
 
-## Qué debe existir para que este guion corra (lista mínima → alimenta el [backlog](./09-backlog.md))
-Entrada pull-first · arranque caliente por `SERIE` · motor de propensión con **reason codes** · **ledger
-de brechas** · **"ver descartados"** · **prueba social peer-group** · contraste lado a lado · **anti-venta**
-· cierre con certificado · (bonus) voz. Nada más para el demo.
+## Redes de seguridad (pre-mortem)
+
+- **Los tres nombres del demo funcionan con y sin red.** Están sembrados en Turso *y* en el sample
+  local sintético (`npm run seed-demo`); si Turso no responde, el adaptador local los reconoce igual.
+- **Camino crítico sin red:** `/chat?offline=1` reproduce a las 3 personas end-to-end. **Es
+  paracaídas, no modo de demo** — el brief castiga los flujos que requieren explicación adicional.
+- **Voz (Gemini Live):** construida, **flag apagado**, nunca validada en vivo. En el pitch es una
+  frase, no una demo.
+- **Cero PII:** los tres nombres del demo son **sintéticos**. La base real se consulta desde el
+  servidor y nunca llega al navegador.
+- **Antes de presentar:** `npm run gates` (11 suites). Y correr una conversación en vivo con
+  `ANTHROPIC_API_KEY` — es lo único que los gates no cubren: la redacción del modelo.
+
+## Lo que este guion ya no necesita construir
+
+Todo lo que toca existe y está verificado: entrada de una pregunta · reconocimiento por nombre contra
+la base · motor con reason codes · banda de obligatorios · ledger · descartados con motivos propios ·
+prueba social honesta · los cuatro NO · traza auditable · cierre rotulado · medición de esfuerzo y
+satisfacción. Ver [15-especificacion-ejecucion.md](./15-especificacion-ejecucion.md).

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { executeTool } from "@/lib/tools";
+import { executeTool, type UiEvent } from "@/lib/tools";
+import { copyCierre } from "@/lib/expedicion";
 import { logToSheets } from "@/lib/sheets";
 
 export const maxDuration = 30;
@@ -50,11 +51,16 @@ export async function POST(req: NextRequest) {
       canal: "Amparito",
     });
 
-    const closing = `¡Listo, quedaste asegurado! 🎉 Tu certificado llegará al correo ${
-      contacto?.correo ?? ""
-    } en las próximas horas. ¿Te ayudo con algo más?`;
+    // Nada se emite de verdad (mock-adapter), y el handoff a la aseguradora es real: el cierre
+    // explica el proceso completo en vez de prometer un correo que no va a llegar.
+    const aseguradora = String((event?.data as Record<string, unknown>)?.aseguradora ?? "la aseguradora");
+    const closing = copyCierre(aseguradora);
 
-    return NextResponse.json({ event, closing });
+    // Medición de esfuerzo y satisfacción (pedido del equipo de seguros). Va como evento aparte
+    // para que la tarjeta aparezca después del cierre y no compita con él.
+    const feedback: UiEvent = { type: "feedback", data: { producto: (event?.data as Record<string, unknown>)?.producto ?? null } };
+
+    return NextResponse.json({ event, closing, feedback });
   } catch (err) {
     console.error("[amparito] error emisión:", err);
     return NextResponse.json(

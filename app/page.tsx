@@ -74,11 +74,16 @@ export default function Home() {
                   <p>● En línea — sin esperas</p>
                 </div>
               </div>
+              {/* El mockup muestra lo que NINGÚN otro canal puede hacer: reconocer al afiliado y
+                  negarse a vender. Antes mostraba "compré una moto → te recomiendo accidentes",
+                  que es la versión commodity, y remataba con "✓ Póliza activa" — lo mismo que el
+                  producto tiene prohibido decir, porque aquí nada se emite de verdad. */}
               <div className="body">
-                <div className="bub bot">¿Qué cambió en tu vida o qué te tiene pensando en protegerte?</div>
-                <div className="bub user">Acabo de comprar una moto 🏍️</div>
-                <div className="bub bot">¡Felicitaciones! Te recomiendo Accidentes Personales + Asistencia moto. ¿Te cotizo?</div>
-                <div className="bub mini">✓ Póliza AMP-0294 activa · certificado listo</div>
+                <div className="bub user">Soy Carolina Ramírez</div>
+                <div className="bub bot">Bienvenida, Carolina. Veo que sostienes sola tu hogar 💛</div>
+                <div className="bub mini">62.459 afiliadas en tu mismo segmento</div>
+                <div className="bub user">Me quedé sin trabajo</div>
+                <div className="bub bot">Entonces hoy no te vendo nada. Te apunto al subsidio al desempleo.</div>
               </div>
             </div>
           </div>

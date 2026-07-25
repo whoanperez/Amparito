@@ -4,6 +4,8 @@ import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
+import { sanearPerfil, type SegmentoBase } from "./engine/sanear";
+import { registrar } from "./auditoria";
 import { Perfil } from "./engine/types";
 
 /**
@@ -74,6 +76,12 @@ export const toolDefinitions: Anthropic.Tool[] = [
                 viaja: { type: "boolean" },
                 tiene_credito: { type: "boolean" },
                 mascota_veterinario_frecuente: { type: "boolean" },
+                sin_ingresos: {
+                  type: "boolean",
+                  description:
+                    "true si la persona dice que hoy no tiene ingresos (desempleo, informalidad sin " +
+                    "entrada). El motor devolverá no_venta y NO se recomienda ningún producto de pago.",
+                },
               },
             },
             ya_cubierto: {
@@ -183,14 +191,45 @@ export const toolDefinitions: Anthropic.Tool[] = [
 
 /** Evento estructurado que la UI renderiza como tarjeta. */
 export interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto";
+  /**
+   * "afiliado" no pinta tarjeta: es el hallazgo de identidad que el cliente debe RECORDAR y
+   * reenviar en los siguientes turnos. Sin él, Amparito identifica a la persona en el turno 1 y
+   * no sabe quién es en el turno 3 (el historial se reconstruye solo con los textos).
+   */
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado" | "feedback";
   data: Record<string, unknown>;
 }
 
 /** Ejecuta una tool y devuelve {result, event?}. Compuertas de cumplimiento EN SERVIDOR. */
+/**
+ * Contexto que el servidor le da a las tools. Lo necesita `sanearPerfil` para verificar que un
+ * campo del perfil venga de la base o de algo que la persona escribió de verdad.
+ */
+export interface ToolCtx {
+  /** Todo lo que la PERSONA escribió, concatenado (no lo que escribió Amparito). */
+  textoUsuario?: string;
+  /** Segmento verificado del afiliado. Manda sobre lo que proponga el modelo. */
+  segmentoBase?: SegmentoBase;
+}
+
+/**
+ * Punto ÚNICO por donde pasan las 9 tools. Aquí se registra la decisión (RNF-6): no en nueve
+ * sitios distintos, que es como se pierde la mitad de la traza.
+ */
 export async function executeTool(
   name: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  ctx: ToolCtx = {}
+): Promise<{ result: unknown; event?: UiEvent }> {
+  const salida = await ejecutar(name, input, ctx);
+  registrar(name, input, salida.result);
+  return salida;
+}
+
+async function ejecutar(
+  name: string,
+  input: Record<string, unknown>,
+  ctx: ToolCtx = {}
 ): Promise<{ result: unknown; event?: UiEvent }> {
   const gateway = getInsurerGateway();
 
@@ -227,11 +266,28 @@ export async function executeTool(
     }
 
     case "calcular_propension": {
-      const perfil = (input.perfil ?? {}) as Perfil;
+      // COMPUERTA DE ENTRADA (RNF-7). Antes esto era `input.perfil as Perfil` — un cast que no
+      // verifica nada en runtime, así que el motor creía cualquier cosa que mandara el modelo.
+      const { perfil, descartes } = sanearPerfil(input.perfil, ctx);
       const prop = calcularPropension(perfil);
       // El resultado que ve el modelo (para redactar) y el evento que ve la UI son el mismo objeto.
+      // Los descartes van SOLO al modelo (no a la UI): le dicen qué no pudo usar y por qué, para
+      // que pueda preguntarlo en vez de improvisarlo.
       return {
-        result: prop,
+        result: {
+          ...prop,
+          perfil_usado: perfil,
+          descartado_por_falta_de_evidencia: descartes.length ? descartes : undefined,
+          instruccion_descartes: descartes.length
+            ? "Estos campos NO se usaron porque no vinieron de la base ni la persona los dijo. No los " +
+              "des por ciertos ni los menciones como si los supieras: si alguno importa, pregúntalo."
+            : undefined,
+          instruccion_peer: prop.peer
+            ? undefined
+            : "No hay prueba social para este perfil. NO la menciones ni la aproximes. Si la persona " +
+              "no está identificada, puedes invitarla: con su nombre podrías decirle cuántos afiliados " +
+              "como ella hay en Colsubsidio.",
+        },
         event: { type: "propension", data: prop as unknown as Record<string, unknown> },
       };
     }
@@ -264,6 +320,15 @@ export async function executeTool(
             forma_calculo: p.art9.forma_calculo,
             consecuencias_no_pago: p.art9.consecuencias_no_pago,
           },
+          // "¿de cuánto es la póliza?" es la primera pregunta de cualquiera. Si no lo sabemos,
+          // se dice; no se inventa ni se sustituye por la calculadora de impacto.
+          valor_asegurado: p.valor_asegurado ?? null,
+          nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+          instruccion_valor_asegurado:
+            p.valor_asegurado == null
+              ? "El valor asegurado NO está en el catálogo. Si lo preguntan, di la verdad: lo define " +
+                "la aseguradora según el plan y lo confirma un asesor. NUNCA inventes una cifra."
+              : undefined,
         },
         event: {
           type: "compliance",
@@ -284,10 +349,69 @@ export async function executeTool(
           },
         };
       }
+      // Compuerta 2: la tarifa depende de datos que el chat no tiene (cilindraje, tipo de
+      // vehículo). Se muestran las coberturas, NUNCA un número — inventarlo o usar el de otra
+      // variante (la tarifa de moto para un carro) es peor que no dar precio.
+      if (p.precio_tipo === "requiere_datos") {
+        return {
+          result: {
+            sin_precio: true,
+            motivo: p.nota_precio ?? "La tarifa depende de datos del vehículo.",
+            instruccion:
+              "NO des ninguna cifra de prima para este producto. Explica de qué depende la tarifa, " +
+              "muestra las coberturas y ofrece confirmarla con los datos del vehículo o con un asesor.",
+            coberturas: p.coberturas,
+            exclusiones: p.exclusiones,
+          },
+          event: {
+            type: "quote",
+            data: {
+              producto: p.nombre,
+              aseguradora: p.aseguradora,
+              prima: null,
+              periodicidad: p.periodicidad,
+              coberturas: p.coberturas,
+              exclusiones: p.exclusiones,
+              forma_calculo: p.art9.forma_calculo,
+              consecuencias: p.art9.consecuencias_no_pago,
+              fuente: p.fuente ?? null,
+              precio_tipo: "requiere_datos",
+              nota_precio: p.nota_precio ?? null,
+              valor_asegurado: p.valor_asegurado ?? null,
+              nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+            },
+          },
+        };
+      }
+
       const perfil = (input.perfil ?? {}) as { edad?: number; ciudad?: string; contexto?: string };
-      const quote = await gateway.quote(p.id, perfil);
+      let quote;
+      try {
+        quote = await gateway.quote(p.id, perfil);
+      } catch (e) {
+        // Prima no cotizable (catálogo incompleto). Se degrada a asesoría, nunca a un número falso.
+        return {
+          result: {
+            error: "PRIMA_NO_COTIZABLE",
+            instruccion:
+              "No hay una prima confiable para este producto. NO inventes ninguna cifra: dilo con " +
+              "honestidad y llama escalate_to_human.",
+            detalle: e instanceof Error ? e.message : String(e),
+          },
+        };
+      }
       return {
-        result: quote,
+        result: {
+          ...quote,
+          valor_asegurado: p.valor_asegurado ?? null,
+          nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+          instruccion_valor_asegurado:
+            p.valor_asegurado == null
+              ? "El valor asegurado NO está definido en el catálogo. Si preguntan de cuánto es la " +
+                "póliza, di la verdad: lo define la aseguradora según el plan y lo confirma un asesor. " +
+                "NUNCA inventes una cifra ni uses la calculadora de impacto como si fuera la suma asegurada."
+              : undefined,
+        },
         event: {
           type: "quote",
           data: {
@@ -304,6 +428,9 @@ export async function executeTool(
             fuente: p.fuente ?? null,
             precio_tipo: p.precio_tipo ?? "referencia",
             nota_precio: p.nota_precio ?? null,
+            valor_asegurado: p.valor_asegurado ?? null,
+            nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+            edad_usada: quote.edadUsada,
           },
         },
       };
@@ -349,6 +476,9 @@ export async function executeTool(
           type: "policy",
           data: {
             policyId: policy.policyId,
+            // El estado viaja al evento para que la tarjeta diga la verdad según el adaptador:
+            // si algún día uno real devuelve "ACTIVA", la UI no puede seguir diciendo "simulada".
+            estado: policy.estado,
             producto: p?.nombre ?? policy.productId,
             aseguradora: p?.aseguradora ?? "",
             asegurado: contacto.nombre,

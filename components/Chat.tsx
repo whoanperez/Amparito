@@ -6,7 +6,9 @@ import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 
 interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto";
+  // Copia deliberada del tipo del servidor: así el cliente no arrastra el SDK de Anthropic.
+  // "afiliado" no pinta tarjeta — es el hallazgo de identidad que hay que recordar entre turnos.
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado" | "feedback";
   data: Record<string, any>;
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
@@ -27,8 +29,15 @@ interface Contacto {
   correo: string;
 }
 
+// Una sola pregunta, y pide lo único que puede ahorrar cinco turnos: el nombre. El servidor lo
+// detecta en el texto y busca el segmento solo; identificarse nunca es obligatorio.
 const GREETING =
-  "¡Hola! Soy Amparito, tu asistente de seguros de Colsubsidio 😊 Cuéntame: ¿qué cambió en tu vida o qué te tiene pensando en protegerte?";
+  "Dime tu nombre: si estás afiliado a Colsubsidio te reconozco y nos saltamos el interrogatorio 💛 Soy Amparito — de amparar, protegerte. Y a veces te voy a decir que no.";
+
+// Chips de arranque: prellenan la casilla para que la persona complete y edite.
+// El anti-venta es el momento que se recuerda tres horas después, y hoy había que provocarlo con
+// la frase exacta. Con el chip se DESCUBRE, que vale el doble.
+export const CHIPS_ENTRADA = ["Soy ", "Me quedé sin trabajo", "Prefiero no dar mi nombre"];
 
 // Entrada pull-first: tarjetas grandes "¿Qué quieres proteger?" (reemplaza la caja vacía)
 const PROTEGER = [
@@ -61,12 +70,14 @@ const INTERES: Record<string, string> = {
   movilidad: "un seguro para mi vehículo",
 };
 
-// Modo jurado: perfiles del demo listos para que el jurado los pruebe solo (autogestión).
-// Cada apertura le da a Amparito lo justo para perfilar y correr el motor en vivo.
-const PERSONAS_DEMO = [
-  { key: "Andres", n: "Andrés, 28", msg: "Hola, soy Andrés, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
-  { key: "Carolina", n: "Carolina, 39", msg: "Hola, soy Carolina, tengo 39 años, soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
-  { key: "Jaime", n: "Jaime, 58", msg: "Hola, soy Jaime, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
+// Autogestión del jurado: cada pastilla manda un NOMBRE, no una autobiografía. Así el primer
+// toque llega al reconocimiento contra la base —el foso— en vez de al camino genérico que
+// cualquier equipo pudo construir. Los tres existen en data/afiliados_muestra.json con sus 4
+// ejes completos, así que el momento sobrevive aunque la red del salón falle.
+export const PERSONAS_DEMO = [
+  { key: "Carolina", n: "Carolina Ramírez", msg: "Soy Carolina Ramírez López" },
+  { key: "Andres", n: "Andrés Gómez", msg: "Soy Andrés Gómez Ruiz" },
+  { key: "Jaime", n: "Jaime Ortiz", msg: "Soy Jaime Ortiz Vega" },
 ];
 
 // Momento proactivo (timing/canal): Amparito abre la conversación tras un evento de vida real
@@ -197,12 +208,24 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
 
     try {
       const history = next.filter((i) => i.kind === "msg").map((i) => ({ role: i.role!, content: i.text! }));
+
+      // El teatro de explicabilidad (los pasos reales del motor) arranca ANTES de la llamada, para
+      // CUBRIR la latencia. Antes corría después de que la respuesta ya había llegado, así que le
+      // sumaba 2,5 s: el momento de más valor del producto aterrizaba detrás del silencio más
+      // largo de la demo. No hay streaming (decisión registrada), así que esto es la mitigación.
+      const esperaMinima = sleep(2200);
+      setProcessing("reco");
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, afiliado: afiliadoRef.current ?? undefined }),
       });
       const data = (await res.json()) as { reply: string; events: UiEvent[] };
+      // Si la respuesta llegó antes de que se alcancen a leer los pasos, se completa la espera; si
+      // tardó más, no se suma nada.
+      await esperaMinima;
+      setProcessing(null);
       const parsed = parseReply(data.reply || "");
 
       const eventItems: ChatItem[] = [];
@@ -210,23 +233,36 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       for (const ev of data.events ?? []) {
         if (ev.type === "quote") lastQuote.current = String(ev.data.quoteId ?? lastQuote.current);
         if (ev.type === "form") { openForm = ev.data; continue; }
+        // El servidor detectó (o desambiguó) a la persona: lo recordamos para los siguientes
+        // turnos. No pinta tarjeta — es estado, no contenido.
+        if (ev.type === "afiliado") {
+          afiliadoRef.current = {
+            nombre: String(ev.data.nombre ?? ""),
+            ciudad: String(ev.data.ciudad ?? ""),
+          };
+          continue;
+        }
         eventItems.push({ kind: "event", event: ev });
       }
 
       const msgItems: ChatItem[] = [];
       if (parsed.text) msgItems.push({ kind: "msg", role: "assistant", text: parsed.text });
 
-      // Si hay recomendaciones -> pantalla de "evaluando opciones" y luego las tarjetas
+      // (El teatro de explicabilidad ya arrancó ANTES del fetch: cubre la latencia real en vez de
+      //  sumarse a ella. Antes corría aquí, después de que la respuesta ya había llegado.)
+      // Si hay recomendaciones -> pantalla de "evaluando opciones" y luego las tarjetas.
+      // La TARJETA va antes del texto: la frase suele comentar lo que la tarjeta muestra ("¿quieres
+      // que te cuente cómo funciona el de Hogar?"), y leerla antes de ver Hogar no tiene sentido.
       if (parsed.recs.length) {
         setBusy(false);
-        setProcessing("reco");
-        await sleep(2500);
         setProcessing(null);
-        setItems((cur) => [...cur, ...msgItems, ...eventItems, { kind: "recommend", recs: parsed.recs }]);
+        setItems((cur) => [...cur, ...eventItems, { kind: "recommend", recs: parsed.recs }, ...msgItems]);
         return true;
       }
 
-      setItems((cur) => [...cur, ...msgItems, ...eventItems]);
+      // Igual cuando la respuesta trae una tarjeta (cotización, coberturas, póliza): primero se ve,
+      // después se comenta.
+      setItems((cur) => (eventItems.length ? [...cur, ...eventItems, ...msgItems] : [...cur, ...msgItems]));
       setSuggestions(parsed.options);
       if (openForm) setActiveForm(openForm);
       return true;
@@ -280,7 +316,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     setActiveForm(null);
     setProcessing("emision");
     const t0 = Date.now();
-    let result: { event?: UiEvent; closing?: string; error?: string } = {};
+    let result: { event?: UiEvent; closing?: string; error?: string; feedback?: UiEvent } = {};
     try {
       const res = await fetch("/api/issue", {
         method: "POST",
@@ -293,8 +329,10 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     setProcessing(null);
     if (result.event) {
       setItems((cur) => [...cur, { kind: "event", event: result.event },
-        { kind: "msg", role: "assistant", text: result.closing ?? "¡Listo, quedaste asegurado!" },
-        { kind: "video" }]);
+        { kind: "msg", role: "assistant", text: result.closing ?? "Tu solicitud queda completa. Recuerda que esto es una simulación: no se emitió ninguna póliza." },
+        { kind: "video" },
+        // Medición al cierre (pedido del equipo de seguros): esfuerzo y satisfacción.
+        ...(result.feedback ? [{ kind: "event" as const, event: result.feedback }] : [])]);
     } else {
       setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." }]);
     }
@@ -302,6 +340,16 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
 
   const locked = busy || !!processing || !!activeForm;
   const showStarters = items.length === 1 && !interes && !proactivo && !locked;
+  // Las 6 tarjetas aparecen en el turno 2 y SOLO si la persona no se identificó: para un afiliado
+  // reconocido preguntarle qué quiere proteger es empezar el interrogatorio que veníamos a matar.
+  const showProteger =
+    !showStarters &&
+    !locked &&
+    !afiliadoRef.current &&
+    !interes &&
+    !proactivo &&
+    items.filter((i) => i.kind === "msg" && i.role === "user").length === 1 &&
+    !items.some((i) => i.kind === "recommend" || i.kind === "event");
 
   return (
     <div className="chat-shell">
@@ -336,9 +384,33 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
           )
         )}
 
+        {/* Entrada de UNA sola pregunta. Antes competían cuatro llamados a la acción sin jerarquía
+            (6 tarjetas, "con mis palabras", el formulario de afiliado y el selector del jurado) y eso
+            paraliza: la persona tenía que elegir CÓMO empezar, que es una decisión que no le importa.
+            Se quitó "Prefiero contarte con mis palabras": solo hacía focus() y el input ya tiene
+            autoFocus. Las tarjetas bajan al turno 2, para quien no da su nombre. */}
         {showStarters && (
           <div className="pullfirst">
-            <div className="pf-q">¿Qué quieres proteger?</div>
+            <div className="pf-chips">
+              {CHIPS_ENTRADA.map((c) => (
+                <button key={c} className="pf-chip" onClick={() => pickSuggestion(c)}>{c}</button>
+              ))}
+            </div>
+            <div className="pf-jurado">
+              <span className="pf-jurado-lbl">Teclea un nombre y te reconozco. Prueba con uno de la base:</span>
+              <div className="pf-jurado-row">
+                {PERSONAS_DEMO.map((p) => (
+                  <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Las 6 tarjetas aparecen en el turno 2, solo si la persona no se identificó. */}
+        {showProteger && (
+          <div className="pullfirst">
+            <div className="pf-q">¿Qué te gustaría proteger?</div>
             <div className="pf-grid">
               {PROTEGER.map((p) => (
                 <button key={p.t} className="pf-card" onClick={() => send(p.msg)}>
@@ -346,23 +418,6 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
                   <span className="pf-t">{p.t}</span>
                 </button>
               ))}
-            </div>
-            <button className="pf-talk" onClick={() => inputRef.current?.focus()}>
-              Prefiero contarte con mis palabras →
-            </button>
-            {!offline && (
-              <AfiliadoEntry
-                disabled={locked}
-                onEnter={(nombre, ciudad) => { afiliadoRef.current = { nombre, ciudad }; send("Hola"); }}
-              />
-            )}
-            <div className="pf-jurado">
-              <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
-              <div className="pf-jurado-row">
-                {PERSONAS_DEMO.map((p) => (
-                  <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
-                ))}
-              </div>
             </div>
           </div>
         )}
@@ -527,32 +582,10 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
   );
 }
 
-/* ===== Entrada de afiliado (arranque caliente) — opcional, nunca obliga a identificarse ===== */
-function AfiliadoEntry({ onEnter, disabled }: { onEnter: (nombre: string, ciudad: string) => void; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [nombre, setNombre] = useState("");
-  const [ciudad, setCiudad] = useState("");
-  if (!open) {
-    return (
-      <button className="afil-toggle" onClick={() => setOpen(true)} disabled={disabled}>
-        🪪 Soy afiliado de Colsubsidio
-      </button>
-    );
-  }
-  return (
-    <form
-      className="afil-form"
-      onSubmit={(e) => { e.preventDefault(); if (nombre.trim()) onEnter(nombre.trim(), ciudad.trim()); }}
-    >
-      <div className="afil-lbl">Como ya te conocemos, arrancamos rápido 💛 ¿Tu nombre y ciudad?</div>
-      <div className="afil-row">
-        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" autoFocus />
-        <input value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad" />
-        <button type="submit" disabled={!nombre.trim()}>Entrar</button>
-      </div>
-    </form>
-  );
-}
+/* El formulario "🪪 Soy afiliado" (nombre + ciudad) se eliminó: era un peaje autoimpuesto de dos
+   campos, y remataba autoenviando un "Hola" que la persona nunca escribió. Ahora basta con que
+   diga su nombre en la conversación — el servidor lo detecta y busca solo (lib/afiliados/resolver).
+   La ciudad se pide únicamente cuando hay homónimos reales, que es el 0,4% de los nombres. */
 
 /* ===== Tarjeta de impacto de ingreso (reframe gasto→protección, en clave de cuidado) ===== */
 function ImpactoCard({ data }: { data: Record<string, any> }) {
@@ -575,18 +608,62 @@ function ImpactoCard({ data }: { data: Record<string, any> }) {
 /* ===== Tarjeta de propensión (el porqué: WhyThis + GapsLedger + PeerProof + Descartados) ===== */
 function PropensionCard({ data }: { data: Record<string, any> }) {
   const recs = (data.recomendaciones ?? []) as Array<{ nombre: string; aseguradora: string; reason_codes: string[] }>;
+  const obligatorios = (data.obligatorios ?? []) as Array<{
+    nombre: string; aseguradora: string; razon: string; consecuencia: string;
+  }>;
   const descartados = (data.descartados ?? []) as Array<{ nombre: string; motivo: string }>;
   const riesgos = (data.ledger?.riesgos_hoy ?? []) as string[];
   const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
   const peer = data.peer as { descripcion: string; n: number; pct: number } | null;
+  const noVenta = data.no_venta as { motivo: string; alternativa: string } | undefined;
+  const jerarquia = data.jerarquia as string | undefined;
+  const traza = data.traza as TrazaData | undefined;
   const top = recs[0];
+
+  // El segundo NO: "hoy no te sirve". Reemplaza la tarjeta entera — no tiene sentido mostrar un
+  // ranking de productos de pago a quien acaba de decir que no tiene con qué.
+  if (noVenta) {
+    return (
+      <div className="propcard">
+        <div className="pp-head">
+          <span className="pp-eyebrow">Lo que de verdad te sirve hoy</span>
+          <div className="pp-title">Hoy no te voy a vender nada</div>
+        </div>
+        <div className="pp-antiventa">
+          <span className="pp-av-ico">✋</span>
+          <div>
+            <b>No te vendo un seguro hoy.</b>
+            <span>{noVenta.motivo}</span>
+          </div>
+        </div>
+        <div className="pp-alt">
+          <div className="pp-col-lbl">Esto sí te sirve</div>
+          <p>{noVenta.alternativa}</p>
+        </div>
+        <p className="pp-alt-nota">
+          Cuando vuelvas a tener entrada, me escribes y en tres minutos te dejo protegido. Aquí voy a estar 💛
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="propcard">
+      {/* Un solo título: "Por qué esto es para ti" y "Así analicé tu protección" decían lo mismo. */}
       <div className="pp-head">
-        <span className="pp-eyebrow">Por qué esto es para ti</span>
         <div className="pp-title">Así analicé tu protección</div>
       </div>
+
+      {/* Obligatorio por ley: va ANTES de todo. No compite con el ranking porque no es una
+          recomendación — distinguir "la ley te obliga" de "yo te sugiero" es criterio. */}
+      {obligatorios.map((o, i) => (
+        <div className="pp-oblig" key={i}>
+          <div className="pp-oblig-lbl">Esto no es recomendación, es obligación</div>
+          <div className="pp-oblig-name">{o.nombre} <small>{o.aseguradora}</small></div>
+          <p className="pp-oblig-txt">{o.razon}</p>
+          <p className="pp-oblig-cons">⚠️ {o.consecuencia}</p>
+        </div>
+      ))}
 
       {/* Anti-venta como HÉROE — el momento honesto que gana confianza */}
       {yaCubierto.length > 0 && (
@@ -614,28 +691,26 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
               <li key={i}><span className="pp-dot" />{r}</li>
             ))}
           </ul>
+          {/* Explicabilidad del orden: si la jerarquía movió el ranking, se dice. */}
+          {jerarquia && <p className="pp-jerarquia">↑ {jerarquia}</p>}
         </div>
       )}
 
-      {/* GapsLedger — riesgos hoy vs lo que ya tiene (anti-venta) */}
-      <div className="pp-ledger">
-        <div className="pp-col risk">
-          <div className="pp-col-lbl">Riesgos hoy</div>
-          {riesgos.length ? (
-            <ul>{riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul>
-          ) : (
-            <p className="pp-empty">—</p>
-          )}
-        </div>
-        <div className="pp-col cov">
-          <div className="pp-col-lbl">Ya cubierto</div>
-          {yaCubierto.length ? (
+      {/* GapsLedger — solo existe para mostrar el CONTRASTE con lo que ya tiene. Si no hay nada
+          cubierto, no se pinta: `riesgos_hoy` SON los reason codes del #1 por definición, así que
+          esta caja repetía palabra por palabra lo que ya dice WhyThis tres centímetros arriba. */}
+      {yaCubierto.length > 0 && (
+        <div className="pp-ledger">
+          <div className="pp-col risk">
+            <div className="pp-col-lbl">Riesgos hoy</div>
+            {riesgos.length ? <ul>{riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul> : <p className="pp-empty">—</p>}
+          </div>
+          <div className="pp-col cov">
+            <div className="pp-col-lbl">Ya cubierto</div>
             <ul>{yaCubierto.map((c, i) => <li key={i}>{c.producto}</li>)}</ul>
-          ) : (
-            <p className="pp-empty">Nada aún</p>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* PeerProof — tamaño REAL del segmento (honesto, sin fracción de compra inventada) */}
       {peer && peer.n > 0 && (
@@ -643,6 +718,11 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
           No estás solo: hay <b>{peer.n.toLocaleString("es-CO")}</b> afiliados en tu mismo segmento ({peer.descripcion}) dentro de Colsubsidio.
         </div>
       )}
+
+      {/* Traza auditable (RNF-6): "inspeccionable en pantalla — no caja negra". Es lo que convierte
+          "confía en mí" en "míralo": el perfil que entró con la procedencia de cada campo, las
+          reglas que aplicaron con su peso, y la versión del scorecard con la que se decidió. */}
+      {traza && <TrazaDecision traza={traza} />}
 
       {/* Descartados — la pregunta de segundo orden: por qué NO lo otro */}
       {descartados.length > 0 && (
@@ -659,26 +739,217 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   );
 }
 
+/* ===== Traza auditable de la decisión (RNF-6) =====
+   "Toda recomendación persiste {perfil, reglas, pesos, reason codes, cita de fuente};
+   inspeccionable en pantalla (no caja negra)." Va colapsada: no es para el usuario común, es para
+   quien pregunta "¿y por qué?" — un jurado, cumplimiento, o alguien que desconfía. Que exista y se
+   pueda abrir es el punto. */
+interface TrazaData {
+  version_reglas: string;
+  perfil: Record<string, any>;
+  gate_asequibilidad: { categoria: string; prioriza_prima_baja: boolean };
+  jerarquia_aplicada: boolean;
+  peer: { afirmada: boolean; motivo: string };
+  productos: Array<{
+    id: string;
+    nombre: string;
+    score: number;
+    resultado: string;
+    senales: Array<{ feature: string; razon: string; peso: number }>;
+  }>;
+}
+
+const RESULTADO_ETIQUETA: Record<string, string> = {
+  recomendado: "recomendado",
+  obligatorio: "obligatorio por ley",
+  ya_cubierto: "ya lo tienes",
+  descartado: "descartado",
+  fuera_del_top: "no entró al top",
+};
+
+function TrazaDecision({ traza }: { traza: TrazaData }) {
+  const origen = (traza.perfil?._origen ?? {}) as Record<string, string>;
+  const campos = Object.entries(traza.perfil ?? {}).filter(([k]) => k !== "_origen" && k !== "enriquecido");
+  const enr = Object.entries((traza.perfil?.enriquecido ?? {}) as Record<string, unknown>);
+
+  return (
+    <details className="tz">
+      <summary>Ver cómo llegué a esto</summary>
+
+      <div className="tz-lbl">Lo que supe de ti, y de dónde lo supe</div>
+      <ul className="tz-perfil">
+        {[...campos, ...enr.map(([k, v]) => [`enriquecido.${k}`, v] as [string, unknown])].map(([k, v]) => (
+          <li key={k}>
+            <code>{k}</code> = {Array.isArray(v) ? v.join(", ") : String(v)}
+            <span className={`tz-org ${origen[k] ?? origen[`enriquecido.${k}`] ?? ""}`}>
+              {origen[k] ?? origen[`enriquecido.${k}`] ?? "—"}
+            </span>
+          </li>
+        ))}
+        {campos.length === 0 && enr.length === 0 && <li>No tenía ningún dato tuyo.</li>}
+      </ul>
+      <p className="tz-nota">
+        <b>base</b> = vino de Colsubsidio · <b>declarado</b> = lo dijiste y se verificó ·{" "}
+        <b>inferido</b> = se dedujo, y por eso no habilita afirmaciones sobre la base.
+      </p>
+
+      <div className="tz-lbl">Las reglas que aplicaron, y cuánto pesó cada una</div>
+      <div className="tz-tabla">
+        {traza.productos.filter((p) => p.senales.length > 0).map((p) => (
+          <div className="tz-prod" key={p.id}>
+            <div className="tz-prod-top">
+              <b>{p.nombre}</b>
+              <span className="tz-score">{p.score}</span>
+              <span className={`tz-res ${p.resultado}`}>{RESULTADO_ETIQUETA[p.resultado] ?? p.resultado}</span>
+            </div>
+            <ul>
+              {p.senales.map((s, i) => (
+                <li key={i}>
+                  <span className="tz-peso">{s.peso > 0 ? `+${s.peso}` : s.peso}</span>
+                  <code>{s.feature}</code> {s.razon}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="tz-lbl">Decisiones del motor</div>
+      <ul className="tz-meta">
+        <li>
+          Gate de asequibilidad · categoría <code>{traza.gate_asequibilidad.categoria}</code> →{" "}
+          {traza.gate_asequibilidad.prioriza_prima_baja ? "prioriza prima baja" : "sin prioridad de prima"}
+        </li>
+        <li>Jerarquía de protección · {traza.jerarquia_aplicada ? "aplicada (movió el orden)" : "no hizo falta"}</li>
+        <li>Prueba social · {traza.peer.afirmada ? "afirmada" : "NO afirmada"}: {traza.peer.motivo}</li>
+        <li>Versión del scorecard · <code>{traza.version_reglas}</code></li>
+      </ul>
+    </details>
+  );
+}
+
+/* ===== Medición al cierre: esfuerzo (CES) y satisfacción (CSAT) =====
+   Pedido del equipo de seguros: "esfuerzo y satisfacción, cómo fue su experiencia en la venta a
+   través del agente". Dos toques, sin salir del chat. El esfuerzo va primero porque es el que
+   predice si la persona volvería — y es el que este producto vino a bajar. */
+function FeedbackCard({ data }: { data: Record<string, any> }) {
+  const [esfuerzo, setEsfuerzo] = useState<number | null>(null);
+  const [satisfaccion, setSatisfaccion] = useState<number | null>(null);
+  const [listo, setListo] = useState(false);
+
+  async function enviar(ces: number, csat: number) {
+    setListo(true);
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ces, csat, producto: data.producto ?? null }),
+      });
+    } catch {
+      /* La medición nunca puede romper el cierre: si falla, se pierde el dato y nada más. */
+    }
+  }
+
+  if (listo) {
+    return (
+      <div className="fbcard done">
+        <b>Gracias 💛</b>
+        <span>Con esto sabemos si de verdad te lo hicimos fácil.</span>
+      </div>
+    );
+  }
+
+  const ESFUERZO = [
+    { v: 5, t: "Muy fácil" },
+    { v: 4, t: "Fácil" },
+    { v: 3, t: "Normal" },
+    { v: 2, t: "Difícil" },
+    { v: 1, t: "Muy difícil" },
+  ];
+  const SATISFACCION = [
+    { v: 5, t: "😄 Muy bien" },
+    { v: 4, t: "🙂 Bien" },
+    { v: 3, t: "😐 Regular" },
+    { v: 2, t: "🙁 Mal" },
+  ];
+
+  return (
+    <div className="fbcard">
+      <div className="fb-q">¿Qué tan fácil te resultó todo esto?</div>
+      <div className="fb-row">
+        {ESFUERZO.map((o) => (
+          <button
+            key={o.v}
+            className={`fb-opt ${esfuerzo === o.v ? "on" : ""}`}
+            onClick={() => setEsfuerzo(o.v)}
+          >
+            {o.t}
+          </button>
+        ))}
+      </div>
+      {esfuerzo !== null && (
+        <>
+          <div className="fb-q">¿Y cómo te sentiste con la atención?</div>
+          <div className="fb-row">
+            {SATISFACCION.map((o) => (
+              <button
+                key={o.v}
+                className={`fb-opt ${satisfaccion === o.v ? "on" : ""}`}
+                onClick={() => { setSatisfaccion(o.v); enviar(esfuerzo, o.v); }}
+              >
+                {o.t}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ===== Tarjetas ===== */
 function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
 
   if (event.type === "propension") return <PropensionCard data={d} />;
   if (event.type === "impacto") return <ImpactoCard data={d} />;
+  if (event.type === "feedback") return <FeedbackCard data={d} />;
 
   if (event.type === "quote") {
     const regulado = d.precio_tipo === "regulado";
+    // Sin precio: la tarifa depende de datos que el chat no tiene. Se muestran las coberturas,
+    // nunca un número — usar la tarifa de otra variante sería peor que no dar precio.
+    const sinPrecio = d.precio_tipo === "requiere_datos" || d.prima == null;
     return (
       <div className="card">
-        <h4>Cotización · {String(d.aseguradora)}</h4>
-        <div className="big">
-          ${Number(d.prima).toLocaleString("es-CO")} <span className="sub">/{String(d.periodicidad).replace("_", " ")}</span>
-        </div>
+        <h4>{sinPrecio ? "Coberturas" : "Cotización"} · {String(d.aseguradora)}</h4>
+        {sinPrecio ? (
+          <div className="big nop">Se cotiza con los datos de tu vehículo</div>
+        ) : (
+          <div className="big">
+            ${Number(d.prima).toLocaleString("es-CO")} <span className="sub">/{String(d.periodicidad).replace("_", " ")}</span>
+          </div>
+        )}
         <div className="sub">{String(d.producto)}</div>
-        <div className={`price-tag ${regulado ? "reg" : ""}`}>
-          {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
-        </div>
+        {!sinPrecio && (
+          <div className={`price-tag ${regulado ? "reg" : ""}`}>
+            {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
+          </div>
+        )}
         {d.nota_precio && <div className="price-note">{String(d.nota_precio)}</div>}
+        {!sinPrecio && d.edad_usada == null && (
+          <div className="price-note">Calculado sobre la tarifa base: el valor final varía con tu edad.</div>
+        )}
+        {/* De cuánto es la póliza. Si no lo sabemos, se dice — no se inventa. */}
+        <div className="va-row">
+          <span className="va-lbl">Valor asegurado</span>
+          <span className="va-val">
+            {typeof d.valor_asegurado === "number"
+              ? `$${Number(d.valor_asegurado).toLocaleString("es-CO")}`
+              : "Lo define la aseguradora según el plan"}
+          </span>
+        </div>
+        {d.nota_valor_asegurado && <div className="price-note">{String(d.nota_valor_asegurado)}</div>}
         {/* Capa 2 — qué cubre / qué no: SIEMPRE visible (cumple Ley 1328 Art. 9, sin saturar) */}
         <div className="cov2">
           <p className="cov-lbl">Te cubre</p>
@@ -722,10 +993,15 @@ function EventCard({ event }: { event: UiEvent }) {
   if (event.type === "policy") {
     const ins = insurerOf(String(d.aseguradora));
     const per = String(d.periodicidad).replace("_", " ");
+    // La tarjeta refleja lo que devolvió el adaptador, no un valor fijo: hoy es SIMULADA porque no
+    // hay aseguradora conectada, y el día que la haya la UI dirá la verdad sin tocar nada.
+    const simulada = String(d.estado ?? "SIMULADA") !== "ACTIVA";
     return (
       <div className="policycard">
         <div className="pc-top">
-          <span className="pc-badge">✓ Póliza activa</span>
+          <span className={`pc-badge ${simulada ? "sim" : ""}`}>
+            {simulada ? "SIMULACIÓN · demo" : "✓ Póliza activa"}
+          </span>
           <div className="pc-logo">
             <span className="pc-mono" style={{ background: ins.color }}>{ins.short.charAt(0)}</span>
             <span className="pc-brand" style={{ color: ins.color }}>{ins.short}</span>
@@ -734,13 +1010,19 @@ function EventCard({ event }: { event: UiEvent }) {
         <div className="pc-product">{String(d.producto)}</div>
         <div className="pc-id">{String(d.policyId)}</div>
         <div className="pc-grid">
-          <div><small>Asegurado</small><b>{String(d.asegurado)}</b></div>
-          <div><small>Vigencia</small><b>{String(d.vigenciaMeses)} meses</b></div>
-          <div><small>Pagas</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
-          <div><small>Estado</small><b className="ok">Activa</b></div>
+          <div><small>Tomador</small><b>{String(d.asegurado)}</b></div>
+          <div><small>{simulada ? "Vigencia que tendría" : "Vigencia"}</small><b>{String(d.vigenciaMeses)} meses</b></div>
+          <div><small>{simulada ? "Pagaría" : "Pagas"}</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
+          <div><small>Estado</small><b className={simulada ? "sim" : "ok"}>{simulada ? "Simulada" : "Activa"}</b></div>
         </div>
-        <div className="pc-cert-label">Certificado digital</div>
+        <div className="pc-cert-label">{simulada ? "Certificado simulado" : "Certificado digital"}</div>
         <div className="cert">{String(d.certificado)}</div>
+        {simulada && (
+          <p className="pc-sim-note">
+            Esta es una simulación del proceso completo. <b>No se emitió ninguna póliza</b> y no vas a
+            recibir ningún correo.
+          </p>
+        )}
       </div>
     );
   }

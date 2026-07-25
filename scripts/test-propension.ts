@@ -4,9 +4,10 @@
  *   npx tsx scripts/test-propension.ts
  *
  * Criterios (ver docs/reto/12-build-tracker.md §Gates):
- *  - Andrés  → Vida NO recomendada (anti-venta 1).
+ *  - Andrés  → Vida NO recomendada (anti-venta 1); SOAT en obligatorios, NO en descartados (B4).
  *  - Carolina→ Vida #1 + peer real (F, 36-45, monoparental, A).
  *  - Jaime   → Exequial en ya_cubierto (anti-venta 2); Vida recomendada.
+ *  - Todos   → ningún obligatorio puede aparecer en descartados.
  */
 import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
@@ -25,6 +26,10 @@ for (const [nombre, perfil] of Object.entries(PERSONAS)) {
     r.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  ") || "—"
   );
   console.log("  #1 reason codes:", r.recomendaciones[0]?.reason_codes.join(" | ") || "—");
+  console.log(
+    "Obligatorios (ley):",
+    r.obligatorios.map((x) => `${x.nombre} → ${x.consecuencia}`).join("\n                    ") || "—"
+  );
   console.log("Descartados:", r.descartados.map((x) => `${x.nombre} → ${x.motivo}`).join("\n            ") || "—");
   console.log("Ya cubierto (anti-venta):", r.ledger.ya_cubierto.map((x) => `${x.producto} (${x.razon})`).join(" · ") || "—");
   console.log("Riesgos hoy:", r.ledger.riesgos_hoy.join(" | ") || "—");
@@ -35,7 +40,19 @@ for (const [nombre, perfil] of Object.entries(PERSONAS)) {
 
   const nombres = r.recomendaciones.map((x) => x.nombre);
   const tieneVida = nombres.some((n) => n === "Seguro de Vida");
-  if (nombre === "Andres") check("Vida NO recomendada", !tieneVida);
+
+  // B4 · un obligatorio por ley nunca es "menor prioridad": no puede caer en descartados
+  // ni competir por un cupo del ranking.
+  const oblig = new Set(r.obligatorios.map((o) => o.id));
+  check(
+    "ningún obligatorio en descartados ni en recomendaciones",
+    !r.descartados.some((d) => oblig.has(d.id)) && !r.recomendaciones.some((x) => oblig.has(x.id))
+  );
+
+  if (nombre === "Andres") {
+    check("Vida NO recomendada", !tieneVida);
+    check("SOAT en obligatorios (tiene moto y no lo declara cubierto)", oblig.has("soat_mundial"));
+  }
   if (nombre === "Carolina") {
     check("Vida es #1", r.recomendaciones[0]?.nombre === "Seguro de Vida");
     check("Peer real presente", !!r.peer && r.peer.n > 0);
@@ -44,6 +61,33 @@ for (const [nombre, perfil] of Object.entries(PERSONAS)) {
     check("Exequial en ya_cubierto", r.ledger.ya_cubierto.some((x) => /exequial/i.test(x.producto)));
     check("Vida recomendada", tieneVida);
   }
+}
+
+// Jerarquía de protección: quien sostiene a otros no puede recibir un seguro de mascotas por
+// encima del de vida, aunque el score de Mascotas sea mayor. Y a quien NO sostiene a nadie, la
+// jerarquía no le debe aplicar (si no, Vida volvería a colarse y rompería el anti-venta 1).
+console.log("\n===== Jerarquía de protección =====");
+{
+  const conPerro = calcularPropension({ ...PERSONAS.Carolina, enriquecido: { ...PERSONAS.Carolina.enriquecido, tiene_mascota: ["perro"] } });
+  console.log("Carolina + perro:", conPerro.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  "));
+  check("Vida sigue siendo #1 con mascota declarada", conPerro.recomendaciones[0]?.nombre === "Seguro de Vida");
+  check("Mascotas se sigue ofreciendo (no se elimina)", conPerro.recomendaciones.some((x) => /mascotas/i.test(x.nombre)));
+
+  // Explicabilidad (B8): cuando la jerarquía mueve el orden contra el puntaje, se dice en pantalla.
+  // Con el fixture completo Vida gana por puntaje (80) y la nota NO debe aparecer; con solo los
+  // ejes de la base, Vida (55) queda sobre Mascotas (57) y entonces SÍ hay que explicarlo.
+  const soloBase = calcularPropension({
+    GENERO: "F", RANGO_EDAD: "36 a 45 años", CATEGORIA: "A",
+    SEGMENTO_GRUPO_FAMILIAR: "Monoparental", SEGMENTO_POBLACIONAL: "Medio",
+    enriquecido: { tiene_mascota: ["perro"] },
+  } as never);
+  console.log("Carolina solo-base + perro:", soloBase.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  "));
+  check("se explica el orden cuando contradice el puntaje", !!soloBase.jerarquia);
+  check("NO se explica cuando el puntaje ya manda", conPerro.jerarquia === undefined);
+
+  const andresPerro = calcularPropension({ ...PERSONAS.Andres, enriquecido: { ...PERSONAS.Andres.enriquecido, tiene_mascota: ["perro"] } });
+  console.log("Andrés + perro:", andresPerro.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  "));
+  check("sin dependientes la jerarquía NO aplica (Vida ausente)", !andresPerro.recomendaciones.some((x) => x.nombre === "Seguro de Vida"));
 }
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);

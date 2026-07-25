@@ -7,6 +7,7 @@
  * autoexclusión con un dato verdadero ("hay N afiliadas como tú").
  */
 import baseStats from "../../data/base_stats.json";
+import { ejesPeerVerificados } from "./sanear";
 import { Perfil, Peer } from "./types";
 
 interface Celda {
@@ -24,9 +25,15 @@ const CELDAS = peerGroups.celdas;
 
 // Umbral mínimo para afirmar prueba social: 91/194 celdas tienen n<1000 (min real = 1).
 // Con un segmento diminuto, "hay 3 afiliadas como tú" no vence la autoexclusión: la calla.
-const MIN_N = 1000;
+export const MIN_N = 1000;
 
 export function lookupPeer(perfil: Perfil): Peer | null {
+  // Los 4 ejes deben venir de la base o haber sido declarados y verificados por el servidor.
+  // Un eje `inferido` puede mover el score, pero no habilita afirmar un número de la base:
+  // así se produjo "hay 1.109 afiliados en tu mismo segmento" con edad y categoría inventadas.
+  // Si `_origen` no viene (llamadas internas del motor, fixtures, gates), no se aplica el filtro.
+  if (perfil._origen && !ejesPeerVerificados(perfil)) return null;
+
   const clave: Record<string, string | undefined> = {
     GENERO: perfil.GENERO,
     RANGO_EDAD: perfil.RANGO_EDAD,

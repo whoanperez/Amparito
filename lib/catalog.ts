@@ -22,8 +22,21 @@ export interface Producto {
   art9: { forma_calculo: string; consecuencias_no_pago: string };
   // Datos de trazabilidad (v2.2): fuente real y tipo de precio
   fuente?: string;            // URL de la fuente pública de las coberturas
-  precio_tipo?: "referencia" | "regulado"; // "regulado" = tarifa oficial (ej. SOAT)
+  /**
+   * Certeza de la prima. El sistema se niega a producir la cifra que no tiene:
+   * - "regulado"       → tarifa oficial exacta y verificable
+   * - "referencia"     → estimación desde prima_regla, se rotula como tal
+   * - "requiere_datos" → depende de datos que el chat no tiene (cilindraje, tipo de
+   *                      vehículo, inspección). NO se muestra ningún número.
+   */
+  precio_tipo?: "referencia" | "regulado" | "requiere_datos";
   nota_precio?: string;       // aclaración del precio mostrado
+  /**
+   * Cuánto paga la póliza. `null` explícito = lo define la aseguradora según el plan.
+   * NUNCA se inventa: es dato de producto y debe venir del clausulado o de Colsubsidio.
+   */
+  valor_asegurado?: number | { min: number; max: number } | null;
+  nota_valor_asegurado?: string;
 }
 
 const productos: Producto[] = (catalogData as { productos: Producto[] }).productos;

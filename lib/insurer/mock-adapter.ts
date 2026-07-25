@@ -14,9 +14,27 @@ export class MockInsurerAdapter implements InsurerGateway {
     const p = getProduct(productId);
     if (!p) throw new Error(`Producto no encontrado: ${productId}`);
 
-    const edad = perfil.edad ?? 30;
-    const extra = Math.max(0, edad - p.prima_regla.edad_pivote) * (p.prima_regla.por_edad ?? 0);
+    // La edad la aporta el LLM y puede venir inventada o fuera de rango. Antes se asumía 30 en
+    // silencio, lo que hacía indistinguible "no sé" de "tiene 30". Si no es plausible, se cotiza
+    // sobre la base y se declara que la edad no se usó.
+    const declarada = perfil.edad;
+    const edadUsada =
+      typeof declarada === "number" && Number.isFinite(declarada) && declarada >= 18 && declarada <= 100
+        ? Math.floor(declarada)
+        : null;
+    const extra =
+      edadUsada === null
+        ? 0
+        : Math.max(0, edadUsada - p.prima_regla.edad_pivote) * (p.prima_regla.por_edad ?? 0);
     const prima = Math.round((p.prima_regla.base + extra) / 100) * 100;
+
+    // Cotizar en cero nunca es un resultado válido: significa que el catálogo está incompleto.
+    // Mostrarlo sería decirle a alguien que el seguro es gratis.
+    if (prima <= 0) {
+      throw new Error(
+        `Prima no cotizable para ${p.id}: prima_regla incompleta (base=${p.prima_regla.base}).`
+      );
+    }
 
     const payload = { productId, prima, periodicidad: p.periodicidad, ts: Date.now() };
     const quoteId = "Q-" + Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -28,6 +46,7 @@ export class MockInsurerAdapter implements InsurerGateway {
       periodicidad: p.periodicidad,
       coberturas: p.coberturas,
       vigenciaOfertaMin: 60,
+      edadUsada,
     };
   }
 
@@ -43,20 +62,28 @@ export class MockInsurerAdapter implements InsurerGateway {
       "AMP-" + Date.now().toString(36).toUpperCase() + "-" + Math.floor(Math.random() * 900 + 100);
     const fechaEmision = new Date().toISOString();
 
+    // Este adaptador NO emite: no hay aseguradora conectada. El certificado debe decirlo,
+    // porque de lo contrario alguien queda esperando una póliza y un correo que no existen.
     const certificado = [
-      `CERTIFICADO DE SEGURO — ${p.nombre.toUpperCase()}`,
-      `Póliza No. ${policyId}`,
-      `Asegurado: ${contacto.nombre} (${contacto.tipoDocumento} ${contacto.numeroDocumento})`,
-      `Aseguradora: ${p.aseguradora} · Distribuido por Colsubsidio`,
-      `Prima: $${decoded.prima.toLocaleString("es-CO")} COP (${decoded.periodicidad})`,
-      `Vigencia: 12 meses desde la fecha de emisión`,
-      `Emitido digitalmente — canal Amparito, 24/7 sin intervención humana.`,
+      `── SIMULACIÓN · DEMO AMPARITO ──`,
+      `Este documento no tiene validez legal y no constituye un contrato de seguro.`,
+      ``,
+      `CERTIFICADO DE SEGURO (SIMULADO) — ${p.nombre.toUpperCase()}`,
+      `Referencia No. ${policyId}`,
+      `Tomador: ${contacto.nombre} (${contacto.tipoDocumento} ${contacto.numeroDocumento})`,
+      `Aseguradora que asumiría el riesgo: ${p.aseguradora}`,
+      `Comercializa: Colsubsidio`,
+      `Prima de referencia: $${decoded.prima.toLocaleString("es-CO")} COP (${decoded.periodicidad})`,
+      `Vigencia que tendría: 12 meses desde la emisión real`,
+      ``,
+      `En una emisión real, Colsubsidio envía la solicitud a la aseguradora, que es quien`,
+      `expide la póliza y remite el certificado.`,
     ].join("\n");
 
     return {
       policyId,
       productId: decoded.productId,
-      estado: "ACTIVA",
+      estado: "SIMULADA",
       prima: decoded.prima,
       periodicidad: decoded.periodicidad,
       vigenciaMeses: 12,

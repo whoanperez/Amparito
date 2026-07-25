@@ -29,12 +29,16 @@ export interface Quote {
   periodicidad: string;   // mensual | anual | por_viaje
   coberturas: string[];
   vigenciaOfertaMin: number;
+  /** Edad con la que se calculó. `null` = no se conocía; la prima es solo la base. */
+  edadUsada: number | null;
 }
 
 export interface Policy {
   policyId: string;
   productId: string;
-  estado: "ACTIVA";
+  // "SIMULADA" cuando no hay aseguradora conectada (mock). Un adaptador real devuelve "ACTIVA".
+  // El valor llega al LLM en el resultado de la tool: si dice ACTIVA, el modelo lo va a narrar.
+  estado: "ACTIVA" | "SIMULADA";
   prima: number;
   periodicidad: string;
   vigenciaMeses: number;

@@ -18,8 +18,49 @@ export interface AfiliadoSegmento {
   ciudad?: string;
 }
 
+/**
+ * Resultado de una búsqueda. Distinguir "único" de "ambiguo" es lo que evita el bug de hoy:
+ * `porNombre[0]` y `LIMIT 1` le atribuyen a una persona el segmento de OTRA, en silencio.
+ *
+ * Medido sobre la base real (1.551.282 nombres): el 99,55% es único; el 0,40% tiene homónimos con
+ * segmentos distintos, y para esos la ciudad resuelve el 100%. Pero el 58,2% de los registros NO
+ * tiene ciudad, así que el filtro debe ser tolerante o excluye justo a quien se está buscando.
+ */
+export type Hallazgo =
+  | { estado: "unico"; segmento: AfiliadoSegmento }
+  /** Varios homónimos con segmentos distintos. `comun` trae los ejes en los que TODOS coinciden. */
+  | { estado: "ambiguo"; n: number; comun: AfiliadoSegmento | null }
+  | { estado: "no_encontrado" };
+
 export interface AffiliateGateway {
+  /** Búsqueda con desambiguación. Es la que debe usar el flujo. */
+  buscar(nombre: string, ciudad?: string): Promise<Hallazgo>;
+  /** Atajo histórico: devuelve el primero. Se mantiene para no romper llamadores existentes. */
   lookup(nombre: string, ciudad?: string): Promise<AfiliadoSegmento | null>;
+}
+
+/**
+ * Si varios homónimos comparten un eje, ese eje es cierto sin importar cuál sea la persona.
+ * Los que difieren se dejan vacíos: el motor tolera perfiles parciales, y así NUNCA se le
+ * atribuye a alguien el dato de otro.
+ */
+export function segmentoComun(cands: AfiliadoSegmento[]): AfiliadoSegmento | null {
+  if (!cands.length) return null;
+  const igual = (k: keyof AfiliadoSegmento) =>
+    cands.every((c) => c[k] === cands[0][k]) ? cands[0][k] : undefined;
+  const comun: AfiliadoSegmento = {
+    nombre: cands[0].nombre,
+    genero: igual("genero"),
+    rango_edad: igual("rango_edad"),
+    categoria: igual("categoria"),
+    grupo_familiar: igual("grupo_familiar"),
+    poblacional: igual("poblacional"),
+    ciudad: igual("ciudad"),
+  };
+  const hayAlgo = (["genero", "rango_edad", "categoria", "grupo_familiar", "poblacional"] as const).some(
+    (k) => comun[k] !== undefined
+  );
+  return hayAlgo ? comun : null;
 }
 
 /** Normaliza para comparar nombres/ciudades: minúsculas, sin tildes, espacios colapsados. */

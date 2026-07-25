@@ -204,7 +204,7 @@ a { text-decoration: none; color: inherit; }
 .msg.user { align-self: flex-end; background: var(--azul); color: var(--blanco); border-bottom-right-radius: 4px; }
 .msg.bot { align-self: flex-start; background: var(--blanco); border: 1px solid var(--borde); border-bottom-left-radius: 4px; }
 .typing { align-self: flex-start; color: var(--gris); font-size: 13px; padding: 6px 4px; }
-.card { align-self: flex-start; width: min(430px, 92%); background: var(--blanco); border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: 14px; padding: 16px 18px; }
+.card { align-self: flex-start; width: min(560px, 100%); background: var(--blanco); border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: 14px; padding: 16px 18px; }
 .card.policy { border-left-color: var(--verde); }
 .card.escalation { border-left-color: var(--azul); }
 .card h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--gris); margin-bottom: 8px; }
@@ -257,6 +257,11 @@ a { text-decoration: none; color: inherit; }
 .pc-grid b { font-size: 15px; font-weight: 700; color: var(--tinta); }
 .pc-grid b span { font-size: 12px; color: var(--gris); font-weight: 500; }
 .pc-grid b.ok { color: var(--verde); }
+/* Simulación: el mock no emite nada, así que la tarjeta no puede vestirse de póliza vigente. */
+.pc-badge.sim { background: var(--amarillo-claro); color: #7a5a00; }
+.pc-grid b.sim { color: #7a5a00; }
+.pc-sim-note { margin-top: 12px; font-size: 12.5px; line-height: 1.5; color: var(--gris); }
+.pc-sim-note b { color: var(--tinta); font-weight: 700; }
 .pc-cert-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--gris); margin-bottom: 6px; }
 .policycard .cert { margin-top: 0; }
 @media (max-width: 560px) { .pc-grid { grid-template-columns: repeat(2, 1fr); } .pc-id { font-size: 26px; } }
@@ -321,7 +326,7 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 560px) { .pf-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* ===== Tarjetas de recomendación ===== */
-.recos { align-self: flex-start; width: min(430px, 94%); display: flex; flex-direction: column; gap: 10px; margin-top: 2px; }
+.recos { align-self: stretch; width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 2px; }
 .reco {
   text-align: left; background: var(--blanco); border: 1.5px solid var(--borde); border-radius: 14px;
   padding: 14px 16px; cursor: pointer; font-family: inherit; display: flex; flex-direction: column; gap: 3px;
@@ -335,8 +340,11 @@ a { text-decoration: none; color: inherit; }
 .reco-cta { font-size: 12.5px; font-weight: 700; color: var(--azul); margin-top: 4px; }
 
 /* ===== Tarjeta de propensión (WhyThis + GapsLedger + PeerProof + Descartados) ===== */
+/* B8 · el hero pasa a ser el elemento más ancho del hilo. Antes: mensajes 82% (~623px),
+   propcard 470px, recomendaciones 430px — una escalera que angostaba justo donde el
+   contenido importa más. */
 .propcard {
-  align-self: flex-start; width: min(470px, 94%); background: var(--blanco);
+  align-self: stretch; width: 100%; background: var(--blanco);
   border: 1px solid var(--borde); border-top: 5px solid var(--azul); border-radius: 16px;
   padding: 18px 20px; box-shadow: 0 12px 34px rgba(0,0,0,.07);
   display: flex; flex-direction: column; gap: 16px;
@@ -350,6 +358,15 @@ a { text-decoration: none; color: inherit; }
 .pp-antiventa b { display: block; font-size: 15px; font-weight: 800; }
 .pp-antiventa span { display: block; font-size: 13.5px; color: #d9dbe0; margin-top: 2px; line-height: 1.4; }
 
+/* Obligatorio por ley — banda propia, con el peso visual del anti-venta. No es un producto
+   más del ranking: es lo que la ley exige, y va antes que cualquier recomendación. */
+.pp-oblig { border: 2px solid var(--azul); background: #f2f8ff; border-radius: 12px; padding: 14px 16px; }
+.pp-oblig-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--azul); }
+.pp-oblig-name { font-size: 16px; font-weight: 800; color: var(--tinta); margin-top: 4px; }
+.pp-oblig-name small { font-size: 12px; font-weight: 600; color: var(--gris); margin-left: 6px; }
+.pp-oblig-txt { font-size: 14px; line-height: 1.5; color: var(--tinta); margin-top: 6px; }
+.pp-oblig-cons { font-size: 13.5px; line-height: 1.5; color: var(--azul-osc); font-weight: 600; margin-top: 8px; }
+
 .pp-why { background: #fffdf3; border: 1px solid var(--amarillo); border-radius: 12px; padding: 14px; }
 .pp-why-top { display: flex; align-items: center; gap: 10px; }
 .pp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--verde); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex-shrink: 0; }
@@ -360,6 +377,13 @@ a { text-decoration: none; color: inherit; }
 .pp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); margin-top: 6px; flex-shrink: 0; }
 
 .pp-ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Sin anti-venta hay una sola columna: media tarjeta diciendo "Nada aún" era el peor uso del
+   espacio en el elemento que más pesa de la pantalla. */
+.pp-ledger.solo { grid-template-columns: 1fr; }
+/* El segundo NO: "hoy no te sirve". Colsubsidio es una caja, así que sí tiene qué ofrecer. */
+.pp-alt { background: var(--verde-wash, #e7f5ed); border: 1px solid rgba(26,158,92,.35); border-radius: 12px; padding: 14px 16px; }
+.pp-alt p { font-size: 14px; line-height: 1.55; color: var(--tinta); margin-top: 6px; }
+.pp-alt-nota { font-size: 13.5px; line-height: 1.55; color: var(--gris); }
 .pp-col { border-radius: 12px; padding: 12px 14px; }
 .pp-col.risk { background: #fdecea; }
 .pp-col.cov { background: #e8f5ee; }
@@ -397,6 +421,12 @@ a { text-decoration: none; color: inherit; }
 .price-tag { margin-top: 8px; font-size: 12px; color: #8a6d00; background: #fff6c8; display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
 .price-tag.reg { color: #0a5c2e; background: #e8f5ee; }
 .price-note { margin-top: 6px; font-size: 12px; color: var(--gris); }
+/* Sin precio: la tarifa depende de datos que el chat no tiene. No se muestra ningún número. */
+.card .big.nop { font-size: 16px; font-weight: 700; color: var(--azul); line-height: 1.35; }
+/* "¿De cuánto es la póliza?" — se responde siempre, con la verdad cuando no se sabe. */
+.va-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.va-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--gris); }
+.va-val { font-size: 14px; font-weight: 700; color: var(--tinta); }
 .cov { margin-top: 14px; border-top: 1px solid var(--borde); padding-top: 10px; }
 .cov > summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
 .cov > summary::before { content: "▸"; transition: transform .15s; }
@@ -475,3 +505,55 @@ a { text-decoration: none; color: inherit; }
   .serv-grid { grid-template-columns: 1fr; }
   .mainbar nav a:not(.pill) { display: none; }
 }
+
+/* Chips de arranque: prellenan la casilla en vez de enviar. Reemplazan los cuatro CTA que
+   competían en la pantalla de entrada. */
+.pf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-chip { background: var(--blanco); border: 1.5px solid var(--borde); color: var(--tinta); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.pf-chip:hover { border-color: var(--azul); background: #f2f8ff; color: var(--azul); }
+.pf-chip:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+
+/* Por qué el orden no es el del puntaje. Es explicabilidad, que es lo que se califica. */
+.pp-jerarquia { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--borde); font-size: 13px; line-height: 1.5; color: var(--azul-osc); font-weight: 600; }
+
+/* Medición al cierre: esfuerzo (CES) y satisfacción (CSAT). Dos toques, sin salir del chat. */
+.fbcard { align-self: stretch; width: 100%; background: var(--gris-suave); border: 1px solid var(--borde); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.fbcard.done { flex-direction: row; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.fbcard.done b { font-size: 15px; }
+.fbcard.done span { font-size: 13.5px; color: var(--gris); }
+.fb-q { font-size: 14.5px; font-weight: 700; color: var(--tinta); }
+.fb-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.fb-opt { background: var(--blanco); border: 1.5px solid var(--borde); color: var(--tinta); font-family: inherit; font-size: 13.5px; font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.fb-opt:hover { border-color: var(--azul); color: var(--azul); }
+.fb-opt.on { background: var(--azul); border-color: var(--azul); color: #fff; }
+.fb-opt:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+
+/* Traza auditable (RNF-6) — colapsada: no es para el usuario común, es para quien pregunta
+   "¿y por qué?". Que exista y se pueda abrir en pantalla es el punto. */
+.tz { border-top: 1px solid var(--borde); padding-top: 12px; }
+.tz > summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--azul); list-style: none; }
+.tz > summary::-webkit-details-marker { display: none; }
+.tz > summary::before { content: "▸ "; }
+.tz[open] > summary::before { content: "▾ "; }
+.tz code { font-family: ui-monospace, monospace; font-size: 11.5px; background: var(--gris-suave); padding: 1px 5px; border-radius: 4px; }
+.tz-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--gris); margin: 14px 0 6px; }
+.tz-perfil { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.tz-perfil li { font-size: 12.5px; color: var(--tinta); display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.tz-org { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; padding: 1px 6px; border-radius: 999px; background: var(--gris-suave); color: var(--gris); }
+.tz-org.base { background: #e8f5ee; color: #0a5c2e; }
+.tz-org.declarado { background: #eaf3fa; color: var(--azul-osc); }
+.tz-org.inferido { background: var(--amarillo-claro); color: #7a5a00; }
+.tz-nota { font-size: 11.5px; line-height: 1.5; color: var(--gris); margin-top: 6px; }
+.tz-tabla { display: flex; flex-direction: column; gap: 10px; }
+.tz-prod { background: var(--gris-suave); border-radius: 8px; padding: 9px 11px; }
+.tz-prod-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.tz-score { font-family: ui-monospace, monospace; font-weight: 700; color: var(--tinta); }
+.tz-res { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; padding: 1px 6px; border-radius: 999px; background: #e5e6e9; color: var(--gris); }
+.tz-res.recomendado { background: #e8f5ee; color: #0a5c2e; }
+.tz-res.obligatorio { background: #eaf3fa; color: var(--azul-osc); }
+.tz-res.ya_cubierto { background: var(--amarillo-claro); color: #7a5a00; }
+.tz-prod ul { list-style: none; margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.tz-prod li { font-size: 12px; line-height: 1.45; color: var(--gris); display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.tz-peso { font-family: ui-monospace, monospace; font-weight: 700; color: var(--tinta); min-width: 30px; }
+.tz-meta { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.tz-meta li { font-size: 12.5px; line-height: 1.5; color: var(--gris); }
