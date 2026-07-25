@@ -14,8 +14,14 @@ import { getAffiliateGateway } from "./index";
 import type { AfiliadoSegmento } from "./gateway";
 import { detectarCiudad, detectarNombre } from "./deteccion";
 
-/** Tope de búsquedas por conversación. Bloqueo real de enumeración, en código y no en prompt. */
-export const MAX_BUSQUEDAS = 3;
+/**
+ * Tope de búsquedas por conversación. Bloqueo real de enumeración, en código y no en prompt.
+ * La constante vive en `lib/estado/tipos.ts` porque la aplican DOS capas —el reducer decide si
+ * vale la pena consultar y esta corta si igual se consulta— y con una copia en cada lado,
+ * cambiar una no cambiaba la otra.
+ */
+export { MAX_BUSQUEDAS } from "../estado/tipos";
+import { MAX_BUSQUEDAS } from "../estado/tipos";
 
 export type EstadoIdentidad =
   | "sin_intento"
