@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { buildSystemPrompt, detectarEstado } from "@/lib/prompts";
 import { toolDefinitions, executeTool, UiEvent, type ToolCtx } from "@/lib/tools";
-import { getAffiliateGateway } from "@/lib/afiliados";
+import { resolverIdentidad } from "@/lib/afiliados/resolver";
 
 export const maxDuration = 60;
 
@@ -25,36 +25,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "messages requerido" }, { status: 400 });
     }
 
-    // Arranque caliente: si llega un afiliado identificado, buscamos su segmento en el servidor
-    // (los nombres nunca llegan al navegador) y se lo damos a Amparito como contexto.
-    let contexto: string | undefined;
-    let afiliadoReconocido = false;
-    let segmentoBase: ToolCtx["segmentoBase"];
-    if (afiliado?.nombre) {
-      const seg = await getAffiliateGateway().lookup(afiliado.nombre, afiliado.ciudad);
-      if (seg) {
-        afiliadoReconocido = true;
-        // El segmento verificado va al motor por el SERVIDOR, no retranscrito por el modelo:
-        // así un error de transcripción no puede producir una celda de peer-group falsa.
-        segmentoBase = {
+    const events: UiEvent[] = [];
+
+    // Arranque caliente. La detección del nombre y la búsqueda pasan EN CÓDIGO: la regla "cuando
+    // aparece un nombre, busca" es determinista y no debe depender de que el modelo llame una tool
+    // en el momento justo. Antes no existía ningún camino del chat al gateway, y por eso
+    // "soy Mauricio Cajamarca" caía al vacío.
+    const identidad = await resolverIdentidad(messages, afiliado);
+    const afiliadoReconocido = identidad.estado === "reconocido";
+    const contexto = identidad.contexto;
+    const seg = identidad.segmento;
+    // El segmento verificado va al motor por el SERVIDOR, no retranscrito por el modelo: así un
+    // error de transcripción no puede producir una celda de peer-group falsa.
+    const segmentoBase: ToolCtx["segmentoBase"] = seg
+      ? {
           GENERO: seg.genero,
           RANGO_EDAD: seg.rango_edad,
           CATEGORIA: seg.categoria,
           SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar,
           SEGMENTO_POBLACIONAL: seg.poblacional,
-        };
-        const primerNombre = seg.nombre.split(" ")[0];
-        contexto =
-          `## SEGMENTO VERIFICADO DE ESTE AFILIADO (viene de la base de Colsubsidio, no lo preguntes)\n` +
-          `Primer nombre: ${primerNombre}.\n` +
-          // Los 4 ejes del peer-group (género, edad, grupo familiar, categoría) van COMPLETOS:
-          // `lookupPeer` exige los 4 para ubicar la celda; si falta uno, no hay PeerProof.
-          `Género = ${seg.genero ?? "?"}; grupo familiar = ${seg.grupo_familiar ?? "?"}; ` +
-          `rango de edad = ${seg.rango_edad ?? "?"}; categoría = ${seg.categoria ?? "?"}; ` +
-          `segmento poblacional = ${seg.poblacional ?? "?"}; ciudad = ${seg.ciudad ?? "?"}.\n` +
-          `Estos son los únicos campos de segmento que puedes usar: vinieron verificados de la base. ` +
-          `Pásalos tal cual a calcular_propension y no los preguntes de nuevo. Si la persona te corrige, mandan sus palabras.`;
-      }
+        }
+      : undefined;
+
+    // El cliente debe recordar el hallazgo: los resultados de tools NO sobreviven entre mensajes
+    // (el historial se reconstruye solo con los textos), así que sin esto Amparito identificaría a
+    // la persona en el turno 1 y no sabría quién es en el turno 3.
+    if (identidad.persistir) {
+      events.push({ type: "afiliado", data: identidad.persistir });
     }
 
     // v4 · el estado lo decide el SERVIDOR y solo viaja el bloque de ese estado. Antes todo el
@@ -71,7 +68,6 @@ export async function POST(req: NextRequest) {
     };
 
     const client = new Anthropic(); // usa ANTHROPIC_API_KEY del entorno
-    const events: UiEvent[] = [];
 
     const convo: Anthropic.MessageParam[] = messages.map((m) => ({
       role: m.role,

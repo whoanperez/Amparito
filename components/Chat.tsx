@@ -6,7 +6,9 @@ import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 
 interface UiEvent {
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto";
+  // Copia deliberada del tipo del servidor: así el cliente no arrastra el SDK de Anthropic.
+  // "afiliado" no pinta tarjeta — es el hallazgo de identidad que hay que recordar entre turnos.
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado";
   data: Record<string, any>;
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
@@ -27,8 +29,13 @@ interface Contacto {
   correo: string;
 }
 
+// Una sola pregunta, y pide lo único que puede ahorrar cinco turnos: el nombre. El servidor lo
+// detecta en el texto y busca el segmento solo; identificarse nunca es obligatorio.
 const GREETING =
-  "¡Hola! Soy Amparito, tu asistente de seguros de Colsubsidio 😊 Cuéntame: ¿qué cambió en tu vida o qué te tiene pensando en protegerte?";
+  "¡Hola! Soy Amparito, la asistente de seguros de Colsubsidio 💛 Dime tu nombre y qué te trae por aquí. Si estás afiliado te reconozco y nos saltamos el interrogatorio.";
+
+// Chips de arranque: prellenan la casilla para que la persona complete y edite.
+const CHIPS_ENTRADA = ["Soy ", "Prefiero no dar mi nombre"];
 
 // Entrada pull-first: tarjetas grandes "¿Qué quieres proteger?" (reemplaza la caja vacía)
 const PROTEGER = [
@@ -64,9 +71,9 @@ const INTERES: Record<string, string> = {
 // Modo jurado: perfiles del demo listos para que el jurado los pruebe solo (autogestión).
 // Cada apertura le da a Amparito lo justo para perfilar y correr el motor en vivo.
 const PERSONAS_DEMO = [
-  { key: "Andres", n: "Andrés, 28", msg: "Hola, soy Andrés, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
-  { key: "Carolina", n: "Carolina, 39", msg: "Hola, soy Carolina, tengo 39 años, soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
-  { key: "Jaime", n: "Jaime, 58", msg: "Hola, soy Jaime, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
+  { key: "Andres", n: "Andrés, 28", msg: "Hola, tengo 28 años, soltero y sin hijos, y acabo de comprar una moto." },
+  { key: "Carolina", n: "Carolina, 39", msg: "Hola, tengo 39 años y soy mamá cabeza de hogar con un hijo de 8 años, en Soacha." },
+  { key: "Jaime", n: "Jaime, 58", msg: "Hola, tengo 58 años, vivo con mi esposa y ya tengo un seguro exequial con Colsubsidio." },
 ];
 
 // Momento proactivo (timing/canal): Amparito abre la conversación tras un evento de vida real
@@ -210,6 +217,15 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       for (const ev of data.events ?? []) {
         if (ev.type === "quote") lastQuote.current = String(ev.data.quoteId ?? lastQuote.current);
         if (ev.type === "form") { openForm = ev.data; continue; }
+        // El servidor detectó (o desambiguó) a la persona: lo recordamos para los siguientes
+        // turnos. No pinta tarjeta — es estado, no contenido.
+        if (ev.type === "afiliado") {
+          afiliadoRef.current = {
+            nombre: String(ev.data.nombre ?? ""),
+            ciudad: String(ev.data.ciudad ?? ""),
+          };
+          continue;
+        }
         eventItems.push({ kind: "event", event: ev });
       }
 
@@ -302,6 +318,16 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
 
   const locked = busy || !!processing || !!activeForm;
   const showStarters = items.length === 1 && !interes && !proactivo && !locked;
+  // Las 6 tarjetas aparecen en el turno 2 y SOLO si la persona no se identificó: para un afiliado
+  // reconocido preguntarle qué quiere proteger es empezar el interrogatorio que veníamos a matar.
+  const showProteger =
+    !showStarters &&
+    !locked &&
+    !afiliadoRef.current &&
+    !interes &&
+    !proactivo &&
+    items.filter((i) => i.kind === "msg" && i.role === "user").length === 1 &&
+    !items.some((i) => i.kind === "recommend" || i.kind === "event");
 
   return (
     <div className="chat-shell">
@@ -336,26 +362,18 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
           )
         )}
 
+        {/* Entrada de UNA sola pregunta. Antes competían cuatro llamados a la acción sin jerarquía
+            (6 tarjetas, "con mis palabras", el formulario de afiliado y el selector del jurado) y eso
+            paraliza: la persona tenía que elegir CÓMO empezar, que es una decisión que no le importa.
+            Se quitó "Prefiero contarte con mis palabras": solo hacía focus() y el input ya tiene
+            autoFocus. Las tarjetas bajan al turno 2, para quien no da su nombre. */}
         {showStarters && (
           <div className="pullfirst">
-            <div className="pf-q">¿Qué quieres proteger?</div>
-            <div className="pf-grid">
-              {PROTEGER.map((p) => (
-                <button key={p.t} className="pf-card" onClick={() => send(p.msg)}>
-                  <span className="pf-ico">{p.ico}</span>
-                  <span className="pf-t">{p.t}</span>
-                </button>
+            <div className="pf-chips">
+              {CHIPS_ENTRADA.map((c) => (
+                <button key={c} className="pf-chip" onClick={() => pickSuggestion(c)}>{c}</button>
               ))}
             </div>
-            <button className="pf-talk" onClick={() => inputRef.current?.focus()}>
-              Prefiero contarte con mis palabras →
-            </button>
-            {!offline && (
-              <AfiliadoEntry
-                disabled={locked}
-                onEnter={(nombre, ciudad) => { afiliadoRef.current = { nombre, ciudad }; send("Hola"); }}
-              />
-            )}
             <div className="pf-jurado">
               <span className="pf-jurado-lbl">¿Eres del jurado? Prueba un perfil del demo:</span>
               <div className="pf-jurado-row">
@@ -363,6 +381,21 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
                   <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Las 6 tarjetas aparecen en el turno 2, solo si la persona no se identificó. */}
+        {showProteger && (
+          <div className="pullfirst">
+            <div className="pf-q">¿Qué te gustaría proteger?</div>
+            <div className="pf-grid">
+              {PROTEGER.map((p) => (
+                <button key={p.t} className="pf-card" onClick={() => send(p.msg)}>
+                  <span className="pf-ico">{p.ico}</span>
+                  <span className="pf-t">{p.t}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -527,32 +560,10 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
   );
 }
 
-/* ===== Entrada de afiliado (arranque caliente) — opcional, nunca obliga a identificarse ===== */
-function AfiliadoEntry({ onEnter, disabled }: { onEnter: (nombre: string, ciudad: string) => void; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [nombre, setNombre] = useState("");
-  const [ciudad, setCiudad] = useState("");
-  if (!open) {
-    return (
-      <button className="afil-toggle" onClick={() => setOpen(true)} disabled={disabled}>
-        🪪 Soy afiliado de Colsubsidio
-      </button>
-    );
-  }
-  return (
-    <form
-      className="afil-form"
-      onSubmit={(e) => { e.preventDefault(); if (nombre.trim()) onEnter(nombre.trim(), ciudad.trim()); }}
-    >
-      <div className="afil-lbl">Como ya te conocemos, arrancamos rápido 💛 ¿Tu nombre y ciudad?</div>
-      <div className="afil-row">
-        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" autoFocus />
-        <input value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad" />
-        <button type="submit" disabled={!nombre.trim()}>Entrar</button>
-      </div>
-    </form>
-  );
-}
+/* El formulario "🪪 Soy afiliado" (nombre + ciudad) se eliminó: era un peaje autoimpuesto de dos
+   campos, y remataba autoenviando un "Hola" que la persona nunca escribió. Ahora basta con que
+   diga su nombre en la conversación — el servidor lo detecta y busca solo (lib/afiliados/resolver).
+   La ciudad se pide únicamente cuando hay homónimos reales, que es el 0,4% de los nombres. */
 
 /* ===== Tarjeta de impacto de ingreso (reframe gasto→protección, en clave de cuidado) ===== */
 function ImpactoCard({ data }: { data: Record<string, any> }) {

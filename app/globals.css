@@ -495,3 +495,10 @@ a { text-decoration: none; color: inherit; }
   .serv-grid { grid-template-columns: 1fr; }
   .mainbar nav a:not(.pill) { display: none; }
 }
+
+/* Chips de arranque: prellenan la casilla en vez de enviar. Reemplazan los cuatro CTA que
+   competían en la pantalla de entrada. */
+.pf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-chip { background: var(--blanco); border: 1.5px solid var(--borde); color: var(--tinta); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.pf-chip:hover { border-color: var(--azul); background: #f2f8ff; color: var(--azul); }
+.pf-chip:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }

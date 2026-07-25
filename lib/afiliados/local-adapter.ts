@@ -4,7 +4,14 @@
  * En el deploy se cambia por el adaptador remoto (Turso/Postgres) — mismo contrato.
  */
 import muestra from "../../data/afiliados_muestra.json";
-import { AffiliateGateway, AfiliadoSegmento, canonSegmento, norm } from "./gateway";
+import {
+  AffiliateGateway,
+  AfiliadoSegmento,
+  Hallazgo,
+  canonSegmento,
+  norm,
+  segmentoComun,
+} from "./gateway";
 
 interface Registro {
   nombre: string;
@@ -19,14 +26,37 @@ interface Registro {
 const REGISTROS = muestra as Registro[];
 
 export class LocalAffiliateAdapter implements AffiliateGateway {
-  async lookup(nombre: string, ciudad?: string): Promise<AfiliadoSegmento | null> {
+  async buscar(nombre: string, ciudad?: string): Promise<Hallazgo> {
     const n = norm(nombre);
-    if (!n) return null;
-    const c = ciudad ? norm(ciudad) : undefined;
-    // Coincidencia exacta por nombre; si hay ciudad, desempata (los nombres se repiten).
-    const porNombre = REGISTROS.filter((r) => norm(r.nombre) === n);
-    const elegido = (c ? porNombre.find((r) => norm(r.ciudad) === c) : undefined) ?? porNombre[0] ?? null;
-    return elegido ? toSegmento(elegido) : null;
+    if (!n) return { estado: "no_encontrado" };
+
+    let cands = REGISTROS.filter((r) => norm(r.nombre) === n);
+    if (!cands.length) return { estado: "no_encontrado" };
+
+    // Filtro de ciudad TOLERANTE: coincide la ciudad o el registro no la tiene. Con un filtro
+    // estricto, quien dijera "Bogotá" y tuviera la ciudad vacía en la base pasaría de
+    // "encontrado ambiguo" a "no encontrado" — peor resultado que no preguntar.
+    if (ciudad) {
+      const c = norm(ciudad);
+      const conCiudad = cands.filter((r) => !norm(r.ciudad ?? "") || norm(r.ciudad) === c);
+      if (conCiudad.length) cands = conCiudad;
+    }
+
+    if (cands.length === 1) return { estado: "unico", segmento: toSegmento(cands[0]) };
+
+    const segmentos = cands.map(toSegmento);
+    const comun = segmentoComun(segmentos);
+    // Si todos los homónimos comparten el segmento, da lo mismo cuál sea: se puede usar.
+    const todosIguales = (["genero", "rango_edad", "categoria", "grupo_familiar"] as const).every(
+      (k) => segmentos.every((s) => s[k] === segmentos[0][k])
+    );
+    if (todosIguales) return { estado: "unico", segmento: segmentos[0] };
+    return { estado: "ambiguo", n: cands.length, comun };
+  }
+
+  async lookup(nombre: string, ciudad?: string): Promise<AfiliadoSegmento | null> {
+    const h = await this.buscar(nombre, ciudad);
+    return h.estado === "unico" ? h.segmento : null;
   }
 }
 
