@@ -507,6 +507,25 @@ async function main() {
     const { d: d2 } = deps([dosDistintas, dice("Listo.")], { ejecutarTool: contar });
     await ejecutarTurno({ messages: HOLA }, d2);
     checkEq("con input distinto SÍ se ejecutan las dos", corridas2, 2);
+
+    // Y se ejecutan EN PARALELO. Estaban en serie, así que dos tools sumaban sus latencias: con
+    // el motor local da igual, pero `quote_product` e `issue_policy` van por el gateway de la
+    // aseguradora y eran round-trips de red encadenados sin motivo.
+    let enCurso = 0;
+    let simultaneasMax = 0;
+    const lenta = async () => {
+      enCurso++;
+      simultaneasMax = Math.max(simultaneasMax, enCurso);
+      await new Promise((r) => setTimeout(r, 30));
+      enCurso--;
+      return { result: { ok: true } };
+    };
+    const { d: d3 } = deps([dosDistintas, dice("Listo.")], { ejecutarTool: lenta });
+    const t0 = Date.now();
+    await ejecutarTurno({ messages: HOLA }, d3);
+    const transcurrido = Date.now() - t0;
+    checkEq("las dos estuvieron en vuelo a la vez", simultaneasMax, 2);
+    check("y el turno no sumó las dos esperas", transcurrido < 55, `→ ${transcurrido} ms para 2×30 ms`);
   }
 
   titulo("Defecto #9 — el reintento del doble cañón produce texto");

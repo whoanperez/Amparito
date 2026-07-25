@@ -204,68 +204,80 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     rounds++;
     const intermedio = textoDe(response);
     if (intermedio) textoDeRescate = intermedio;
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+    const pedidas = response.content.filter(
+      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+    );
 
-    // Dos bloques `tool_use` IDÉNTICOS en el mismo mensaje se ejecutan una sola vez. El prompt le
-    // pide al modelo volver a llamar `calcular_propension` si lo corrigen, y a veces lo hace dos
-    // veces de una: el motor corría dos veces y emitía dos eventos.
+    // EN PARALELO. Estaban en serie —un `await` dentro del bucle—, así que dos tools en un mismo
+    // mensaje sumaban sus latencias. Con el motor local da igual; `quote_product` e `issue_policy`
+    // van por el gateway de la aseguradora, y ahí eran round-trips de red encadenados sin motivo.
+    // Es seguro por construcción: dentro de un mismo mensaje el modelo todavía no tiene ningún
+    // resultado, así que ninguna llamada puede depender de otra.
     //
-    // Solo dentro del MISMO mensaje. Entre rondas una repetición puede ser un reintento legítimo
-    // tras un fallo, y reutilizar aquel resultado sería devolverle el error cacheado.
-    const yaEjecutadas = new Map<string, { result: unknown; event?: UiEvent }>();
+    // Dos bloques IDÉNTICOS comparten UNA sola ejecución. El prompt le pide al modelo volver a
+    // llamar `calcular_propension` si lo corrigen, y a veces lo hacía dos veces de una: el motor
+    // corría dos veces y emitía dos eventos. Se comparte la PROMESA, no el resultado, para que
+    // lanzarlas a la vez no vuelva a duplicar el trabajo.
+    //
+    // Solo dentro del MISMO mensaje: entre rondas una repetición puede ser un reintento legítimo
+    // tras un fallo, y reutilizar aquel resultado sería devolverle el error viejo.
+    const enVuelo = new Map<string, Promise<{ result: unknown; event?: UiEvent }>>();
 
-    for (const block of response.content) {
-      if (block.type === "tool_use") {
-        // Una tool que LANZA no puede llevarse el turno por delante. Antes la excepción subía
-        // hasta el catch global y se perdía todo, incluidos los eventos ya acumulados en este
-        // mismo turno: la persona veía desaparecer el "escribiendo…" y nada más.
-        //
-        // Y el fallo se le devuelve al modelo con `is_error`, que es el canal que la API tiene
-        // para eso. Hasta ahora los errores se serializaban como si fueran éxitos y era el
-        // PROMPT quien le explicaba al modelo cómo reconocerlos — enseñarle a leer errores en
-        // prosa en vez de decírselos.
+    const resueltas = await Promise.all(
+      pedidas.map(async (block) => {
         const input = (block.input ?? {}) as Record<string, unknown>;
         const huella = `${block.name}:${JSON.stringify(input)}`;
-        const repetida = yaEjecutadas.get(huella);
+        const yaLanzada = enVuelo.get(huella);
+        // El evento se emite solo con la PRIMERA: dos idénticos pintarían dos tarjetas.
+        const emitirEvento = !yaLanzada;
+        const promesa = yaLanzada ?? deps.ejecutarTool(block.name, input, toolCtx);
+        if (!yaLanzada) enVuelo.set(huella, promesa);
 
-        let result: unknown;
-        let event: UiEvent | undefined;
-        let fallo = false;
         try {
-          ({ result, event } = repetida ?? (await deps.ejecutarTool(block.name, input, toolCtx)));
-          // El evento solo se emite la PRIMERA vez: dos idénticos pintarían dos tarjetas.
-          if (repetida) event = undefined;
-          else yaEjecutadas.set(huella, { result, event });
+          const { result, event } = await promesa;
+          return { block, result, event: emitirEvento ? event : undefined, fallo: false };
         } catch (err) {
-          fallo = true;
-          result = {
-            error: `La herramienta ${block.name} falló: ${err instanceof Error ? err.message : "error desconocido"}`,
-            instruccion:
-              "No inventes el dato que ibas a obtener. Reintenta una vez si tiene sentido; si no, " +
-              "dilo con honestidad y ofrece un asesor.",
+          // Una tool que LANZA no puede llevarse el turno por delante. Antes la excepción subía
+          // hasta el catch global y se perdía todo, incluidos los eventos ya acumulados en este
+          // mismo turno: la persona veía desaparecer el "escribiendo…" y nada más.
+          return {
+            block,
+            event: undefined as UiEvent | undefined,
+            fallo: true,
+            result: {
+              error: `La herramienta ${block.name} falló: ${err instanceof Error ? err.message : "error desconocido"}`,
+              instruccion:
+                "No inventes el dato que ibas a obtener. Reintenta una vez si tiene sentido; si no, " +
+                "dilo con honestidad y ofrece un asesor.",
+            } as unknown,
           };
         }
-        if (event) events.push(event);
-        // `calcular_propension` devuelve el perfil que la compuerta aceptó. Es lo que se guarda
-        // en el estado para que el turno siguiente arranque desde ahí en vez de desde cero.
-        // Se lee por el campo y no por el nombre de la tool: si mañana otra tool también sanea,
-        // no hay que acordarse de añadirla a una lista.
-        const conPerfil = result as { perfil_usado?: Perfil; descartado_por_falta_de_evidencia?: string[] };
-        if (conPerfil?.perfil_usado) {
-          perfilUsado = conPerfil.perfil_usado;
-          descartes = conPerfil.descartado_por_falta_de_evidencia ?? [];
-        }
-        // Se marca tanto la tool que LANZÓ como la que devolvió un error sin lanzar — que es el
-        // caso común en este código: ocho sitios devuelven `{error: ...}` como si fuera un
-        // resultado normal, y el modelo no tenía cómo distinguirlos de un éxito.
-        toolResults.push({
-          type: "tool_result",
-          tool_use_id: block.id,
-          content: JSON.stringify(result),
-          ...(fallo || esFallo(result) ? { is_error: true } : {}),
-        });
+      })
+    );
+
+    // Los efectos se aplican DESPUÉS y EN ORDEN: paralelizar la espera no puede volver aleatorio
+    // el orden en que se acumulan los eventos ni cuál perfil termina ganando.
+    const toolResults: Anthropic.ToolResultBlockParam[] = resueltas.map(({ block, result, event, fallo }) => {
+      if (event) events.push(event);
+      // `calcular_propension` devuelve el perfil que la compuerta aceptó. Es lo que se guarda en
+      // el estado para que el turno siguiente arranque desde ahí en vez de desde cero. Se lee por
+      // el campo y no por el nombre de la tool: si mañana otra tool también sanea, no hay que
+      // acordarse de añadirla a una lista.
+      const conPerfil = result as { perfil_usado?: Perfil; descartado_por_falta_de_evidencia?: string[] };
+      if (conPerfil?.perfil_usado) {
+        perfilUsado = conPerfil.perfil_usado;
+        descartes = conPerfil.descartado_por_falta_de_evidencia ?? [];
       }
-    }
+      return {
+        type: "tool_result" as const,
+        tool_use_id: block.id,
+        content: JSON.stringify(result),
+        // Se marca tanto la tool que LANZÓ como la que devolvió un error sin lanzar — el caso
+        // común aquí: ocho sitios devuelven `{error: ...}` como si fuera un resultado normal, y
+        // el modelo no tenía cómo distinguirlos de un éxito.
+        ...(fallo || esFallo(result) ? { is_error: true } : {}),
+      };
+    });
 
     convo.push({ role: "assistant", content: response.content });
     convo.push({ role: "user", content: toolResults });
