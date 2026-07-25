@@ -92,6 +92,26 @@ function estadoRecuperado(messages: Msg[]): EstadoConversacion {
   return e;
 }
 
+/**
+ * Códigos que viajan en `result.error` pero NO son fallos: son compuertas de cumplimiento
+ * funcionando. Distinguirlos importa mucho más de lo que parece — `is_error` le dice al modelo
+ * "esto se rompió, puedes reintentar", y marcar así una compuerta de CONSENTIMIENTO sería
+ * invitarlo a saltársela a base de insistir. Una tool que dice que no es una respuesta, no una
+ * avería.
+ */
+const DECISIONES_NO_FALLOS = new Set([
+  "PRODUCTO_REQUIERE_ASESORIA",
+  "PRIMA_NO_COTIZABLE",
+  "CONSENTIMIENTO_REQUERIDO",
+  "DATOS_INCOMPLETOS",
+]);
+
+/** Un fallo de verdad: la tool no pudo hacer su trabajo. */
+function esFallo(result: unknown): boolean {
+  const e = (result as { error?: unknown } | null)?.error;
+  return typeof e === "string" && !DECISIONES_NO_FALLOS.has(e);
+}
+
 const textoDe = (r: Anthropic.Message) =>
   r.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -224,11 +244,14 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
           perfilUsado = conPerfil.perfil_usado;
           descartes = conPerfil.descartado_por_falta_de_evidencia ?? [];
         }
+        // Se marca tanto la tool que LANZÓ como la que devolvió un error sin lanzar — que es el
+        // caso común en este código: ocho sitios devuelven `{error: ...}` como si fuera un
+        // resultado normal, y el modelo no tenía cómo distinguirlos de un éxito.
         toolResults.push({
           type: "tool_result",
           tool_use_id: block.id,
           content: JSON.stringify(result),
-          ...(fallo ? { is_error: true } : {}),
+          ...(fallo || esFallo(result) ? { is_error: true } : {}),
         });
       }
     }

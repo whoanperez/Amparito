@@ -450,6 +450,29 @@ async function main() {
     check("el error le dice al modelo qué NO hacer", String(bloques[1]?.content).includes("No inventes"));
   }
 
+  titulo("Un fallo se marca; una compuerta que dice que no, NO");
+  {
+    // El caso COMÚN no es que la tool lance: ocho sitios devuelven `{error: ...}` sin lanzar, y
+    // el modelo no tenía cómo distinguirlos de un éxito.
+    const { d, llamadas } = deps([usaTool("get_product_details", { productId: "no_existe" }), dice("No encontré ese.")], {
+      ejecutarTool: executeTool,
+    });
+    await ejecutarTurno({ messages: HOLA, estado: sellar(estadoInicial()) }, d);
+    const b1 = (llamadas[1].messages.at(-1)?.content ?? []) as Array<{ is_error?: boolean }>;
+    checkEq("un producto inexistente se marca como fallo", b1[0]?.is_error, true);
+
+    // Y el que importa de verdad: una compuerta de cumplimiento NO es una avería. Marcarla
+    // invitaría al modelo a reintentarla, que es exactamente lo que la compuerta impide.
+    const { d: d2, llamadas: l2 } = deps(
+      [usaTool("issue_policy", { quoteId: "q1", consentimiento: false, contacto: {} }), dice("Necesito tu autorización.")],
+      { ejecutarTool: executeTool }
+    );
+    await ejecutarTurno({ messages: HOLA, estado: sellar(estadoInicial()) }, d2);
+    const b2 = (l2[1].messages.at(-1)?.content ?? []) as Array<{ is_error?: boolean; content?: string }>;
+    check("la compuerta de consentimiento se disparó", String(b2[0]?.content).includes("CONSENTIMIENTO_REQUERIDO"));
+    checkEq("y NO se marca como fallo", b2[0]?.is_error, undefined);
+  }
+
   titulo("Defecto #8 — la doble tarjeta ya no se ve, pero el motor sí corre dos veces");
   {
     let corridas = 0;
