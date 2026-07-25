@@ -72,6 +72,9 @@ function vaElegirProteccion(estado: EstadoConversacion, texto: string, eventos: 
     estado.identidad.resultado !== "reconocido" &&
     estado.veredicto === null &&
     eventos.length === 0 &&
+    // Quien llegó por un enlace profundo YA dijo qué quiere proteger. Preguntárselo otra vez es
+    // el interrogatorio que este producto existe para evitar.
+    !estado.origen &&
     !texto.includes("?")
   );
 }

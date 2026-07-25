@@ -37,6 +37,8 @@ export interface EntradaTurno {
   messages: Msg[];
   /** Estado sellado del turno anterior. Opaco: el cliente lo guarda y lo reenvía sin leerlo. */
   estado?: string;
+  /** Cómo entró la persona, si fue por un enlace profundo. Solo se lee en el primer turno. */
+  origen?: "interes" | "evento";
   /* ── Ventana de compatibilidad · muere en el paso 3, cuando el cliente obedezca la vista ── */
   afiliado?: { nombre?: string; ciudad?: string };
   yaRecomendo?: boolean;
@@ -171,6 +173,8 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   }
   const hallazgo = await deps.resolver(consulta);
   let estado = aplicarIdentidad(abierto.estado, hallazgo);
+  // Se recuerda una sola vez, en el turno en que entra: después el cliente ya no lo manda.
+  if (entrada.origen && !estado.origen) estado = { ...estado, origen: entrada.origen };
 
   // Compat: el cliente actual guarda la identidad en un ref propio. Muere en el paso 3, cuando
   // el estado sellado sea el único portador.

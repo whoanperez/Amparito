@@ -150,6 +150,15 @@ export interface EstadoConversacion {
   /** De qué producto se está hablando. Sin esto, al asesorar el modelo no sabe de qué habla. */
   foco?: string;
   quoteId?: string;
+  /**
+   * Cómo entró la persona: por un enlace profundo con un interés (`?interes=hogar`) o por un
+   * evento de vida (`?evento=bebe`). Importa porque quien llega DICIENDO qué quiere proteger no
+   * debe recibir la grilla de "¿qué te gustaría proteger?".
+   *
+   * El servidor no puede deducirlo del mensaje —llega como texto normal— así que lo manda el
+   * cliente en el primer turno y aquí se recuerda.
+   */
+  origen?: "interes" | "evento";
 
   /** Cosas que se dicen UNA vez. Cumplir esto en código y no pidiéndoselo al prompt. */
   dichoUnaVez: {

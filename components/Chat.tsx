@@ -218,7 +218,15 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, estado: estadoRef.current }),
+        // `origen` solo importa en el primer turno: le dice al servidor que la persona llegó
+        // DICIENDO qué quiere, para que no le pregunte "¿qué te gustaría proteger?". Es lo único
+        // de la pantalla que el servidor no puede deducir del mensaje, porque llega como texto
+        // normal.
+        body: JSON.stringify({
+          messages: history,
+          estado: estadoRef.current,
+          origen: proactivo ? "evento" : interes ? "interes" : undefined,
+        }),
       });
       const data = (await res.json()) as { ui: UiVista; estado: string };
       if (!data?.ui) throw new Error("respuesta sin vista");

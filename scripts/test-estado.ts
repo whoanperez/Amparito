@@ -244,6 +244,14 @@ titulo("La vista no compite con una pregunta abierta");
   const sinPregunta = vistaDeEstado(e, "Soy Amparito, de amparar.", []);
   checkEq("sin pregunta, la grilla sí va", sinPregunta.bloques.filter((b) => b.t === "elegir_proteccion").length, 1);
 
+  // Quien llegó por un enlace profundo YA dijo qué quiere proteger. Preguntárselo otra vez es el
+  // interrogatorio que el producto existe para evitar. El servidor no puede deducirlo del
+  // mensaje —llega como texto normal—, así que el cliente lo declara y el estado lo recuerda.
+  const porEnlace = vistaDeEstado({ ...e, origen: "interes" }, "Soy Amparito, de amparar.", []);
+  checkEq("a quien llegó por un enlace NO se le pregunta", porEnlace.bloques.filter((b) => b.t === "elegir_proteccion").length, 0);
+  const porEvento = vistaDeEstado({ ...e, origen: "evento" }, "Felicitaciones por ese bebé.", []);
+  checkEq("ni a quien llegó por un evento de vida", porEvento.bloques.filter((b) => b.t === "elegir_proteccion").length, 0);
+
   // Un solo evento de propensión aunque el modelo llame la tool dos veces.
   const prop = calcularPropension(PERSONAS.Carolina);
   const dosLlamadas = vistaDeEstado(e, "Míralo abajo con calma.", [eventoPropension(prop), eventoPropension(prop)]);
