@@ -165,6 +165,7 @@ async function main() {
   titulo("6b · Traza auditable: se puede ver por qué");
   const tz = advR.traza!;
   check("la recomendación deja traza", !!tz);
+  check("hay productos en la traza que auditar", tz.productos.length > 0, `→ ${tz.productos.length}`);
   check("los pesos suman el score", tz.productos.every((p) => p.senales.reduce((a, s) => a + s.peso, 0) === p.score));
   check("incluso la decisión de NO vender deja traza", !!tz.version_reglas);
   /*

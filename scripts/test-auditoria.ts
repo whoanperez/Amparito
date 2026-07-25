@@ -39,7 +39,12 @@ async function main() {
   check("los pesos SUMAN el score en todos los productos", descuadres.length === 0,
     descuadres.length ? `→ descuadra: ${descuadres.map((d) => d.id).join(", ")}` : `→ ${t.productos.length} productos`);
 
-  check("cada señal dice QUÉ campo la disparó", t.productos.every((p) => p.senales.every((s) => !!s.feature)));
+  // `.every()` sobre un array vacío es TRUE. Sin la guarda de abajo, una traza sin productos —o
+  // con productos pero sin señales— pasaría este check sin haber mirado una sola señal, que es
+  // justo el modo de falla de un motor hecho de compuertas que descartan.
+  const senales = t.productos.flatMap((p) => p.senales);
+  check("hay señales que auditar", senales.length > 0, `→ ${senales.length} señales en ${t.productos.length} productos`);
+  check("cada señal dice QUÉ campo la disparó", senales.every((s) => !!s.feature));
   check("se explica también lo que NO se recomendó",
     t.productos.some((p) => p.resultado !== "recomendado"));
   check("registra la decisión del gate de asequibilidad", typeof t.gate_asequibilidad.prioriza_prima_baja === "boolean");

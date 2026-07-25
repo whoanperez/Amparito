@@ -50,6 +50,23 @@ if (!conBase) {
 }
 console.log();
 
+/*
+ * PRIMERO los tipos. `tsx` borra los tipos sin comprobarlos, así que hasta ahora un error de
+ * TypeScript pasaba por los gates en verde: lo único que lo detectaba era `npx tsc` a mano o el
+ * `next build`, y ninguno de los dos está en este camino. Un gate que no ve una clase entera de
+ * error da una confianza que no corresponde.
+ */
+let tiposOk = true;
+try {
+  execFileSync("npx", ["tsc", "--noEmit"], { encoding: "utf8", env: process.env });
+  console.log("✅ tipos (tsc --noEmit)");
+} catch (err) {
+  tiposOk = false;
+  const e = err as { stdout?: string };
+  console.log("❌ tipos (tsc --noEmit)");
+  console.log((e.stdout ?? "").split("\n").slice(0, 12).join("\n"));
+}
+
 interface Resultado {
   suite: string;
   ok: boolean;
@@ -97,7 +114,8 @@ const checks = resultados.reduce((a, r) => a + r.checks, 0);
 const fallos = resultados.reduce((a, r) => a + r.fallos, 0);
 console.log(`\n${"─".repeat(70)}`);
 console.log(
-  `${rotas.length ? "❌" : "✅"} ${resultados.length} suites · ${checks} checks · ${fallos} fallos` +
+  `${rotas.length || !tiposOk ? "❌" : "✅"} ${resultados.length} suites · ${checks} checks · ${fallos} fallos` +
+    `${tiposOk ? "" : " · TIPOS ROTOS"}` +
     `${rotas.length ? ` · rotas: ${rotas.map((r) => r.suite).join(", ")}` : ""}`
 );
 console.log(`   base: ${conBase ? "TURSO" : "sample sintético"}`);
@@ -119,4 +137,4 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 console.log(`   · La conversación de punta a punta contra el modelo real.`);
 
-process.exit(rotas.length ? 1 : 0);
+process.exit(rotas.length || !tiposOk ? 1 : 0);
