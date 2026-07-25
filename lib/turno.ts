@@ -15,11 +15,11 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "@/lib/prompts";
 import { toolDefinitions, executeTool, type ToolCtx } from "@/lib/tools";
-import type { ConsultaIdentidad, EstadoConversacion, UiEvent } from "@/lib/estado/tipos";
+import type { ConsultaIdentidad, EstadoConversacion, UiEvent, UiVista } from "@/lib/estado/tipos";
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
-import { SALUDO_INICIAL, opcionesDeEventos } from "@/lib/estado/vista";
+import { SALUDO_INICIAL, opcionesDeEventos, vistaDeEstado } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";
@@ -43,10 +43,16 @@ export interface EntradaTurno {
 }
 
 export interface SalidaTurno {
-  reply: string;
-  events: UiEvent[];
+  /**
+   * Lo único que el cliente necesita renderizar: bloques ya ORDENADOS por el servidor,
+   * sugerencias y estado de la casilla. El componente pasa de decidir a pintar.
+   */
+  ui: UiVista;
   /** Sellado. El cliente lo devuelve tal cual en el turno siguiente. */
   estado: string;
+  /* ── Compat · mueren en el paso 3, cuando el cliente obedezca la vista ── */
+  reply: string;
+  events: UiEvent[];
 }
 
 /** Lo mínimo del SDK que el turno necesita, para que un doble de prueba pueda cumplirlo. */
@@ -141,7 +147,12 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // error del cliente, devuelve lo mismo sin corromper el estado ni gastar una llamada.
   if (!messages.some((m) => m.role === "user" && m.content.trim())) {
     const saludado = { ...previo, dichoUnaVez: { ...previo.dichoUnaVez, saludo: true } };
-    return { reply: SALUDO_INICIAL, events: [], estado: sellar(saludado) };
+    return {
+      ui: vistaDeEstado(saludado, SALUDO_INICIAL, []),
+      estado: sellar(saludado),
+      reply: SALUDO_INICIAL,
+      events: [],
+    };
   }
 
   const ultimoDelUsuario = messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
@@ -286,6 +297,11 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
 
   estado = cerrarTurno(estado, { eventos: events, perfilUsado, descartes });
 
+  // La vista se arma ANTES del puente de compatibilidad, y el orden importa: el puente ensucia
+  // `reply` con el protocolo viejo, y construir la vista después lo colaría dentro de
+  // `ui.bloques`. La vista nunca debe ver un protocolo que este bloque existe para eliminar.
+  const ui = vistaDeEstado(estado, reply, events);
+
   // Compat · MUERE EN EL PASO 3. El cliente actual saca las quick-replies del texto con una
   // regex. Ahora llegan por `ofrecer_opciones`, así que sin este puente desaparecerían de la
   // pantalla justo durante la ventana de compatibilidad — una regresión visible metida por un
@@ -293,5 +309,5 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   const opciones = opcionesDeEventos(events);
   if (!entrada.estado && opciones.length) reply += `\nOPCIONES: ${opciones.join(" | ")}`;
 
-  return { reply, events, estado: sellar(estado) };
+  return { ui, estado: sellar(estado), reply, events };
 }

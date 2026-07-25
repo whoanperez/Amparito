@@ -34,6 +34,8 @@ const check = (label: string, cond: boolean, detalle?: string) => {
 };
 const checkEq = <T>(label: string, actual: T, esperado: T) =>
   check(`${label} === ${JSON.stringify(esperado)}`, Object.is(actual, esperado), `→ ${JSON.stringify(actual)}`);
+const checkPresente = (label: string, v: unknown) =>
+  check(`${label} presente`, v !== undefined && v !== null, `→ ${JSON.stringify(v)}`);
 const titulo = (t: string) => console.log(`\n===== ${t} =====`);
 
 /* ── El doble del modelo ──────────────────────────────────────────────────── */
@@ -140,6 +142,38 @@ async function main() {
     checkEq("se reintenta y gana la versión corregida", r.reply, "¿Tienes vehículo?");
     checkEq("costó una llamada extra", llamadas.length, 2);
     check("el reintento lleva la corrección en el system", String(llamadas[1].system).includes("CORRECCIÓN INMEDIATA"));
+  }
+
+  titulo("El turno publica la vista");
+  {
+    // Adverso primero, y es el que casi se me cuela: el puente de compatibilidad ensucia `reply`
+    // con el protocolo viejo. Si la vista se armara DESPUÉS, ese protocolo aparecería dentro de
+    // `ui.bloques` — el cliente nuevo pintaría "OPCIONES: Sí | No" como texto de Amparito.
+    const { d } = deps([usaTool("ofrecer_opciones", { opciones: ["Sí", "No"] }), dice("¿Avanzamos?")], {
+      ejecutarTool: executeTool,
+    });
+    const viejo = await ejecutarTurno({ messages: HOLA }, d); // sin `estado` → cliente viejo
+    check("al cliente viejo se le reescribe el protocolo en reply", viejo.reply.includes("OPCIONES:"));
+    const textos = viejo.ui.bloques.filter((b) => b.t === "texto").map((b) => (b as { contenido: string }).contenido);
+    checkEq("pero la vista NUNCA lo ve", textos.some((t) => t.includes("OPCIONES:")), false);
+    checkEq("y las sugerencias vienen del evento, no del texto", viejo.ui.sugerencias.join("|"), "Sí|No");
+
+    // El turno 0 también publica vista.
+    const t0 = await ejecutarTurno({ messages: [] }, deps([dice("no se usa")]).d);
+    checkEq("el saludo viaja como un bloque de texto", t0.ui.bloques.length, 1);
+    checkEq("con el copy del servidor", (t0.ui.bloques[0] as { contenido: string }).contenido, SALUDO_INICIAL);
+    checkEq("y la casilla queda habilitada", t0.ui.entrada.habilitada, true);
+
+    // Un formulario bloquea la casilla: es estado de la entrada, no una tarjeta más.
+    const conForm = await ejecutarTurno(
+      { messages: HOLA, estado: sellar(estadoInicial()) },
+      deps([usaTool("collect_customer_data", { productId: "vida_panamerican" }), dice("Llena esto.")], {
+        ejecutarTool: executeTool,
+      }).d
+    );
+    checkEq("con formulario la casilla se bloquea", conForm.ui.entrada.habilitada, false);
+    checkPresente("y el formulario viaja en la vista", conForm.ui.entrada.formulario);
+    checkEq("sin pintarse como tarjeta", conForm.ui.bloques.filter((b) => b.t === "evento").length, 0);
   }
 
   titulo("Las quick-replies dejan de ser un protocolo de texto");
