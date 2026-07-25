@@ -81,11 +81,19 @@ for (const suite of SUITES) {
   let salida = "";
   let ok = true;
   try {
-    salida = execFileSync("npx", ["tsx", `scripts/${suite}`], { encoding: "utf8", env: process.env });
+    // Con timeout: una suite COLGADA es peor que una que falla, porque no da ninguna señal —
+    // se queda esperando para siempre y quien mira la consola no sabe si avanza o murió. Las
+    // suites que tocan la base pueden quedarse esperando una conexión que no llega.
+    salida = execFileSync("npx", ["tsx", `scripts/${suite}`], {
+      encoding: "utf8",
+      env: process.env,
+      timeout: 120_000,
+    });
   } catch (err) {
     ok = false;
-    const e = err as { stdout?: string; stderr?: string };
+    const e = err as { stdout?: string; stderr?: string; signal?: string };
     salida = `${e.stdout ?? ""}${e.stderr ?? ""}`;
+    if (e.signal === "SIGTERM") salida += "\n   ❌ la suite se colgó (más de 120 s)";
   }
   // Solo las líneas de ASERCIÓN (van indentadas). Las de resumen —"❌ GATE FALLÓ"— también
   // llevan el símbolo, y contarlas inflaba el número de fallos: un gate que informa mal de

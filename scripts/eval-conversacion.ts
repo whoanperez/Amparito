@@ -149,7 +149,13 @@ async function main() {
   check("GENERO descartado", adv.perfil.GENERO === undefined);
   check("vivienda fabricada descartada", adv.perfil.enriquecido?.vivienda === undefined);
   check("marca.* rechazada (es dato de la base)", adv.perfil.marca === undefined);
+  // ANCLAS del grupo de arriba. Cinco aserciones de "descartado" seguidas pasarían todas si
+  // `sanearPerfil` devolviera un perfil VACÍO: hay que afirmar también lo que sí debe sobrevivir,
+  // o el bloque entero mide la nada.
   check("el carro sí se acepta (lo dijo)", adv.perfil.enriquecido?.tiene_vehiculo?.includes("carro") === true);
+  check("y el grupo familiar sí, como inferido ('mi esposa')",
+    adv.perfil.SEGMENTO_GRUPO_FAMILIAR === "Pareja conyugal" &&
+    adv.perfil._origen?.SEGMENTO_GRUPO_FAMILIAR === "inferido");
   const advR = calcularPropension(adv.perfil);
   // Ojo: esta conversación real incluye "no tengo trabajo" y "no tengo ingresos". Con la detección
   // determinista (B12) el servidor lo reconoce y el motor se NIEGA a vender — que es la conducta
