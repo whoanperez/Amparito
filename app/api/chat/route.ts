@@ -15,8 +15,10 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   try {
     const entrada = (await req.json()) as EntradaTurno;
-    if (!Array.isArray(entrada.messages) || entrada.messages.length === 0) {
-      return NextResponse.json({ error: "messages requerido" }, { status: 400 });
+    // Un historial vacío ya NO es un error: es la petición del turno 0, donde el servidor
+    // devuelve el saludo. Lo que sigue siendo inválido es que `messages` no sea un array.
+    if (!Array.isArray(entrada.messages)) {
+      return NextResponse.json({ error: "messages debe ser un array" }, { status: 400 });
     }
 
     const client = new Anthropic(); // usa ANTHROPIC_API_KEY del entorno

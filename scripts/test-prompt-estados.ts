@@ -7,7 +7,9 @@
  * que cada turno reciba SOLO su bloque, y en particular que un turno RECONOCIDO no lleve encima
  * las instrucciones de descubrimiento.
  */
-import { buildSystemPrompt, detectarEstado, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
+import { buildSystemPrompt, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
+import { estadoInicial, type EstadoConversacion } from "../lib/estado/tipos";
+import { siguienteFase } from "../lib/estado/reducir";
 
 let ok = true;
 const check = (label: string, cond: boolean) => {
@@ -15,25 +17,38 @@ const check = (label: string, cond: boolean) => {
   if (!cond) ok = false;
 };
 
-type Msg = { role: "user" | "assistant"; content: string };
-const u = (content: string): Msg => ({ role: "user", content });
-const a = (content: string): Msg => ({ role: "assistant", content });
+/* ── 1 · la fase sale del ESTADO, no del historial ────────────────────────
+   `detectarEstado` derivaba la fase de `messages.length` y de dos booleanos del navegador. Ahora
+   la lleva el reducer, donde puede depender del veredicto real del motor. Los mismos casos,
+   expresados sobre lo que de verdad los determina. */
+console.log("===== La fase sale del estado =====");
 
-/* ── 1 · detección de estado ─────────────────────────────────────────────── */
-console.log("===== Detección de estado =====");
-const casos: Array<[string, Estado, Msg[], boolean]> = [
-  ["primer mensaje, sin identificar", "SALUDO", [u("hola")], false],
-  ["primer mensaje, afiliado reconocido", "RECONOCIDO", [u("soy Carolina Ramírez")], true],
-  ["varios turnos, sin identificar", "DESCUBRIENDO", [u("hola"), a("¿qué te trae?"), u("compré una moto")], false],
-  ["afiliado reconocido en turno 3", "RECONOCIDO", [u("hola"), a("¿y tú?"), u("soy Carolina")], true],
+const conEstado = (parcial: {
+  turno?: number;
+  reconocido?: boolean;
+  veredicto?: boolean;
+}): EstadoConversacion => {
+  const e = estadoInicial();
+  e.turno = parcial.turno ?? 1;
+  if (parcial.reconocido) e.identidad.resultado = "reconocido";
+  if (parcial.veredicto) {
+    e.veredicto = { entregado: true, tipo: "recomendacion", recomendaciones: [], obligatorios: [], peer: null };
+  }
+  return e;
+};
+
+const casos: Array<[string, Estado, Parameters<typeof conEstado>[0]]> = [
+  ["primer turno, sin identificar", "SALUDO", { turno: 1 }],
+  ["primer turno, afiliado reconocido", "RECONOCIDO", { turno: 1, reconocido: true }],
+  ["varios turnos, sin identificar", "DESCUBRIENDO", { turno: 2 }],
+  ["afiliado reconocido en el turno 3", "RECONOCIDO", { turno: 3, reconocido: true }],
+  // Una vez el motor se pronunció manda ASESORANDO, aunque sea afiliado. Y da igual si hubo
+  // tarjetas: decir que no también es pronunciarse.
+  ["tras recomendar, siendo afiliado", "ASESORANDO", { turno: 3, reconocido: true, veredicto: true }],
 ];
-for (const [label, esperado, msgs, afil] of casos) {
-  const got = detectarEstado(msgs, { afiliadoReconocido: afil });
-  check(`${label} → ${esperado}`, got === esperado);
+for (const [label, esperado, parcial] of casos) {
+  check(`${label} → ${esperado}`, siguienteFase(conEstado(parcial)) === esperado);
 }
-// Una vez recomendó, manda ASESORANDO aunque sea afiliado
-const trasReco = [u("hola"), a("RECOMENDACION: Seguro de Vida | recomendado | eres el sostén"), u("¿cuánto cuesta?")];
-check("tras recomendar → ASESORANDO (incluso siendo afiliado)", detectarEstado(trasReco, { afiliadoReconocido: true }) === "ASESORANDO");
 
 /* ── 2 · aislamiento entre estados (el criterio de aceptación) ───────────── */
 console.log("\n===== Aislamiento de bloques =====");

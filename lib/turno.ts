@@ -19,6 +19,7 @@ import type { ConsultaIdentidad, EstadoConversacion, UiEvent } from "@/lib/estad
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
+import { SALUDO_INICIAL } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";
@@ -131,6 +132,18 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // Un sello inválido o ausente no es un error: se arranca de cero. El jurado ve un saludo, no
   // un 500.
   const previo = abrir(entrada.estado) ?? estadoDeCompat(entrada);
+
+  // Turno 0: el saludo lo produce el SERVIDOR, sin llamar al modelo. Antes vivía en el componente
+  // y se inyectaba como `messages[0]` con rol `assistant` — un turno que el modelo nunca escribió,
+  // atribuido al modelo.
+  //
+  // Es idempotente y NO avanza el turno: pedirlo dos veces, o a mitad de conversación por un
+  // error del cliente, devuelve lo mismo sin corromper el estado ni gastar una llamada.
+  if (!messages.some((m) => m.role === "user" && m.content.trim())) {
+    const saludado = { ...previo, dichoUnaVez: { ...previo.dichoUnaVez, saludo: true } };
+    return { reply: SALUDO_INICIAL, events: [], estado: sellar(saludado) };
+  }
+
   const ultimoDelUsuario = messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
 
   // Arranque caliente. La detección del nombre y la búsqueda pasan EN CÓDIGO: la regla "cuando

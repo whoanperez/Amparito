@@ -13,6 +13,20 @@ import type { Bloque, EstadoConversacion, Rec, UiEvent, UiVista } from "./tipos"
 /** Donde el LLM es insustituible: leer el clausulado y explicarlo en cristiano. */
 export const PREGUNTAS_ASESOR = ["¿Qué cubre?", "¿Qué NO cubre?", "¿Cuánto cuesta?"];
 
+/**
+ * El primer mensaje. Vivía en `components/Chat.tsx` y se inyectaba como `messages[0]` con rol
+ * `assistant`: un turno que el modelo nunca escribió, atribuido al modelo. Ahora lo produce el
+ * servidor, que es quien decide las fases, y queda en un solo sitio donde se puede versionar.
+ *
+ * MUDANZA LITERAL. El copy tiene dos problemas conocidos —hace cuatro trabajos en orden invertido
+ * (da una orden antes de presentarse) y ANUNCIA el anti-venta, que es como se quema el momento
+ * que la gente recuerda— pero arreglarlos es el bloque 4. Mezclar mudanza con reescritura es cómo
+ * se pierde la trazabilidad de qué rompió qué.
+ */
+export const SALUDO_INICIAL =
+  "Dime tu nombre: si estás afiliado a Colsubsidio te reconozco y nos saltamos el interrogatorio 💛 " +
+  "Soy Amparito — de amparar, protegerte. Y a veces te voy a decir que no.";
+
 /** Eventos que son ESTADO, no contenido: no pintan tarjeta. */
 const NO_PINTAN = new Set(["form", "afiliado"]);
 

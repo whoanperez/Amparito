@@ -19,6 +19,7 @@ import type { ConsultaIdentidad, UiEvent } from "../lib/estado/tipos";
 import type { HallazgoIdentidad } from "../lib/estado/reducir";
 import { abrir } from "../lib/estado/sello";
 import { sanearPerfil } from "../lib/engine/sanear";
+import { SALUDO_INICIAL } from "../lib/estado/vista";
 import type { ToolCtx } from "../lib/tools";
 
 let ok = true;
@@ -139,6 +140,31 @@ async function main() {
   }
 
   /* 1b · El estado va y vuelve ───────────────────────────────────────────── */
+
+  titulo("El turno 0 lo produce el servidor");
+  {
+    // Casos adversos primero: pedirlo dos veces y pedirlo a mitad de conversación por un error del
+    // cliente. Ninguno puede corromper el estado ni gastar una llamada al modelo.
+    const { d, llamadas } = deps([dice("esto no debería usarse")]);
+    const t0 = await ejecutarTurno({ messages: [] }, d);
+    checkEq("devuelve el saludo", t0.reply, SALUDO_INICIAL);
+    checkEq("sin llamar al modelo", llamadas.length, 0);
+    checkEq("sin eventos", t0.events.length, 0);
+    checkEq("y sin avanzar el turno", abrir(t0.estado)?.turno, 0);
+    checkEq("deja constancia de que ya saludó", abrir(t0.estado)?.dichoUnaVez.saludo, true);
+
+    const repetido = await ejecutarTurno({ messages: [], estado: t0.estado }, d);
+    checkEq("pedirlo dos veces devuelve lo mismo", repetido.reply, SALUDO_INICIAL);
+    checkEq("y sigue sin avanzar el turno", abrir(repetido.estado)?.turno, 0);
+
+    // A mitad de conversación (cliente mal portado): no debe borrar lo acumulado.
+    const enMarcha = await ejecutarTurno(
+      { messages: [{ role: "assistant", content: "algo" }], estado: t0.estado },
+      d
+    );
+    checkEq("con solo mensajes del asistente tampoco llama al modelo", llamadas.length, 0);
+    checkEq("y el estado sobrevive intacto", abrir(enMarcha.estado)?.turno, 0);
+  }
 
   titulo("El estado va y vuelve, y congela la identidad");
   {

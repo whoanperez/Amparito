@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import FlowVideo from "./FlowVideo";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
+import { SALUDO_INICIAL } from "@/lib/estado/vista";
 
 interface UiEvent {
   // Copia deliberada del tipo del servidor: así el cliente no arrastra el SDK de Anthropic.
@@ -31,8 +32,9 @@ interface Contacto {
 
 // Una sola pregunta, y pide lo único que puede ahorrar cinco turnos: el nombre. El servidor lo
 // detecta en el texto y busca el segmento solo; identificarse nunca es obligatorio.
-const GREETING =
-  "Dime tu nombre: si estás afiliado a Colsubsidio te reconozco y nos saltamos el interrogatorio 💛 Soy Amparito — de amparar, protegerte. Y a veces te voy a decir que no.";
+// El copy vive en el servidor, que es quien decide las fases. Se importa en vez de copiarse: dos
+// literales iguales en dos archivos es cómo se arregla uno y se olvida el otro.
+const GREETING = SALUDO_INICIAL;
 
 // Chips de arranque: prellenan la casilla para que la persona complete y edite.
 // El anti-venta es el momento que se recuerda tres horas después, y hoy había que provocarlo con

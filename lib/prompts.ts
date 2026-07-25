@@ -10,13 +10,19 @@
  * v4: el SERVIDOR decide el estado y ensambla BASE + solo el bloque de ese estado. Cada regla
  * vive donde aplica, así que dejan de pelearse.
  *
- * Nota: /api/chat es stateless (solo recibe `messages` y `afiliado`), así que el estado se
- * deriva de lo que sí es observable — el historial y los marcadores de protocolo que Amparito
- * ya escribe en el texto ("RECOMENDACION:"). Por eso son 4 estados y no 6: "cotizado" y
- * "confirmado" son eventos, no texto, y no se pueden detectar de forma confiable hoy.
+ * La fase ya NO se deriva del historial ni de marcadores de protocolo en el texto: la lleva el
+ * estado de la conversación (`lib/estado/reducir.ts`), que sí puede depender del veredicto real
+ * del motor. Este módulo solo ensambla el bloque que corresponde a la fase que le dan.
  */
+import type { Fase } from "./estado/tipos";
 
-export type Estado = "SALUDO" | "RECONOCIDO" | "DESCUBRIENDO" | "ASESORANDO";
+/**
+ * Es la `Fase` del estado, no un tipo aparte. Se declaraba con los mismos cuatro valores en dos
+ * sitios: mientras coincidan TypeScript no dice nada, y el día que uno gane un valor el otro lo
+ * acepta igual por estructura. Se mantiene el nombre `Estado` porque es como lo llaman el prompt
+ * y sus tests.
+ */
+export type Estado = Fase;
 
 /* ─────────────────────────────────────────────────────────────────────────────
    BASE — viaja en TODOS los turnos. Solo lo que aplica siempre.
@@ -233,26 +239,16 @@ Recuerda: primero la compuerta (A, B o C), UNA sola pregunta por turno, texto pl
    API
    ────────────────────────────────────────────────────────────────────────── */
 
-/** Respaldo: si el cliente no manda la señal, se busca el marcador que el modelo pudo escribir. */
-const MARCADOR_RECOMENDACION = "RECOMENDACION:";
-
-/**
- * Deriva el estado. La señal principal es `yaRecomendo`, que la manda el CLIENTE porque él sabe qué
- * pintó — el route es stateless. Antes esto se leía de que el modelo escribiera "RECOMENDACION:" con
- * formato exacto: una tilde en "RECOMENDACIÓN:" y la conversación no salía nunca de DESCUBRIENDO.
+/*
+ * `detectarEstado` vivía aquí. Derivaba la fase de `messages.length` y de dos booleanos que
+ * mandaba el NAVEGADOR —entrada no autenticada, que se perdía con un F5— y de que el modelo
+ * escribiera "RECOMENDACION:" con formato exacto: una tilde y la conversación no salía nunca de
+ * DESCUBRIENDO.
+ *
+ * Ahora la fase la lleva el estado (`lib/estado/reducir.ts` · `siguienteFase`), donde puede
+ * depender del veredicto real del motor en vez de un artefacto de la UI. Con eso muere también el
+ * último rastro del protocolo de texto como portador de estado.
  */
-export function detectarEstado(
-  messages: { role: "user" | "assistant"; content: string }[],
-  opts: { afiliadoReconocido?: boolean; yaRecomendo?: boolean } = {}
-): Estado {
-  const yaRecomendo =
-    opts.yaRecomendo ||
-    messages.some((m) => m.role === "assistant" && m.content.includes(MARCADOR_RECOMENDACION));
-  if (yaRecomendo) return "ASESORANDO";
-  if (opts.afiliadoReconocido) return "RECONOCIDO";
-  const turnosUsuario = messages.filter((m) => m.role === "user").length;
-  return turnosUsuario <= 1 ? "SALUDO" : "DESCUBRIENDO";
-}
 
 /**
  * Familias de tema. Una pregunta que toca DOS familias distintas es de doble cañón, aunque lleve

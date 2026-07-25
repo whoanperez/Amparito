@@ -15,7 +15,8 @@
  *
  * Ahora el servidor serializa y el LLM conversa.
  */
-import { detectarEstado } from "../lib/prompts";
+import { estadoInicial } from "../lib/estado/tipos";
+import { siguienteFase, cerrarTurno } from "../lib/estado/reducir";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
 import { executeTool } from "../lib/tools";
@@ -58,21 +59,20 @@ async function main() {
   check("el texto del modelo no contiene el marcador", !replySinProtocolo.includes("RECOMENDACION:"));
   check("y las tarjetas igual existen (vienen del evento)", recs.length > 0);
 
-  /* ── 3 · el estado avanza por la señal del cliente, no por el texto ────── */
-  console.log("\n===== El estado avanza sin depender del formato =====");
-  const hist = [
-    { role: "user" as const, content: "Soy Carolina Ramírez López" },
-    { role: "assistant" as const, content: replySinProtocolo },
-    { role: "user" as const, content: "¿y eso qué cubre?" },
-  ];
-  check("con la señal del cliente → ASESORANDO",
-    detectarEstado(hist, { yaRecomendo: true }) === "ASESORANDO");
-  check("sin la señal y sin marcador se queda en DESCUBRIENDO (por eso hacía falta)",
-    detectarEstado(hist) === "DESCUBRIENDO");
-  // Respaldo: si el modelo escribe el marcador por costumbre, sigue sirviendo.
-  const conMarcador = [...hist.slice(0, 1), { role: "assistant" as const, content: "RECOMENDACION: Seguro de Vida | recomendado | x" }];
-  check("el marcador sigue funcionando como respaldo",
-    detectarEstado(conMarcador) === "ASESORANDO");
+  /* ── 3 · la fase avanza por el VEREDICTO, no por el texto ──────────────── */
+  console.log("\n===== La fase avanza sin depender del formato =====");
+  // Antes esto dependía de un booleano que mandaba el navegador o, en su defecto, de que el
+  // modelo escribiera "RECOMENDACION:" con formato exacto. Ahora depende de que el motor se haya
+  // pronunciado, que es el hecho que de verdad determina la fase.
+  const sinVeredicto = estadoInicial();
+  sinVeredicto.turno = 3;
+  check("sin veredicto del motor → DESCUBRIENDO", siguienteFase(sinVeredicto) === "DESCUBRIENDO");
+
+  const conVeredicto = cerrarTurno(sinVeredicto, {
+    eventos: [{ type: "propension", data: calcularPropension(PERSONAS.Carolina) as unknown as Record<string, unknown> }],
+  });
+  check("con veredicto del motor → ASESORANDO", conVeredicto.fase === "ASESORANDO");
+  check("y el texto del modelo no interviene en la decisión", !replySinProtocolo.includes("RECOMENDACION:"));
 
   /* ── 4 · el prompt ya no le pide serializar ────────────────────────────── */
   console.log("\n===== El prompt liberó el formato =====");

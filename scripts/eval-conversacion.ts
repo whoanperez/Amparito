@@ -14,7 +14,9 @@
  *
  * LO QUE NO PRUEBA. La redacción del modelo. Eso solo se ve en vivo, y queda anotado abajo.
  */
-import { buildSystemPrompt, contarPreguntas, detectarEstado, esDobleCanon } from "../lib/prompts";
+import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "../lib/prompts";
+import { estadoInicial } from "../lib/estado/tipos";
+import { siguienteFase } from "../lib/estado/reducir";
 import { identidadDe } from "./_identidad";
 import { getAffiliateGateway } from "../lib/afiliados";
 import { sanearPerfil } from "../lib/engine/sanear";
@@ -92,7 +94,9 @@ async function main() {
   /* ═══ 3 · Anónimo: presupuesto de dos preguntas ════════════════════════════ */
   titulo("3 · Anónimo → máximo 2 preguntas antes de la tarjeta");
   const anon = [u("hola"), a("¿qué te trae por aquí?"), u("compré una moto")];
-  check("el estado es DESCUBRIENDO", detectarEstado(anon) === "DESCUBRIENDO");
+  const anonimo = estadoInicial();
+  anonimo.turno = anon.filter((m) => m.role === "user").length;
+  check("el estado es DESCUBRIENDO", siguienteFase(anonimo) === "DESCUBRIENDO");
   const pDesc = buildSystemPrompt("DESCUBRIENDO");
   check("el prompt fija el presupuesto en dos", pDesc.includes("PRESUPUESTO DE DOS PREGUNTAS"));
   check("y prohíbe encadenar temas con 'o'", pDesc.includes('PROHIBIDO encadenar dos temas con "o"'));
