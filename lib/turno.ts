@@ -206,6 +206,14 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     if (intermedio) textoDeRescate = intermedio;
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
+    // Dos bloques `tool_use` IDÉNTICOS en el mismo mensaje se ejecutan una sola vez. El prompt le
+    // pide al modelo volver a llamar `calcular_propension` si lo corrigen, y a veces lo hace dos
+    // veces de una: el motor corría dos veces y emitía dos eventos.
+    //
+    // Solo dentro del MISMO mensaje. Entre rondas una repetición puede ser un reintento legítimo
+    // tras un fallo, y reutilizar aquel resultado sería devolverle el error cacheado.
+    const yaEjecutadas = new Map<string, { result: unknown; event?: UiEvent }>();
+
     for (const block of response.content) {
       if (block.type === "tool_use") {
         // Una tool que LANZA no puede llevarse el turno por delante. Antes la excepción subía
@@ -216,15 +224,18 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
         // para eso. Hasta ahora los errores se serializaban como si fueran éxitos y era el
         // PROMPT quien le explicaba al modelo cómo reconocerlos — enseñarle a leer errores en
         // prosa en vez de decírselos.
+        const input = (block.input ?? {}) as Record<string, unknown>;
+        const huella = `${block.name}:${JSON.stringify(input)}`;
+        const repetida = yaEjecutadas.get(huella);
+
         let result: unknown;
         let event: UiEvent | undefined;
         let fallo = false;
         try {
-          ({ result, event } = await deps.ejecutarTool(
-            block.name,
-            (block.input ?? {}) as Record<string, unknown>,
-            toolCtx
-          ));
+          ({ result, event } = repetida ?? (await deps.ejecutarTool(block.name, input, toolCtx)));
+          // El evento solo se emite la PRIMERA vez: dos idénticos pintarían dos tarjetas.
+          if (repetida) event = undefined;
+          else yaEjecutadas.set(huella, { result, event });
         } catch (err) {
           fallo = true;
           result = {
@@ -303,16 +314,24 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     const reintento = await deps.modelo.crear({
       model: MODEL,
       max_tokens: 1024,
-      system:
-        system +
-        `\n\n## CORRECCIÓN INMEDIATA\nTu respuesta anterior traía más de una pregunta. Reescríbela ` +
-        `con UNA SOLA pregunta, la más importante, y guarda el resto para los siguientes turnos. ` +
-        `Prohibido unir dos temas con "o".`,
+      system,
       tools: toolDefinitions,
+      // El reintento tiene que producir TEXTO. Antes se pasaban las tools sin restricción: si el
+      // modelo respondía con `tool_use`, no se ejecutaba nada, `corregido` quedaba vacío y la
+      // llamada se descartaba entera — un turno de modelo y 1-2 s tirados en silencio.
+      tool_choice: { type: "none" } as unknown as Anthropic.MessageCreateParams["tool_choice"],
+      // La corrección va en el TURNO, no concatenada al `system`. Editar el system a mitad de
+      // conversación rompe cualquier prefijo cacheable, y además era redundante: la instrucción
+      // ya viajaba en el mensaje de usuario.
       messages: [
         ...convo,
         { role: "assistant", content: reply },
-        { role: "user", content: "Reescribe tu último mensaje con una sola pregunta." },
+        {
+          role: "user",
+          content:
+            "Tu respuesta anterior traía más de una pregunta. Reescríbela con UNA SOLA pregunta, " +
+            'la más importante, y guarda el resto para los siguientes turnos. Prohibido unir dos temas con "o".',
+        },
       ],
     });
     const corregido = textoDe(reintento);

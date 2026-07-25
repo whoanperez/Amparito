@@ -154,7 +154,6 @@ async function main() {
     const r = await ejecutarTurno({ messages: HOLA }, d);
     checkEq("se reintenta y gana la versión corregida", textoDe(r), "¿Tienes vehículo?");
     checkEq("costó una llamada extra", llamadas.length, 2);
-    check("el reintento lleva la corrección en el system", String(llamadas[1].system).includes("CORRECCIÓN INMEDIATA"));
   }
 
   titulo("El turno publica la vista");
@@ -424,9 +423,16 @@ async function main() {
       if (llamadasTool === 1) return { result: { ok: true }, event: eventoPropension };
       throw new Error("la aseguradora no respondió");
     };
-    const { d, llamadas } = deps([usaDosTools("calcular_propension"), dice("Se me cayó una consulta.")], {
-      ejecutarTool,
-    });
+    // Dos tools con input DISTINTO: dos trabajos distintos, y el segundo falla. Con inputs
+    // iguales el dedupe las colapsa en una —que es lo correcto— y el escenario no existiría.
+    const dosDistintas = msg(
+      [
+        { type: "tool_use", id: "a", name: "calcular_propension", input: { perfil: { GENERO: "F" } } },
+        { type: "tool_use", id: "b", name: "quote_product", input: { productId: "vida_panamerican" } },
+      ],
+      "tool_use"
+    );
+    const { d, llamadas } = deps([dosDistintas, dice("Se me cayó una consulta.")], { ejecutarTool });
 
     let lanzo = false;
     let recibido: SalidaTurno | null = null;
@@ -473,7 +479,7 @@ async function main() {
     checkEq("y NO se marca como fallo", b2[0]?.is_error, undefined);
   }
 
-  titulo("Defecto #8 — la doble tarjeta ya no se ve, pero el motor sí corre dos veces");
+  titulo("Defecto #8 — el motor no corre dos veces por la misma llamada");
   {
     let corridas = 0;
     const ejecutarTool = async () => {
@@ -482,24 +488,43 @@ async function main() {
     };
     const { d } = deps([usaDosTools("calcular_propension"), dice("Míralo abajo.")], { ejecutarTool });
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    // El SÍNTOMA visible está cerrado: la capa de presentación se queda con el último evento.
-    checkEq("la persona ve UNA sola tarjeta", tarjetasDe(r).length, 1);
-    // Lo que queda es coste, no un bug de pantalla: el motor se ejecutó dos veces.
-    checkEq("HOY: pero el motor corrió dos veces", corridas, 2);
-    console.log("      ↑ ya no es un defecto visual: es trabajo pagado dos veces. Bloque 2.");
+    checkEq("dos tool_use idénticos ejecutan el motor UNA vez", corridas, 1);
+    checkEq("y la persona ve una sola tarjeta", tarjetasDe(r).length, 1);
+
+    // Adverso: dos llamadas a la MISMA tool con input distinto sí son dos trabajos distintos.
+    let corridas2 = 0;
+    const contar = async () => {
+      corridas2++;
+      return { result: { ok: true } };
+    };
+    const dosDistintas = msg(
+      [
+        { type: "tool_use", id: "a", name: "get_product_details", input: { productId: "uno" } },
+        { type: "tool_use", id: "b", name: "get_product_details", input: { productId: "dos" } },
+      ],
+      "tool_use"
+    );
+    const { d: d2 } = deps([dosDistintas, dice("Listo.")], { ejecutarTool: contar });
+    await ejecutarTurno({ messages: HOLA }, d2);
+    checkEq("con input distinto SÍ se ejecutan las dos", corridas2, 2);
   }
 
-  titulo("HOY · defecto #9 — el reintento pasa tools y tira lo que reciba");
+  titulo("Defecto #9 — el reintento del doble cañón produce texto");
   {
     const { d, llamadas } = deps([
       dice("¿Tienes vehículo, o tu vivienda es propia?"),
-      usaTool("get_catalog"), // el reintento responde con tool_use
+      dice("¿Tienes vehículo?"),
     ]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("HOY: se conserva la respuesta de doble cañón sin corregir", textoDe(r), "¿Tienes vehículo, o tu vivienda es propia?");
-    checkEq("HOY: y la llamada del reintento se pagó igual", llamadas.length, 2);
-    check("el reintento sí llevaba tools", Array.isArray(llamadas[1].tools) && llamadas[1].tools!.length > 0);
-    console.log("      ↑ 1-2 s y un turno de modelo tirados en silencio. Bloque 2.");
+    checkEq("gana la versión corregida", textoDe(r), "¿Tienes vehículo?");
+    // Antes el reintento pasaba las tools sin restricción: si el modelo respondía con tool_use,
+    // no se ejecutaba nada, `corregido` quedaba vacío y la llamada se descartaba entera.
+    checkEq("el reintento prohíbe usar tools", (llamadas[1].tool_choice as { type: string })?.type, "none");
+    // Y la corrección va en el TURNO, no concatenada al system: editar el system a mitad de
+    // conversación rompe cualquier prefijo cacheable.
+    // Se compara como booleano: `checkEq` imprime los valores, y aquí son dos prompts enteros.
+    check("el system del reintento es idéntico al del turno", llamadas[1].system === llamadas[0].system);
+    check("la corrección viaja como mensaje", String((llamadas[1].messages.at(-1) as { content: string }).content).includes("UNA SOLA pregunta"));
   }
 
   console.log(`\n${ok ? "✅" : "❌"} ${total} verificaciones · ${ok ? "todo en verde" : "HAY FALLOS"}`);
