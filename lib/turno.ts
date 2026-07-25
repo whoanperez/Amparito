@@ -13,11 +13,14 @@
  * son el bloque 2, y su diff debe verse contra una conducta ya capturada.
  */
 import type Anthropic from "@anthropic-ai/sdk";
-import { buildSystemPrompt, contarPreguntas, esDobleCanon, detectarEstado } from "@/lib/prompts";
+import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "@/lib/prompts";
 import { toolDefinitions, executeTool, type ToolCtx } from "@/lib/tools";
-import type { UiEvent } from "@/lib/estado/tipos";
-import { resolverIdentidad } from "@/lib/afiliados/resolver";
-import type { Identidad } from "@/lib/afiliados/resolver";
+import type { ConsultaIdentidad, EstadoConversacion, UiEvent } from "@/lib/estado/tipos";
+import { estadoInicial } from "@/lib/estado/tipos";
+import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
+import { contextoDeEstado } from "@/lib/estado/contexto";
+import { sellar, abrir } from "@/lib/estado/sello";
+import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";
 
 export const MODELO_POR_DEFECTO = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
@@ -30,14 +33,18 @@ export interface Msg {
 
 export interface EntradaTurno {
   messages: Msg[];
+  /** Estado sellado del turno anterior. Opaco: el cliente lo guarda y lo reenvía sin leerlo. */
+  estado?: string;
+  /* ── Ventana de compatibilidad · muere en el paso 3, cuando el cliente obedezca la vista ── */
   afiliado?: { nombre?: string; ciudad?: string };
-  /** El cliente sabe qué pintó; el servidor es stateless. Desaparece en el paso 2e. */
   yaRecomendo?: boolean;
 }
 
 export interface SalidaTurno {
   reply: string;
   events: UiEvent[];
+  /** Sellado. El cliente lo devuelve tal cual en el turno siguiente. */
+  estado: string;
 }
 
 /** Lo mínimo del SDK que el turno necesita, para que un doble de prueba pueda cumplirlo. */
@@ -47,7 +54,7 @@ export interface ClienteModelo {
 
 export interface DepsTurno {
   modelo: ClienteModelo;
-  resolver: (messages: Msg[], afiliado?: { nombre?: string; ciudad?: string }) => Promise<Identidad>;
+  resolver: (consulta: ConsultaIdentidad) => Promise<HallazgoIdentidad>;
   ejecutarTool: (
     name: string,
     input: Record<string, unknown>,
@@ -61,9 +68,47 @@ export interface DepsTurno {
 export function depsReales(client: Anthropic): DepsTurno {
   return {
     modelo: { crear: (params) => client.messages.create(params) },
-    resolver: resolverIdentidad,
+    resolver: ejecutarConsulta,
     ejecutarTool: executeTool,
   };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Ventana de compatibilidad · MUERE EN EL PASO 3
+
+   El cliente todavía no guarda el estado: manda `afiliado` y `yaRecomendo` como antes. Sin esto,
+   el estado se reconstruiría de cero en cada turno y el cliente actual PERDERÍA la identidad
+   entre mensajes — una regresión introducida por un refactor, que es lo peor que puede pasar en
+   un paso que promete ser aditivo.
+
+   Reproduce a propósito la conducta vieja, round-trip a la base incluido: en modo compat no hay
+   estado donde congelar el segmento.
+   ────────────────────────────────────────────────────────────────────────── */
+function estadoDeCompat(entrada: EntradaTurno): EstadoConversacion {
+  const e = estadoInicial();
+  // `iniciarTurno` suma uno, así que se deja en el turno anterior.
+  e.turno = Math.max(0, entrada.messages.filter((m) => m.role === "user").length - 1);
+  if (entrada.afiliado?.nombre) {
+    e.identidad.nombre = entrada.afiliado.nombre;
+    e.identidad.ciudad = entrada.afiliado.ciudad || undefined;
+  }
+  if (entrada.yaRecomendo) {
+    e.veredicto = {
+      entregado: true,
+      tipo: "recomendacion",
+      recomendaciones: [],
+      obligatorios: [],
+      peer: null,
+    };
+  }
+  return e;
+}
+
+function consultaDeCompat(entrada: EntradaTurno): ConsultaIdentidad | null {
+  const nombre = entrada.afiliado?.nombre?.trim();
+  if (!nombre) return null;
+  const ciudad = entrada.afiliado?.ciudad?.trim();
+  return ciudad ? { modo: "ciudad", nombre, ciudad } : { modo: "nombre", nombre };
 }
 
 const textoDe = (r: Anthropic.Message) =>
@@ -74,42 +119,56 @@ const textoDe = (r: Anthropic.Message) =>
     .trim();
 
 export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Promise<SalidaTurno> {
-  const { messages, afiliado, yaRecomendo } = entrada;
+  const { messages } = entrada;
   const MODEL = deps.modeloId ?? MODELO_POR_DEFECTO;
   const maxRondas = deps.maxRondas ?? MAX_TOOL_ROUNDS;
 
   const events: UiEvent[] = [];
 
+  // Un sello inválido o ausente no es un error: se arranca de cero. El jurado ve un saludo, no
+  // un 500.
+  const previo = abrir(entrada.estado) ?? estadoDeCompat(entrada);
+  const ultimoDelUsuario = messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
+
   // Arranque caliente. La detección del nombre y la búsqueda pasan EN CÓDIGO: la regla "cuando
   // aparece un nombre, busca" es determinista y no debe depender de que el modelo llame una tool
-  // en el momento justo.
-  const identidad = await deps.resolver(messages, afiliado);
-  const afiliadoReconocido = identidad.estado === "reconocido";
-  const contexto = identidad.contexto;
-  const seg = identidad.segmento;
-  // El segmento verificado va al motor por el SERVIDOR, no retranscrito por el modelo: así un
-  // error de transcripción no puede producir una celda de peer-group falsa.
-  const segmentoBase: ToolCtx["segmentoBase"] = seg
-    ? {
-        GENERO: seg.genero,
-        RANGO_EDAD: seg.rango_edad,
-        CATEGORIA: seg.categoria,
-        SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar,
-        SEGMENTO_POBLACIONAL: seg.poblacional,
-      }
-    : undefined;
+  // en el momento justo. Ahora QUÉ se busca lo decide el reducer, que es quien sabe qué preguntó.
+  const abierto = iniciarTurno(previo, ultimoDelUsuario);
+  // En modo compat manda el nombre que trae el cliente; en el camino nuevo, lo que decidió el
+  // reducer. Se escribe con un `if` a propósito: la versión en una línea con `&&` y `||` esconde
+  // cuál de los dos caminos se está tomando.
+  let consulta = abierto.consulta;
+  if (!entrada.estado) {
+    const deCompat = consultaDeCompat(entrada);
+    if (deCompat) consulta = deCompat;
+  }
+  const hallazgo = await deps.resolver(consulta);
+  let estado = aplicarIdentidad(abierto.estado, hallazgo);
 
-  if (identidad.persistir) {
-    events.push({ type: "afiliado", data: identidad.persistir });
+  // Compat: el cliente actual guarda la identidad en un ref propio. Muere en el paso 3, cuando
+  // el estado sellado sea el único portador.
+  //
+  // Solo `reconocido` y `ambiguo`, que es exactamente cuando el resolver viejo devolvía
+  // `persistir`. Emitirlo también en `no_encontrado` haría que el cliente guardara un nombre que
+  // no existe y lo reenviara cada turno, disparando una búsqueda inútil a la base para siempre.
+  if ((hallazgo.estado === "reconocido" || hallazgo.estado === "ambiguo") && estado.identidad.nombre) {
+    events.push({
+      type: "afiliado",
+      data: { nombre: estado.identidad.nombre, ciudad: estado.identidad.ciudad ?? "" },
+    });
   }
 
-  const estado = detectarEstado(messages, { afiliadoReconocido, yaRecomendo });
   const textoUsuario = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
 
-  const evidencia = estado === "DESCUBRIENDO" ? resumenEvidencia(textoUsuario) : null;
-  const system = buildSystemPrompt(estado, [contexto, evidencia].filter(Boolean).join("\n\n"));
+  const evidencia = estado.fase === "DESCUBRIENDO" ? resumenEvidencia(textoUsuario) : null;
+  const system = buildSystemPrompt(
+    estado.fase,
+    [contextoDeEstado(estado), evidencia].filter(Boolean).join("\n\n")
+  );
 
-  const toolCtx: ToolCtx = { textoUsuario, segmentoBase };
+  // El segmento verificado va al motor por el SERVIDOR, no retranscrito por el modelo: así un
+  // error de transcripción no puede producir una celda de peer-group falsa.
+  const toolCtx: ToolCtx = { textoUsuario, segmentoBase: estado.identidad.segmento };
 
   const convo: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
@@ -181,5 +240,6 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     if (corregido && contarPreguntas(corregido) <= 1 && !esDobleCanon(corregido)) reply = corregido;
   }
 
-  return { reply, events };
+  estado = cerrarTurno(estado, { eventos: events });
+  return { reply, events, estado: sellar(estado) };
 }

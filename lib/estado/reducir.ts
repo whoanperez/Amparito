@@ -28,7 +28,7 @@ import type { SegmentoBase } from "../engine/sanear";
 export type HallazgoIdentidad =
   | { estado: "sin_intento" }
   | { estado: "reconocido"; nombre: string; ciudad?: string; segmento: SegmentoBase }
-  | { estado: "ambiguo"; nombre: string; n: number }
+  | { estado: "ambiguo"; nombre: string; n: number; comun?: SegmentoBase }
   | { estado: "no_encontrado"; nombre: string }
   | { estado: "tope_alcanzado" };
 
@@ -186,15 +186,18 @@ export function aplicarIdentidad(
     case "ambiguo":
       id.resultado = "ambiguo";
       id.nombre = hallazgo.nombre;
+      // El número y los ejes comunes son HECHOS sobre la base: viven en el estado, y el copy se
+      // genera desde aquí en vez de pasárselos al modelo como prosa para que los parafrasee.
+      id.ambiguo = { n: hallazgo.n, comun: hallazgo.comun };
       // La ciudad se pide UNA vez, y quien lo garantiza es este flag, no una frase del prompt.
       if (!estado.dichoUnaVez.pidioCiudad) {
         id.esperando = "ciudad";
         estado.dichoUnaVez.pidioCiudad = true;
       } else {
-        // Se deja de insistir y se atiende igual. Y NO se marca `avisoNoEncontrado`: "ambiguo"
-        // significa que hay VARIAS personas con ese nombre, lo contrario de "no apareces en la
-        // base". Marcarlo aquí haría que Amparito afirmara algo falso sobre la base — que es la
-        // clase de error que este bloque existe para cerrar, no para reintroducir.
+        // Se deja de insistir y se atiende igual. Y NO se marca el aviso de "no apareces en la
+        // base": "ambiguo" significa que hay VARIAS personas con ese nombre, lo contrario. Decirlo
+        // aquí sería afirmar algo falso sobre la base — la clase de error que este bloque existe
+        // para cerrar, no para reintroducir.
         id.esperando = null;
       }
       break;
@@ -207,10 +210,12 @@ export function aplicarIdentidad(
         id.esperando = "nombre_completo";
         estado.dichoUnaVez.pidioNombreCompleto = true;
       } else {
-        // SOBREVIVE al turno. Antes `no_encontrado` no persistía nada, así que el sistema no podía
-        // recordar "ya intentamos identificarte y falló" ni respetar el "no vuelvas a insistir".
+        // SOBREVIVE al turno, y con el turno EN QUE se dijo. Antes `no_encontrado` no persistía
+        // nada, así que el sistema no podía recordar "ya intentamos identificarte y falló" ni
+        // respetar el "no vuelvas a insistir". Guardar el turno es lo que permite distinguir el
+        // momento de decirlo de los siguientes, en los que solo hay que callarlo.
         id.esperando = null;
-        estado.dichoUnaVez.avisoNoEncontrado = true;
+        if (id.avisadoEnTurno === undefined) id.avisadoEnTurno = estado.turno;
       }
       break;
     }

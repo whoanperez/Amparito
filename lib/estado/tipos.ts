@@ -76,6 +76,19 @@ export interface IdentidadEstado {
   ciudad?: string;
   /** Segmento verificado. Se CONGELA al reconocer: se acabó el round-trip a Turso por turno. */
   segmento?: SegmentoBase;
+  /**
+   * Cuántos homónimos hay, y en qué coinciden todos. Son HECHOS sobre la base, así que viven en
+   * el estado y el copy se genera desde aquí. Pasarle el número al modelo como prosa para que lo
+   * parafrasee es exactamente cómo el servidor dijo "cero coincidencias" y Amparito dijo "hay
+   * varios Carolinas".
+   */
+  ambiguo?: { n: number; comun?: SegmentoBase };
+  /**
+   * En qué turno se le dijo "no apareces en la base". Distingue el turno en que hay que DECIRLO
+   * de los siguientes, en los que solo hay que no volver a mencionarlo. Sin esto, o el aviso se
+   * repite en cada turno o desaparece y el modelo vuelve a insistir con la identificación.
+   */
+  avisadoEnTurno?: number;
 }
 
 /**
@@ -141,7 +154,6 @@ export interface EstadoConversacion {
     saludo: boolean;
     pidioCiudad: boolean;
     pidioNombreCompleto: boolean;
-    avisoNoEncontrado: boolean;
   };
 }
 
@@ -154,12 +166,7 @@ export function estadoInicial(): EstadoConversacion {
     perfil: {},
     descartes: [],
     veredicto: null,
-    dichoUnaVez: {
-      saludo: false,
-      pidioCiudad: false,
-      pidioNombreCompleto: false,
-      avisoNoEncontrado: false,
-    },
+    dichoUnaVez: { saludo: false, pidioCiudad: false, pidioNombreCompleto: false },
   };
 }
 

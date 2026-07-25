@@ -131,7 +131,7 @@ titulo("Corregir el nombre tiene salida");
   // Si tampoco aparece, se atiende igual y no se vuelve a insistir.
   const e2 = aplicarIdentidad(abierto.estado, { estado: "no_encontrado", nombre: "Mauricio Cajamarca Rojas" });
   checkEq("ya no se espera nada más", e2.identidad.esperando, null);
-  checkEq("queda constancia de que no apareció", e2.dichoUnaVez.avisoNoEncontrado, true);
+  checkEq("queda constancia de en qué turno se le dijo", e2.identidad.avisadoEnTurno, 2);
   checkEq("y el estado RECUERDA que se intentó", e2.identidad.resultado, "no_encontrado");
 
   // Dejar de PREGUNTAR no es dejar de ESCUCHAR: si la persona corrige su nombre por su cuenta,
@@ -167,7 +167,7 @@ titulo("La ciudad se pide una vez, y solo si se preguntó");
   checkEq("no se pregunta la ciudad por segunda vez", e2.identidad.esperando, null);
   // "Ambiguo" es que hay VARIAS personas con ese nombre. Decir "no apareces en la base" sería
   // afirmar algo falso sobre la base — la clase de error que este bloque cierra.
-  checkEq("y NO se marca como que no aparece en la base", e2.dichoUnaVez.avisoNoEncontrado, false);
+  checkEq("y NO se marca como que no aparece en la base", e2.identidad.avisadoEnTurno, undefined);
   checkEq("el estado sigue siendo ambiguo", e2.identidad.resultado, "ambiguo");
 
   // Un mensaje cualquiera cuando NO se preguntó nada nunca se lee como ciudad.

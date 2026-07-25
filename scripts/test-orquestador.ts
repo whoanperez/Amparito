@@ -15,8 +15,9 @@
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import { ejecutarTurno, type DepsTurno, type Msg } from "../lib/turno";
-import type { UiEvent } from "../lib/estado/tipos";
-import type { Identidad } from "../lib/afiliados/resolver";
+import type { ConsultaIdentidad, UiEvent } from "../lib/estado/tipos";
+import type { HallazgoIdentidad } from "../lib/estado/reducir";
+import { abrir } from "../lib/estado/sello";
 
 let ok = true;
 let total = 0;
@@ -66,7 +67,7 @@ function modeloGuionado(guion: Anthropic.Message[]) {
   };
 }
 
-const sinIdentidad = async (): Promise<Identidad> => ({ estado: "sin_intento" });
+const sinIdentidad = async (): Promise<HallazgoIdentidad> => ({ estado: "sin_intento" });
 const eventoPropension: UiEvent = { type: "propension", data: { recomendaciones: [{ nombre: "Seguro de Vida" }] } };
 const toolNormal = async () => ({ result: { ok: true }, event: eventoPropension });
 
@@ -110,11 +111,11 @@ async function main() {
 
   titulo("La identidad entra por código, no por tool");
   {
-    const resolver = async (): Promise<Identidad> => ({
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
       estado: "reconocido",
-      segmento: { nombre: "Carolina Ramírez López", genero: "F", categoria: "B" },
-      contexto: "## SEGMENTO VERIFICADO",
-      persistir: { nombre: "Carolina Ramírez López", ciudad: "Soacha" },
+      nombre: "Carolina Ramírez López",
+      ciudad: "Soacha",
+      segmento: { GENERO: "F", CATEGORIA: "B" },
     });
     const { d, llamadas } = deps([dice("Bienvenida, Carolina.")], { resolver });
     const r = await ejecutarTurno({ messages: HOLA }, d);
@@ -133,6 +134,99 @@ async function main() {
     checkEq("se reintenta y gana la versión corregida", r.reply, "¿Tienes vehículo?");
     checkEq("costó una llamada extra", llamadas.length, 2);
     check("el reintento lleva la corrección en el system", String(llamadas[1].system).includes("CORRECCIÓN INMEDIATA"));
+  }
+
+  /* 1b · El estado va y vuelve ───────────────────────────────────────────── */
+
+  titulo("El estado va y vuelve, y congela la identidad");
+  {
+    const consultas: ConsultaIdentidad[] = [];
+    const resolver = async (c: ConsultaIdentidad): Promise<HallazgoIdentidad> => {
+      consultas.push(c);
+      if (c.modo === "ninguna") return { estado: "sin_intento" };
+      return {
+        estado: "reconocido",
+        nombre: "Carolina Ramírez López",
+        ciudad: "Soacha",
+        segmento: { GENERO: "F", CATEGORIA: "B" },
+      };
+    };
+
+    const t1 = await ejecutarTurno(
+      { messages: [{ role: "user", content: "Soy Carolina Ramírez López" }] },
+      deps([dice("Bienvenida, Carolina.")], { resolver }).d
+    );
+    check("el turno devuelve un estado sellado", t1.estado.includes("."));
+    checkEq("el primer turno busca por detección", consultas[0]?.modo, "detectar");
+
+    const abiertoT1 = abrir(t1.estado);
+    checkEq("el estado trae la identidad reconocida", abiertoT1?.identidad.resultado, "reconocido");
+    checkEq("con el segmento congelado", abiertoT1?.identidad.segmento?.CATEGORIA, "B");
+    checkEq("y el nombre canónico de la base", abiertoT1?.identidad.nombre, "Carolina Ramírez López");
+
+    // Turno 2: con el estado en la mano, NO se vuelve a consultar la base.
+    const t2 = await ejecutarTurno(
+      {
+        messages: [
+          { role: "user", content: "Soy Carolina Ramírez López" },
+          { role: "assistant", content: "Bienvenida, Carolina." },
+          { role: "user", content: "tengo un carro" },
+        ],
+        estado: t1.estado,
+      },
+      deps([dice("Cuéntame más.")], { resolver }).d
+    );
+    checkEq("el segundo turno NO consulta la base", consultas[1]?.modo, "ninguna");
+    checkEq("y el segmento sigue ahí", abrir(t2.estado)?.identidad.segmento?.CATEGORIA, "B");
+    checkEq("el turno avanzó", abrir(t2.estado)?.turno, 2);
+  }
+
+  titulo("La ventana de compatibilidad no pierde la identidad");
+  {
+    const consultas: ConsultaIdentidad[] = [];
+    const resolver = async (c: ConsultaIdentidad): Promise<HallazgoIdentidad> => {
+      consultas.push(c);
+      return {
+        estado: "reconocido",
+        nombre: "Carolina Ramírez López",
+        segmento: { GENERO: "F", CATEGORIA: "B" },
+      };
+    };
+    // El cliente viejo: manda `afiliado`, no manda `estado`.
+    const r = await ejecutarTurno(
+      {
+        messages: [
+          { role: "user", content: "Soy Carolina Ramírez López" },
+          { role: "assistant", content: "Bienvenida." },
+          { role: "user", content: "tengo un carro" },
+        ],
+        afiliado: { nombre: "Carolina Ramírez López", ciudad: "Soacha" },
+      },
+      deps([dice("Cuéntame más.")], { resolver }).d
+    );
+    // Reproduce la conducta vieja a propósito: sin estado no hay dónde congelar, así que se
+    // vuelve a buscar. Lo que NO puede pasar es perder la identidad — eso sería una regresión
+    // metida por un refactor que promete ser aditivo.
+    checkEq("se busca por el nombre persistido", consultas[0]?.modo, "ciudad");
+    checkEq("y la persona sigue reconocida", r.events[0]?.type, "afiliado");
+    checkEq("con su nombre", (r.events[0]?.data as { nombre: string }).nombre, "Carolina Ramírez López");
+  }
+
+  titulo("Un nombre que no aparece NO se persiste");
+  {
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "no_encontrado",
+      nombre: "Zulema Trastamara Quispe Vergara",
+    });
+    const r = await ejecutarTurno(
+      { messages: [{ role: "user", content: "Soy Zulema Trastamara Quispe Vergara" }] },
+      deps([dice("No apareces en la base, pero te atiendo igual.")], { resolver }).d
+    );
+    // Si se persistiera, el cliente lo reenviaría cada turno y la base se consultaría en vano
+    // para siempre. El resolver viejo solo persistía `reconocido` y `ambiguo`.
+    checkEq("no se emite evento de afiliado", r.events.filter((e) => e.type === "afiliado").length, 0);
+    // Pero el ESTADO sí lo recuerda: es lo que permite no volver a insistir con el tema.
+    checkEq("y aun así el estado lo recuerda", abrir(r.estado)?.identidad.resultado, "no_encontrado");
   }
 
   /* 2 · Caracterización de los defectos que arregla el bloque 2 ──────────── */

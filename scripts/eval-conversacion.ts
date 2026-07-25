@@ -15,7 +15,7 @@
  * LO QUE NO PRUEBA. La redacción del modelo. Eso solo se ve en vivo, y queda anotado abajo.
  */
 import { buildSystemPrompt, contarPreguntas, detectarEstado, esDobleCanon } from "../lib/prompts";
-import { resolverIdentidad } from "../lib/afiliados/resolver";
+import { identidadDe } from "./_identidad";
 import { getAffiliateGateway } from "../lib/afiliados";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
@@ -56,23 +56,22 @@ async function main() {
     check("hay un afiliado real para la prueba", false);
   } else {
     const msgs = [u(`soy ${nombreReal}`)];
-    const id = await resolverIdentidad(msgs);
-    check("se reconoce en el primer mensaje", id.estado === "reconocido");
-    check("el estado del prompt es RECONOCIDO", detectarEstado(msgs, { afiliadoReconocido: true }) === "RECONOCIDO");
+    const id = await identidadDe(`soy ${nombreReal}`);
+    check("se reconoce en el primer mensaje", id.hallazgo.estado === "reconocido");
+    // Se lee del ESTADO que produjo la búsqueda real. Antes se le pasaba `afiliadoReconocido:
+    // true` a mano a `detectarEstado`, así que la aserción no comprobaba que reconocer a alguien
+    // llevara a RECONOCIDO: comprobaba que la función respetara un booleano inventado por el test.
+    check("la fase que produce el reconocimiento es RECONOCIDO", id.estado.fase === "RECONOCIDO");
 
-    const prompt = buildSystemPrompt("RECONOCIDO", id.contexto);
+    const prompt = buildSystemPrompt(id.estado.fase, id.contexto);
     check("el prompt PROHÍBE perfilar", prompt.includes("PROHIBIDO hacerle preguntas de perfilamiento"));
     check("NO trae el presupuesto de preguntas de descubrimiento", !prompt.includes("PRESUPUESTO DE DOS PREGUNTAS"));
     check("el segmento verificado va en el contexto", prompt.includes("SEGMENTO VERIFICADO"));
 
     // El motor con SOLO el segmento de la base ya debe recomendar: eso es "tarjeta en el mensaje 2".
-    const seg = id.segmento!;
     const { perfil } = sanearPerfil({}, {
       textoUsuario: texto(msgs),
-      segmentoBase: {
-        GENERO: seg.genero, RANGO_EDAD: seg.rango_edad, CATEGORIA: seg.categoria,
-        SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar, SEGMENTO_POBLACIONAL: seg.poblacional,
-      },
+      segmentoBase: id.estado.identidad.segmento,
     });
     const r = calcularPropension(perfil);
     check("recomienda con CERO preguntas", r.recomendaciones.length > 0,
@@ -83,11 +82,12 @@ async function main() {
 
   /* ═══ 2 · Nombre que no está: se dice claro y se sigue ═════════════════════ */
   titulo("2 · Nombre inventado → copy A y la conversación continúa");
-  const inv = await resolverIdentidad([u("soy Zulema Trastamara Quispe Vergara")]);
-  check("no encontrado", inv.estado === "no_encontrado");
-  check("usa el copy A", (inv.contexto ?? "").includes("No apareces en la base de afiliados"));
-  check('NUNCA dice "no eres afiliado"', (inv.contexto ?? "").includes('NUNCA digas "no eres afiliado"'));
-  check("no se bloquea el flujo (no hay error ni corte)", inv.segmento === undefined && !!inv.contexto);
+  const inv = await identidadDe("soy Zulema Trastamara Quispe Vergara");
+  check("no encontrado", inv.hallazgo.estado === "no_encontrado");
+  check("usa el copy A", inv.contexto.includes("No apareces en la base de afiliados"));
+  check('NUNCA dice "no eres afiliado"', inv.contexto.includes('NUNCA digas "no eres afiliado"'));
+  check("no se bloquea el flujo (no hay error ni corte)",
+    inv.estado.identidad.segmento === undefined && !!inv.contexto);
 
   /* ═══ 3 · Anónimo: presupuesto de dos preguntas ════════════════════════════ */
   titulo("3 · Anónimo → máximo 2 preguntas antes de la tarjeta");

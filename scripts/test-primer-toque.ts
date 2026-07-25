@@ -14,7 +14,7 @@
  * llega al reconocimiento en vivo y al "hoy no te vendo nada".
  */
 import { detectarNombre } from "../lib/afiliados/deteccion";
-import { resolverIdentidad } from "../lib/afiliados/resolver";
+import { identidadDe } from "./_identidad";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
@@ -37,23 +37,21 @@ async function main() {
   console.log("===== Un toque → reconocimiento en vivo =====");
   for (const msg of PASTILLAS) {
     const nombre = detectarNombre(msg, true);
-    const id = await resolverIdentidad([{ role: "user", content: msg }]);
+    const id = await identidadDe(msg);
     check(
       `"${msg}" → reconocido`,
-      nombre !== null && id.estado === "reconocido",
+      nombre !== null && id.hallazgo.estado === "reconocido",
       `(detectó: ${nombre ?? "nada"})`
     );
   }
 
   // Y el momento completo: segmento verificado → motor → prueba social, sin una sola pregunta.
-  const id0 = await resolverIdentidad([{ role: "user", content: PASTILLAS[0] }]);
-  const seg = id0.segmento!;
+  const id0 = await identidadDe(PASTILLAS[0]);
+  // El segmento ya viene con la forma que consume el motor: la conversión vive en el resolver,
+  // en un solo sitio, en vez de repetida en cada llamador.
   const { perfil } = sanearPerfil({}, {
     textoUsuario: PASTILLAS[0],
-    segmentoBase: {
-      GENERO: seg.genero, RANGO_EDAD: seg.rango_edad, CATEGORIA: seg.categoria,
-      SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar, SEGMENTO_POBLACIONAL: seg.poblacional,
-    },
+    segmentoBase: id0.estado.identidad.segmento,
   });
   const r = calcularPropension(perfil);
   check("recomienda con CERO preguntas", r.recomendaciones.length > 0,
