@@ -218,9 +218,21 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
 
   const riesgos_hoy = recomendaciones[0]?.reason_codes ?? [];
 
+  // Explicabilidad: si la jerarquía movió el orden, hay que poder decir por qué. Un jurado
+  // pregunta "¿por qué Vida primero si Mascotas puntúa más alto?" y la respuesta debe estar
+  // en pantalla, no en la cabeza de quien presenta.
+  const jerarquiaAplicada =
+    sostieneAOtros &&
+    !!recomendaciones[0] &&
+    !!scored.find((x) => x.id === recomendaciones[0].id)?.w.protege_ingreso &&
+    recomendaciones.some((r, i) => i > 0 && r.score > recomendaciones[0].score);
+
   return {
     recomendaciones,
     obligatorios,
+    jerarquia: jerarquiaAplicada
+      ? "Primero lo que reemplaza tu ingreso: hay personas que dependen de él. Lo demás va después, aunque encaje bien."
+      : undefined,
     descartados,
     ledger: { riesgos_hoy, ya_cubierto: yaCubiertoList },
     peer: lookupPeer(perfil),

@@ -232,17 +232,21 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const msgItems: ChatItem[] = [];
       if (parsed.text) msgItems.push({ kind: "msg", role: "assistant", text: parsed.text });
 
-      // Si hay recomendaciones -> pantalla de "evaluando opciones" y luego las tarjetas
+      // Si hay recomendaciones -> pantalla de "evaluando opciones" y luego las tarjetas.
+      // La TARJETA va antes del texto: la frase suele comentar lo que la tarjeta muestra ("¿quieres
+      // que te cuente cómo funciona el de Hogar?"), y leerla antes de ver Hogar no tiene sentido.
       if (parsed.recs.length) {
         setBusy(false);
         setProcessing("reco");
         await sleep(2500);
         setProcessing(null);
-        setItems((cur) => [...cur, ...msgItems, ...eventItems, { kind: "recommend", recs: parsed.recs }]);
+        setItems((cur) => [...cur, ...eventItems, { kind: "recommend", recs: parsed.recs }, ...msgItems]);
         return true;
       }
 
-      setItems((cur) => [...cur, ...msgItems, ...eventItems]);
+      // Igual cuando la respuesta trae una tarjeta (cotización, coberturas, póliza): primero se ve,
+      // después se comenta.
+      setItems((cur) => (eventItems.length ? [...cur, ...eventItems, ...msgItems] : [...cur, ...msgItems]));
       setSuggestions(parsed.options);
       if (openForm) setActiveForm(openForm);
       return true;
@@ -594,6 +598,7 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
   const peer = data.peer as { descripcion: string; n: number; pct: number } | null;
   const noVenta = data.no_venta as { motivo: string; alternativa: string } | undefined;
+  const jerarquia = data.jerarquia as string | undefined;
   const top = recs[0];
 
   // El segundo NO: "hoy no te sirve". Reemplaza la tarjeta entera — no tiene sentido mostrar un
@@ -625,8 +630,8 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
 
   return (
     <div className="propcard">
+      {/* Un solo título: "Por qué esto es para ti" y "Así analicé tu protección" decían lo mismo. */}
       <div className="pp-head">
-        <span className="pp-eyebrow">Por qué esto es para ti</span>
         <div className="pp-title">Así analicé tu protección</div>
       </div>
 
@@ -667,26 +672,26 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
               <li key={i}><span className="pp-dot" />{r}</li>
             ))}
           </ul>
+          {/* Explicabilidad del orden: si la jerarquía movió el ranking, se dice. */}
+          {jerarquia && <p className="pp-jerarquia">↑ {jerarquia}</p>}
         </div>
       )}
 
-      {/* GapsLedger — riesgos hoy vs lo que ya tiene (anti-venta).
-          La columna "Ya cubierto" solo se pinta si HAY algo: media tarjeta diciendo "Nada aún" era
-          el peor uso del espacio en el elemento más importante de la pantalla. */}
-      <div className={`pp-ledger ${yaCubierto.length ? "" : "solo"}`}>
-        {riesgos.length > 0 && (
+      {/* GapsLedger — solo existe para mostrar el CONTRASTE con lo que ya tiene. Si no hay nada
+          cubierto, no se pinta: `riesgos_hoy` SON los reason codes del #1 por definición, así que
+          esta caja repetía palabra por palabra lo que ya dice WhyThis tres centímetros arriba. */}
+      {yaCubierto.length > 0 && (
+        <div className="pp-ledger">
           <div className="pp-col risk">
             <div className="pp-col-lbl">Riesgos hoy</div>
-            <ul>{riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul>
+            {riesgos.length ? <ul>{riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul> : <p className="pp-empty">—</p>}
           </div>
-        )}
-        {yaCubierto.length > 0 && (
           <div className="pp-col cov">
             <div className="pp-col-lbl">Ya cubierto</div>
             <ul>{yaCubierto.map((c, i) => <li key={i}>{c.producto}</li>)}</ul>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* PeerProof — tamaño REAL del segmento (honesto, sin fracción de compra inventada) */}
       {peer && peer.n > 0 && (

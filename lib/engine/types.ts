@@ -167,6 +167,11 @@ export interface PropensionResult {
   recomendaciones: Recomendacion[];
   /** Si viene, NO se recomienda ningún producto de pago: no es una venta perdida, es criterio. */
   no_venta?: NoVenta;
+  /**
+   * Por qué el orden no es el del puntaje. Solo aparece cuando la jerarquía de protección
+   * efectivamente movió el ranking, para poder explicarlo en pantalla.
+   */
+  jerarquia?: string;
   /** Banda propia, por encima del ranking. Vacía si no aplica o si ya lo tiene. */
   obligatorios: Obligatorio[];
   descartados: Descartado[];

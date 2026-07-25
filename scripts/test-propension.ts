@@ -73,6 +73,18 @@ console.log("\n===== Jerarquía de protección =====");
   check("Vida sigue siendo #1 con mascota declarada", conPerro.recomendaciones[0]?.nombre === "Seguro de Vida");
   check("Mascotas se sigue ofreciendo (no se elimina)", conPerro.recomendaciones.some((x) => /mascotas/i.test(x.nombre)));
 
+  // Explicabilidad (B8): cuando la jerarquía mueve el orden contra el puntaje, se dice en pantalla.
+  // Con el fixture completo Vida gana por puntaje (80) y la nota NO debe aparecer; con solo los
+  // ejes de la base, Vida (55) queda sobre Mascotas (57) y entonces SÍ hay que explicarlo.
+  const soloBase = calcularPropension({
+    GENERO: "F", RANGO_EDAD: "36 a 45 años", CATEGORIA: "A",
+    SEGMENTO_GRUPO_FAMILIAR: "Monoparental", SEGMENTO_POBLACIONAL: "Medio",
+    enriquecido: { tiene_mascota: ["perro"] },
+  } as never);
+  console.log("Carolina solo-base + perro:", soloBase.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  "));
+  check("se explica el orden cuando contradice el puntaje", !!soloBase.jerarquia);
+  check("NO se explica cuando el puntaje ya manda", conPerro.jerarquia === undefined);
+
   const andresPerro = calcularPropension({ ...PERSONAS.Andres, enriquecido: { ...PERSONAS.Andres.enriquecido, tiene_mascota: ["perro"] } });
   console.log("Andrés + perro:", andresPerro.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  "));
   check("sin dependientes la jerarquía NO aplica (Vida ausente)", !andresPerro.recomendaciones.some((x) => x.nombre === "Seguro de Vida"));
