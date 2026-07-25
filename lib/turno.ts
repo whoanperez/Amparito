@@ -53,7 +53,7 @@ export interface DepsTurno {
     input: Record<string, unknown>,
     ctx?: ToolCtx
   ) => Promise<{ result: unknown; event?: UiEvent }>;
-  modelo_id?: string;
+  modeloId?: string;
   maxRondas?: number;
 }
 
@@ -75,7 +75,7 @@ const textoDe = (r: Anthropic.Message) =>
 
 export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Promise<SalidaTurno> {
   const { messages, afiliado, yaRecomendo } = entrada;
-  const MODEL = deps.modelo_id ?? MODELO_POR_DEFECTO;
+  const MODEL = deps.modeloId ?? MODELO_POR_DEFECTO;
   const maxRondas = deps.maxRondas ?? MAX_TOOL_ROUNDS;
 
   const events: UiEvent[] = [];

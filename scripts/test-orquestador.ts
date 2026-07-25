@@ -143,7 +143,8 @@ async function main() {
     const { d, llamadas } = deps([usaTool("get_catalog")]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
     checkEq("HOY: al agotar las rondas el reply queda VACÍO", r.reply, "");
-    checkEq("HOY: y no se empuja nada, aunque hubo eventos", r.events.length > 0, true);
+    // Los eventos SÍ vuelven —uno por ronda—; lo que deja el turno mudo es el texto vacío.
+    checkEq("HOY: y sin embargo se acumularon 8 eventos, uno por ronda", r.events.length, 8);
     checkEq("se gastaron las 8 rondas + la inicial", llamadas.length, 9);
     console.log("      ↑ el usuario ve desaparecer el 'escribiendo…' y nada más. Bloque 2.");
   }
@@ -159,13 +160,17 @@ async function main() {
     const { d } = deps([usaDosTools("calcular_propension"), dice("listo")], { ejecutarTool });
 
     let lanzo = false;
+    let recibido: Awaited<ReturnType<typeof ejecutarTurno>> | null = null;
     try {
-      await ejecutarTurno({ messages: HOLA }, d);
+      recibido = await ejecutarTurno({ messages: HOLA }, d);
     } catch {
       lanzo = true;
     }
     checkEq("HOY: la excepción sale del turno entero", lanzo, true);
-    checkEq("HOY: y el evento que YA se había acumulado se pierde", llamadasTool, 2);
+    // La primera tool completó y devolvió su evento; la segunda lanzó. Que el llamador reciba
+    // `null` ES la pérdida — no queda ningún camino por el que recuperar lo ya acumulado.
+    checkEq("la primera tool alcanzó a completar y emitir su evento", llamadasTool, 2);
+    checkEq("HOY: y aun así el llamador no recibe NADA", recibido, null);
     console.log("      ↑ se pierde también el evento de identidad del turno. Sin is_error, el");
     console.log("        modelo tampoco ve el fallo para recuperarse. Bloque 2.");
   }
