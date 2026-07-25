@@ -8,7 +8,7 @@ import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 interface UiEvent {
   // Copia deliberada del tipo del servidor: así el cliente no arrastra el SDK de Anthropic.
   // "afiliado" no pinta tarjeta — es el hallazgo de identidad que hay que recordar entre turnos.
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado" | "feedback";
   data: Record<string, any>;
 }
 interface Rec { nombre: string; recomendado: boolean; razon: string }
@@ -300,7 +300,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     setActiveForm(null);
     setProcessing("emision");
     const t0 = Date.now();
-    let result: { event?: UiEvent; closing?: string; error?: string } = {};
+    let result: { event?: UiEvent; closing?: string; error?: string; feedback?: UiEvent } = {};
     try {
       const res = await fetch("/api/issue", {
         method: "POST",
@@ -314,7 +314,9 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     if (result.event) {
       setItems((cur) => [...cur, { kind: "event", event: result.event },
         { kind: "msg", role: "assistant", text: result.closing ?? "Tu solicitud queda completa. Recuerda que esto es una simulación: no se emitió ninguna póliza." },
-        { kind: "video" }]);
+        { kind: "video" },
+        // Medición al cierre (pedido del equipo de seguros): esfuerzo y satisfacción.
+        ...(result.feedback ? [{ kind: "event" as const, event: result.feedback }] : [])]);
     } else {
       setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." }]);
     }
@@ -715,12 +717,92 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   );
 }
 
+/* ===== Medición al cierre: esfuerzo (CES) y satisfacción (CSAT) =====
+   Pedido del equipo de seguros: "esfuerzo y satisfacción, cómo fue su experiencia en la venta a
+   través del agente". Dos toques, sin salir del chat. El esfuerzo va primero porque es el que
+   predice si la persona volvería — y es el que este producto vino a bajar. */
+function FeedbackCard({ data }: { data: Record<string, any> }) {
+  const [esfuerzo, setEsfuerzo] = useState<number | null>(null);
+  const [satisfaccion, setSatisfaccion] = useState<number | null>(null);
+  const [listo, setListo] = useState(false);
+
+  async function enviar(ces: number, csat: number) {
+    setListo(true);
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ces, csat, producto: data.producto ?? null }),
+      });
+    } catch {
+      /* La medición nunca puede romper el cierre: si falla, se pierde el dato y nada más. */
+    }
+  }
+
+  if (listo) {
+    return (
+      <div className="fbcard done">
+        <b>Gracias 💛</b>
+        <span>Con esto sabemos si de verdad te lo hicimos fácil.</span>
+      </div>
+    );
+  }
+
+  const ESFUERZO = [
+    { v: 5, t: "Muy fácil" },
+    { v: 4, t: "Fácil" },
+    { v: 3, t: "Normal" },
+    { v: 2, t: "Difícil" },
+    { v: 1, t: "Muy difícil" },
+  ];
+  const SATISFACCION = [
+    { v: 5, t: "😄 Muy bien" },
+    { v: 4, t: "🙂 Bien" },
+    { v: 3, t: "😐 Regular" },
+    { v: 2, t: "🙁 Mal" },
+  ];
+
+  return (
+    <div className="fbcard">
+      <div className="fb-q">¿Qué tan fácil te resultó todo esto?</div>
+      <div className="fb-row">
+        {ESFUERZO.map((o) => (
+          <button
+            key={o.v}
+            className={`fb-opt ${esfuerzo === o.v ? "on" : ""}`}
+            onClick={() => setEsfuerzo(o.v)}
+          >
+            {o.t}
+          </button>
+        ))}
+      </div>
+      {esfuerzo !== null && (
+        <>
+          <div className="fb-q">¿Y cómo te sentiste con la atención?</div>
+          <div className="fb-row">
+            {SATISFACCION.map((o) => (
+              <button
+                key={o.v}
+                className={`fb-opt ${satisfaccion === o.v ? "on" : ""}`}
+                onClick={() => { setSatisfaccion(o.v); enviar(esfuerzo, o.v); }}
+              >
+                {o.t}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ===== Tarjetas ===== */
 function EventCard({ event }: { event: UiEvent }) {
   const d = event.data;
 
   if (event.type === "propension") return <PropensionCard data={d} />;
   if (event.type === "impacto") return <ImpactoCard data={d} />;
+  if (event.type === "feedback") return <FeedbackCard data={d} />;
 
   if (event.type === "quote") {
     const regulado = d.precio_tipo === "regulado";

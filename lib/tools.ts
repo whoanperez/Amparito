@@ -195,7 +195,7 @@ export interface UiEvent {
    * reenviar en los siguientes turnos. Sin él, Amparito identifica a la persona en el turno 1 y
    * no sabe quién es en el turno 3 (el historial se reconstruye solo con los textos).
    */
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado";
+  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado" | "feedback";
   data: Record<string, unknown>;
 }
 
