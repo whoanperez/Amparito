@@ -25,6 +25,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ces y csat deben ser números de 1 a 5" }, { status: 400 });
     }
 
+    // MVP: si SHEETS_WEBHOOK_URL no está configurada, logToSheets se omite EN SILENCIO. Para el
+    // demo eso significaría que el jurado califica y el dato se evapora mientras la tarjeta dice
+    // "gracias". Con esto al menos queda en los logs del servidor y el equipo lo puede leer.
+    console.log(`[amparito] feedback · CES=${ces} CSAT=${csat} producto=${producto ?? "-"}`);
+
     await logToSheets({
       fecha: new Date().toISOString(),
       canal: "Amparito",

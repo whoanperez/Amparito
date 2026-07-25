@@ -86,37 +86,9 @@ interface Scored {
 }
 
 export function calcularPropension(perfil: Perfil): PropensionResult {
-  // El segundo NO, y el que más confianza gana: sin ingreso hoy no se recomienda NADA de pago —
-  // ni lo barato, ni el SOAT. Un seguro que no se puede pagar el mes entrante no protege, aprieta.
-  // Y Colsubsidio no es una aseguradora: es una caja, y tiene qué ofrecer en ese momento.
-  if (perfil.enriquecido?.sin_ingresos) {
-    return {
-      recomendaciones: [],
-      obligatorios: [],
-      descartados: [],
-      no_venta: {
-        motivo:
-          "Hoy no hay ingreso con qué sostener una póliza. Un seguro que no se pueda pagar el mes " +
-          "entrante no protege: aprieta.",
-        alternativa:
-          "Como afiliado de Colsubsidio te puede corresponder el subsidio al desempleo, y tienes la " +
-          "agencia de empleo. A eso sí se te puede apuntar hoy mismo.",
-      },
-      ledger: { riesgos_hoy: [], ya_cubierto: [] },
-      peer: null,
-      // Negarse a vender también es una decisión, y es la que más vale auditar: hay que poder
-      // demostrar por qué el sistema NO ofreció nada. Sin esto, la única ruta del motor sin traza
-      // sería justamente la más delicada.
-      traza: {
-        version_reglas: String((weights as unknown as { _meta?: { version?: unknown } })._meta?.version ?? "?"),
-        perfil,
-        gate_asequibilidad: { categoria: perfil.CATEGORIA ?? "(vacío)", prioriza_prima_baja: true },
-        jerarquia_aplicada: false,
-        peer: { afirmada: false, motivo: "no se evalúa: no hay recomendación que sustentar" },
-        productos: [],
-      },
-    };
-  }
+  // Sin ingreso hoy no se vende NADA de pago. Ver el corte más abajo: se hace DESPUÉS de puntuar,
+  // no antes, porque hay una cosa que sí hay que decirle a esa persona — ver `sinIngresos`.
+  const sinIngresos = Boolean(perfil.enriquecido?.sin_ingresos);
 
   const cat = perfil.CATEGORIA ?? "";
   const gate = weights.gate_affordability[cat] ?? weights.gate_affordability["(vacío)"];
@@ -202,6 +174,50 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
       };
     });
   const obligIds = new Set(obligatorios.map((o) => o.id));
+
+  // El segundo NO, y el que más confianza gana: sin ingreso hoy no se recomienda NINGÚN producto de
+  // pago —ni el más barato— porque un seguro que no se puede sostener el mes entrante no protege,
+  // aprieta. Y Colsubsidio no es una aseguradora: es una caja, y tiene qué ofrecer en ese momento.
+  //
+  // PERO la banda de obligatorios SÍ sobrevive, y esto es criterio, no inconsistencia: no mencionarle
+  // el SOAT a alguien que trabaja en su moto lo deja expuesto a que se la inmovilicen, y eso le
+  // cuesta más que la prima — le cuesta el ingreso del día. Advertir de una obligación legal es
+  // INFORMACIÓN, no una venta. Un asesor humano lo diría; el sistema también debe.
+  if (sinIngresos) {
+    return {
+      recomendaciones: [],
+      obligatorios,
+      descartados: [],
+      no_venta: {
+        motivo:
+          "Hoy no hay ingreso con qué sostener una póliza. Un seguro que no se pueda pagar el mes " +
+          "entrante no protege: aprieta.",
+        alternativa:
+          "Como afiliado de Colsubsidio te puede corresponder el subsidio al desempleo, y tienes la " +
+          "agencia de empleo. A eso sí se te puede apuntar hoy mismo.",
+      },
+      ledger: { riesgos_hoy: [], ya_cubierto: yaCubiertoList },
+      peer: null,
+      // Negarse a vender también es una decisión, y es la que más vale poder demostrar. Sin esto,
+      // la única ruta del motor sin traza sería justamente la más delicada.
+      traza: {
+        version_reglas: String((weights as unknown as { _meta?: { version?: unknown } })._meta?.version ?? "?"),
+        perfil,
+        gate_asequibilidad: { categoria: cat || "(vacío)", prioriza_prima_baja: primaBajaPrimero },
+        jerarquia_aplicada: false,
+        peer: { afirmada: false, motivo: "no se evalúa: no hay recomendación que sustentar" },
+        productos: scored
+          .map((x) => ({
+            id: x.id,
+            nombre: getProduct(x.id)?.nombre ?? x.id,
+            score: x.score,
+            senales: x.reasons,
+            resultado: (obligIds.has(x.id) ? "obligatorio" : "fuera_del_top") as TrazaProducto["resultado"],
+          }))
+          .sort((a, b) => b.score - a.score),
+      },
+    };
+  }
 
   // Recomendaciones: con señal REAL (no solo un prior), no ya-cubierto, que cierran solas.
   const recomendaciones: Recomendacion[] = scored

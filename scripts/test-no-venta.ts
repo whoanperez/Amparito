@@ -34,8 +34,14 @@ if (r.no_venta) {
 }
 
 check("CERO productos de pago recomendados", r.recomendaciones.length === 0);
-check("ni siquiera el SOAT, que es obligatorio", r.obligatorios.length === 0);
 check("nada en descartados (no hay ranking que mostrar)", r.descartados.length === 0);
+// La obligación legal SÍ sobrevive al "no te vendo nada", y es criterio, no inconsistencia: no
+// mencionarle el SOAT a alguien que trabaja en su moto lo deja expuesto a que se la inmovilicen —
+// y eso le cuesta el ingreso del día, más que la prima. Advertir es INFORMACIÓN, no vender.
+console.log(`     obligatorios: ${r.obligatorios.map((o) => o.nombre).join(", ") || "—"}`);
+check("la obligación legal SÍ se advierte (tiene carro y no declara SOAT)",
+  r.obligatorios.some((o) => o.id === "soat_mundial"));
+check("y viene con su consecuencia real", /inmoviliz/i.test(r.obligatorios[0]?.consecuencia ?? ""));
 check("el motor devuelve no_venta con motivo", !!r.no_venta?.motivo);
 check("ofrece lo que la CAJA sí tiene",
   /subsidio al desempleo/i.test(r.no_venta?.alternativa ?? "") &&
@@ -59,6 +65,8 @@ const s = sanearPerfil(
 );
 check("la señal sobrevive el saneamiento", s.perfil.enriquecido?.sin_ingresos === true);
 check("y el motor la honra", calcularPropension(s.perfil).no_venta !== undefined);
+check("sin vehículo declarado no hay obligación que advertir",
+  calcularPropension(s.perfil).obligatorios.length === 0);
 
 /* ── 4 · las reglas viven en el prompt, en todos los estados ─────────────── */
 console.log("\n===== Reglas presentes en el prompt =====");

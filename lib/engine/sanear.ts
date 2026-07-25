@@ -240,6 +240,11 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
     }
   }
 
+  // ASIMETRÍA DELIBERADA: el servidor solo AÑADE lo que protege, y solo VALIDA lo que habilita
+  // una venta. `tiene_vehiculo` o `vivienda` se verifican pero nunca se originan aquí (originarlos
+  // podría habilitar un producto que la persona no pidió). `sin_ingresos` sí se origina, porque su
+  // fallo silencioso —venderle a quien no puede pagar— es el que hace daño.
+  //
   // `sin_ingresos` NO puede quedar a criterio del modelo: dispara el "hoy no te vendo nada", que
   // es el momento de mayor confianza del producto. Aquí la asimetría importa — un falso positivo
   // mata una venta y se VE; un falso negativo (venderle a quien no puede pagar) es SILENCIOSO, y

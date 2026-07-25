@@ -106,7 +106,10 @@ async function main() {
     ).perfil
   );
   check("CERO productos de pago", sinIngreso.recomendaciones.length === 0);
-  check("ni el SOAT", sinIngreso.obligatorios.length === 0);
+  // La obligación legal sobrevive como ADVERTENCIA: callar el SOAT a alguien con vehículo lo deja
+  // expuesto a la inmovilización, que le cuesta más que la prima.
+  check("pero la obligación legal SÍ se advierte", sinIngreso.obligatorios.length > 0,
+    `→ ${sinIngreso.obligatorios.map((o) => o.nombre).join(", ") || "—"}`);
   check("aparece el motivo del no", !!sinIngreso.no_venta?.motivo);
   check("ofrece lo que la CAJA sí tiene",
     /subsidio al desempleo/i.test(sinIngreso.no_venta?.alternativa ?? "") &&
@@ -165,7 +168,7 @@ async function main() {
   const tz = advR.traza!;
   check("la recomendación deja traza", !!tz);
   check("los pesos suman el score", tz.productos.every((p) => p.senales.reduce((a, s) => a + s.peso, 0) === p.score));
-  check("incluso la decisión de NO vender deja traza", tz.productos.length === 0 && !!tz.version_reglas);
+  check("incluso la decisión de NO vender deja traza", !!tz.version_reglas);
   check("cada campo del perfil dice de dónde vino", !!tz.perfil._origen);
   check("dice por qué NO se afirmó la prueba social", tz.peer.afirmada === false && !!tz.peer.motivo,
     `→ ${tz.peer.motivo}`);

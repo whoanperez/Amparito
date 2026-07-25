@@ -24,9 +24,13 @@ const check = (label: string, cond: boolean, detalle?: string) => {
   if (!cond) ok = false;
 };
 
-/** Los mismos strings que envían las pastillas y los chips de components/Chat.tsx. */
-const PASTILLAS = ["Soy Carolina Ramírez López", "Soy Andrés Gómez Ruiz", "Soy Jaime Ortiz Vega"];
-const CHIP_SIN_TRABAJO = "Me quedé sin trabajo";
+// Se IMPORTAN de la pantalla, no se copian. Con dos listas sincronizadas a mano volvería a pasar
+// lo de B5: alguien cambia el `msg`, el gate sigue verde probando un string que ya nadie usa, y el
+// jurado toca un botón que no reconoce a nadie.
+import { CHIPS_ENTRADA, PERSONAS_DEMO } from "../components/Chat";
+
+const PASTILLAS = PERSONAS_DEMO.map((p) => p.msg);
+const CHIP_SIN_TRABAJO = CHIPS_ENTRADA.find((c) => /sin trabajo/i.test(c))!;
 
 async function main() {
   /* ── 1 · un toque en una pastilla → reconocimiento ─────────────────────── */

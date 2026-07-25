@@ -37,7 +37,7 @@ const GREETING =
 // Chips de arranque: prellenan la casilla para que la persona complete y edite.
 // El anti-venta es el momento que se recuerda tres horas después, y hoy había que provocarlo con
 // la frase exacta. Con el chip se DESCUBRE, que vale el doble.
-const CHIPS_ENTRADA = ["Soy ", "Me quedé sin trabajo", "Prefiero no dar mi nombre"];
+export const CHIPS_ENTRADA = ["Soy ", "Me quedé sin trabajo", "Prefiero no dar mi nombre"];
 
 // Entrada pull-first: tarjetas grandes "¿Qué quieres proteger?" (reemplaza la caja vacía)
 const PROTEGER = [
@@ -74,7 +74,7 @@ const INTERES: Record<string, string> = {
 // toque llega al reconocimiento contra la base —el foso— en vez de al camino genérico que
 // cualquier equipo pudo construir. Los tres existen en data/afiliados_muestra.json con sus 4
 // ejes completos, así que el momento sobrevive aunque la red del salón falle.
-const PERSONAS_DEMO = [
+export const PERSONAS_DEMO = [
   { key: "Carolina", n: "Carolina Ramírez", msg: "Soy Carolina Ramírez López" },
   { key: "Andres", n: "Andrés Gómez", msg: "Soy Andrés Gómez Ruiz" },
   { key: "Jaime", n: "Jaime Ortiz", msg: "Soy Jaime Ortiz Vega" },
