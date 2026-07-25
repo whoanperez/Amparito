@@ -11,8 +11,8 @@ import { sanearPerfil, resumenEvidencia } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
 let ok = true;
-const check = (label: string, cond: boolean) => {
-  console.log(`   ${cond ? "✅" : "❌"} ${label}`);
+const check = (label: string, cond: boolean, detalle?: string) => {
+  console.log(`   ${cond ? "✅" : "❌"} ${label}${detalle ? `  ${detalle}` : ""}`);
   if (!cond) ok = false;
 };
 
@@ -56,8 +56,33 @@ check("origen del grupo familiar = inferido", perfil._origen?.SEGMENTO_GRUPO_FAM
 
 const r = calcularPropension(perfil);
 console.log("   recomendaciones:", r.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  ") || "—");
-check("el top-1 ya NO es Hogar (era la venta decidida por el dato falso)", r.recomendaciones[0]?.nombre !== "Seguro de Hogar y Contenidos");
+/*
+ * Aquí había `r.recomendaciones[0]?.nombre !== "Seguro de Hogar y Contenidos"`. Con este perfil
+ * el texto contiene "no tengo ingresos", así que el motor devuelve `no_venta` y la lista viene
+ * VACÍA: `undefined !== "Hogar"` es siempre cierto. Pasaba igual si el motor se hubiera roto
+ * entero, y afirmar la AUSENCIA de algo sobre una lista vacía no prueba nada.
+ */
+check("el motor se pronuncia: hoy no se vende", !!r.no_venta);
+check("y por tanto no hay recomendaciones de pago", r.recomendaciones.length === 0);
 check("prueba social AUSENTE (los 4 ejes no están verificados)", r.peer === null);
+
+/*
+ * Lo que de verdad prueba que la compuerta CAMBIA el resultado es un diferencial: el mismo perfil
+ * del modelo, con y sin saneamiento, sobre un texto donde la persona sí tiene ingresos (para que
+ * el `no_venta` no tape el efecto). Sin compuerta, el `vivienda:"propia"` inventado mete Hogar en
+ * el ranking — que es la venta que se decidió en la conversación real por un dato falso.
+ */
+const textoConIngresos = textoUsuario
+  .replace("tengo familia, y no tengo trabajo\n", "tengo familia\n")
+  .replace("no tengo ingresos\n", "");
+const conCompuerta = calcularPropension(sanearPerfil(loQueMandoElModelo, { textoUsuario: textoConIngresos }).perfil);
+const sinCompuerta = calcularPropension(loQueMandoElModelo as Parameters<typeof calcularPropension>[0]);
+const hayHogar = (x: { recomendaciones: { nombre: string }[] }) =>
+  x.recomendaciones.some((p) => /Hogar/i.test(p.nombre));
+check("SIN compuerta, el dato falso mete Hogar en el ranking", hayHogar(sinCompuerta),
+  `→ ${sinCompuerta.recomendaciones.map((x) => x.nombre).join(", ") || "—"}`);
+check("CON compuerta, Hogar desaparece", !hayHogar(conCompuerta),
+  `→ ${conCompuerta.recomendaciones.map((x) => x.nombre).join(", ") || "—"}`);
 
 /* ── 2 · afiliado reconocido: el segmento de la base SÍ manda ────────────── */
 console.log("\n===== Afiliado reconocido (segmento de la base) =====");

@@ -167,9 +167,38 @@ async function main() {
   check("la recomendación deja traza", !!tz);
   check("los pesos suman el score", tz.productos.every((p) => p.senales.reduce((a, s) => a + s.peso, 0) === p.score));
   check("incluso la decisión de NO vender deja traza", !!tz.version_reglas);
-  check("cada campo del perfil dice de dónde vino", !!tz.perfil._origen);
-  check("dice por qué NO se afirmó la prueba social", tz.peer.afirmada === false && !!tz.peer.motivo,
+  /*
+   * Aquí había `!!tz.perfil._origen`. `sanearPerfil` asigna `_origen` SIEMPRE, inicializado como
+   * `{}`, y `!!{}` es true: un perfil sin la procedencia de ningún campo pasaba el check. La
+   * propiedad que sí importa es que la procedencia y el perfil CUADREN.
+   */
+  const origen = tz.perfil._origen ?? {};
+  check("la traza registra de dónde vino cada campo que entró", Object.keys(origen).length > 0,
+    `→ ${Object.keys(origen).join(", ")}`);
+  check(
+    "y no hay procedencia de campos que no llegaron al motor",
+    Object.keys(origen).every((k) => {
+      const [raiz, hijo] = k.split(".");
+      const p = tz.perfil as unknown as Record<string, Record<string, unknown> | unknown>;
+      return hijo ? (p[raiz] as Record<string, unknown>)?.[hijo] !== undefined : p[raiz] !== undefined;
+    })
+  );
+
+  /*
+   * Y la prueba social se mira en SUS DOS RAMAS. Afirmar solo `afirmada === false` sobre el
+   * camino de no_venta era afirmar un literal de `scorecard.ts`: ahí está hardcodeado. Un test
+   * que solo ve una rama de un booleano no está probando el booleano.
+   */
+  check("cuando no hay peer, la traza dice por qué", tz.peer.afirmada === false && !!tz.peer.motivo,
     `→ ${tz.peer.motivo}`);
+  const conEjes = calcularPropension(
+    sanearPerfil({}, {
+      textoUsuario: "hola",
+      segmentoBase: { GENERO: "F", RANGO_EDAD: "36 a 45 años", CATEGORIA: "A", SEGMENTO_GRUPO_FAMILIAR: "Monoparental", SEGMENTO_POBLACIONAL: "Medio" },
+    }).perfil
+  );
+  check("y cuando sí hay, la traza lo afirma", conEjes.traza!.peer.afirmada === true,
+    `→ ${conEjes.peer ? `${conEjes.peer.n} personas` : "sin celda"}`);
   check("y con qué versión de reglas se decidió", tz.version_reglas !== "?", `→ v${tz.version_reglas}`);
 
   /* ═══ 7 · Guarda de la pregunta de doble cañón ═════════════════════════════ */
@@ -225,13 +254,14 @@ async function main() {
   /* ═══ Resumen ═════════════════════════════════════════════════════════════ */
   console.log(`\n${"═".repeat(66)}`);
   console.log(`${total - fallos}/${total} aserciones OK`);
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log(
-      "\n⚠️  Sin ANTHROPIC_API_KEY no se evalúa la REDACCIÓN del modelo (que respete el copy, que no\n" +
-        "   invente coberturas, que suene humano). Eso solo se ve en vivo: correr una vez con la key\n" +
-        "   puesta antes del demo, con las 3 personas y con un nombre real de la base."
-    );
-  }
+  /*
+   * Aquí había un aviso condicionado a que faltara ANTHROPIC_API_KEY, sobre que la redacción del
+   * modelo no se evalúa. Dos problemas: iba enterrado entre cientos de ✅ como penúltima línea
+   * del log más largo, y estaba condicionado a la key — como si CON la key sí se evaluara algo,
+   * cuando este eval es determinista y no llama al modelo en ningún caso.
+   *
+   * El hueco es real y ahora se declara SIEMPRE, en el resumen del runner, donde se lee.
+   */
   console.log(fallos === 0 ? "\n✅ EVAL OK" : `\n❌ EVAL FALLÓ (${fallos})`);
   process.exit(fallos === 0 ? 0 : 1);
 }

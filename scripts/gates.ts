@@ -101,4 +101,22 @@ console.log(
     `${rotas.length ? ` · rotas: ${rotas.map((r) => r.suite).join(", ")}` : ""}`
 );
 console.log(`   base: ${conBase ? "TURSO" : "sample sintético"}`);
+
+/*
+ * LO QUE ESTOS GATES NO CUBREN, dicho aquí y no en un aviso enterrado a mitad del log.
+ *
+ * El eval imprimía una advertencia sobre la redacción del modelo como su penúltima línea, entre
+ * cientos de ✅, y salía con código 0. Quien lo leía deprisa se llevaba la impresión contraria a
+ * la verdad: que el gate había cubierto algo que ni siquiera intenta.
+ *
+ * Un hueco conocido y visible es deuda; uno escondido bajo un verde es una trampa.
+ */
+console.log(`\nNO cubierto por estos gates:`);
+console.log(`   · La REDACCIÓN del modelo. Todo esto es determinista: que respete el copy, que no`);
+console.log(`     invente coberturas y que suene humano solo se ve corriendo el demo con la key.`);
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.log(`     (ANTHROPIC_API_KEY no está definida en este entorno.)`);
+}
+console.log(`   · La conversación de punta a punta contra el modelo real.`);
+
 process.exit(rotas.length ? 1 : 0);
