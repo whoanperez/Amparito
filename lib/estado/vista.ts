@@ -10,6 +10,14 @@
  */
 import type { Bloque, EstadoConversacion, Rec, UiEvent, UiVista } from "./tipos";
 
+/**
+ * Último recurso cuando el turno no logra producir texto. Existe porque la alternativa real
+ * observada era peor: el "escribiendo…" desaparecía y no llegaba nada, así que la persona no
+ * sabía si Amparito se había caído o la estaba ignorando.
+ */
+export const SIN_RESPUESTA =
+  "Me enredé procesando eso 😅. ¿Me lo cuentas de otra forma?";
+
 /** Donde el LLM es insustituible: leer el clausulado y explicarlo en cristiano. */
 export const PREGUNTAS_ASESOR = ["¿Qué cubre?", "¿Qué NO cubre?", "¿Cuánto cuesta?"];
 

@@ -22,7 +22,7 @@ import { estadoInicial } from "../lib/estado/tipos";
 import { vistaDeEstado, opcionesDeEventos } from "../lib/estado/vista";
 import { executeTool } from "../lib/tools";
 import { sanearPerfil } from "../lib/engine/sanear";
-import { SALUDO_INICIAL } from "../lib/estado/vista";
+import { SALUDO_INICIAL, SIN_RESPUESTA } from "../lib/estado/vista";
 import type { ToolCtx } from "../lib/tools";
 
 let ok = true;
@@ -390,20 +390,33 @@ async function main() {
     checkEq("y no se duplica con la intermedia", textoDe(r2).includes("¿Para qué usas la moto?"), false);
   }
 
-  titulo("HOY · defecto #6 — el turno muerto silencioso");
+  titulo("Defecto #6 — un turno nunca sale mudo");
   {
-    // El modelo se queda pidiendo tools para siempre: se agotan las 8 rondas.
+    // El modelo se queda pidiendo tools para siempre: se agotan las 8 rondas y la última
+    // respuesta solo trae tool_use. Antes el turno salía sin una sola frase.
     const { d, llamadas } = deps([usaTool("get_catalog")]);
     const r = await ejecutarTurno({ messages: HOLA }, d);
-    checkEq("HOY: al agotar las rondas la vista sale sin texto", textoDe(r), "");
-    // Ojo al matiz: la tarjeta SÍ aparece. Lo que falta es la frase que la explica — el turno no
-    // sale en blanco, sale MUDO, que en pantalla es peor: una tarjeta sin nadie que la presente.
-    checkEq("aunque la tarjeta del motor sí se pinta", tarjetasDe(r).length, 1);
-    checkEq("se gastaron las 8 rondas + la inicial", llamadas.length, 9);
-    console.log("      ↑ una tarjeta aparece sola, sin una frase que la acompañe. Bloque 2.");
+    checkEq("al agotar las rondas se fuerza una salida de texto", llamadas.length, 10);
+    check("y la persona recibe algo", textoDe(r).length > 0, `→ "${textoDe(r)}"`);
+    checkEq("la tarjeta del motor sigue ahí", tarjetasDe(r).length, 1);
+    // El guion falso responde siempre con tool_use, así que ni con `tool_choice: none` produce
+    // texto: se cae al copy de último recurso. Un modelo real casi siempre habla en esa llamada.
+    checkEq("si ni así habla, hay copy de último recurso", textoDe(r), SIN_RESPUESTA);
+
+    // Adverso: si la llamada de cierre TAMBIÉN falla, sigue sin poder salir mudo.
+    let n = 0;
+    const modeloQueMuere = {
+      crear: async (p: Parameters<typeof d.modelo.crear>[0]) => {
+        n++;
+        if (n > 9) throw new Error("la API no responde");
+        return usaTool("get_catalog");
+      },
+    };
+    const rr = await ejecutarTurno({ messages: HOLA }, { ...d, modelo: modeloQueMuere });
+    checkEq("si la llamada de cierre falla, igual se dice algo", textoDe(rr), SIN_RESPUESTA);
   }
 
-  titulo("HOY · defecto #7 — una excepción se lleva el turno y los eventos");
+  titulo("Defecto #7 — una tool que falla no se lleva el turno");
   {
     let llamadasTool = 0;
     const ejecutarTool = async () => {
@@ -411,22 +424,30 @@ async function main() {
       if (llamadasTool === 1) return { result: { ok: true }, event: eventoPropension };
       throw new Error("la aseguradora no respondió");
     };
-    const { d } = deps([usaDosTools("calcular_propension"), dice("listo")], { ejecutarTool });
+    const { d, llamadas } = deps([usaDosTools("calcular_propension"), dice("Se me cayó una consulta.")], {
+      ejecutarTool,
+    });
 
     let lanzo = false;
-    let recibido: Awaited<ReturnType<typeof ejecutarTurno>> | null = null;
+    let recibido: SalidaTurno | null = null;
     try {
       recibido = await ejecutarTurno({ messages: HOLA }, d);
     } catch {
       lanzo = true;
     }
-    checkEq("HOY: la excepción sale del turno entero", lanzo, true);
-    // La primera tool completó y devolvió su evento; la segunda lanzó. Que el llamador reciba
-    // `null` ES la pérdida — no queda ningún camino por el que recuperar lo ya acumulado.
-    checkEq("la primera tool alcanzó a completar y emitir su evento", llamadasTool, 2);
-    checkEq("HOY: y aun así el llamador no recibe NADA", recibido, null);
-    console.log("      ↑ se pierde también el evento de identidad del turno. Sin is_error, el");
-    console.log("        modelo tampoco ve el fallo para recuperarse. Bloque 2.");
+    checkEq("la excepción NO sale del turno", lanzo, false);
+    checkEq("las dos tools se intentaron", llamadasTool, 2);
+    checkPresente("el llamador recibe su turno", recibido);
+    checkEq("y el evento que ya se había acumulado SOBREVIVE", tarjetasDe(recibido!).length, 1);
+    checkEq("con el texto del modelo", textoDe(recibido!), "Se me cayó una consulta.");
+
+    // El fallo se le devuelve al modelo por el canal que la API tiene para eso. Antes los errores
+    // se serializaban como éxitos y era el PROMPT quien le explicaba cómo reconocerlos.
+    const ultima = llamadas[1].messages.at(-1);
+    const bloques = (ultima?.content ?? []) as Array<{ type: string; is_error?: boolean; content?: string }>;
+    checkEq("el tool_result del fallo va marcado con is_error", bloques[1]?.is_error, true);
+    checkEq("y el que sí funcionó no", bloques[0]?.is_error, undefined);
+    check("el error le dice al modelo qué NO hacer", String(bloques[1]?.content).includes("No inventes"));
   }
 
   titulo("Defecto #8 — la doble tarjeta ya no se ve, pero el motor sí corre dos veces");

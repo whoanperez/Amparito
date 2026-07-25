@@ -19,7 +19,7 @@ import type { ConsultaIdentidad, EstadoConversacion, UiEvent, UiVista } from "@/
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
-import { SALUDO_INICIAL, vistaDeEstado } from "@/lib/estado/vista";
+import { SALUDO_INICIAL, SIN_RESPUESTA, vistaDeEstado } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";
@@ -188,11 +188,32 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
 
     for (const block of response.content) {
       if (block.type === "tool_use") {
-        const { result, event } = await deps.ejecutarTool(
-          block.name,
-          (block.input ?? {}) as Record<string, unknown>,
-          toolCtx
-        );
+        // Una tool que LANZA no puede llevarse el turno por delante. Antes la excepción subía
+        // hasta el catch global y se perdía todo, incluidos los eventos ya acumulados en este
+        // mismo turno: la persona veía desaparecer el "escribiendo…" y nada más.
+        //
+        // Y el fallo se le devuelve al modelo con `is_error`, que es el canal que la API tiene
+        // para eso. Hasta ahora los errores se serializaban como si fueran éxitos y era el
+        // PROMPT quien le explicaba al modelo cómo reconocerlos — enseñarle a leer errores en
+        // prosa en vez de decírselos.
+        let result: unknown;
+        let event: UiEvent | undefined;
+        let fallo = false;
+        try {
+          ({ result, event } = await deps.ejecutarTool(
+            block.name,
+            (block.input ?? {}) as Record<string, unknown>,
+            toolCtx
+          ));
+        } catch (err) {
+          fallo = true;
+          result = {
+            error: `La herramienta ${block.name} falló: ${err instanceof Error ? err.message : "error desconocido"}`,
+            instruccion:
+              "No inventes el dato que ibas a obtener. Reintenta una vez si tiene sentido; si no, " +
+              "dilo con honestidad y ofrece un asesor.",
+          };
+        }
         if (event) events.push(event);
         // `calcular_propension` devuelve el perfil que la compuerta aceptó. Es lo que se guarda
         // en el estado para que el turno siguiente arranque desde ahí en vez de desde cero.
@@ -207,6 +228,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
           type: "tool_result",
           tool_use_id: block.id,
           content: JSON.stringify(result),
+          ...(fallo ? { is_error: true } : {}),
         });
       }
     }
@@ -224,6 +246,33 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   }
 
   let reply = textoDe(response) || textoDeRescate;
+
+  // UN TURNO NUNCA SALE MUDO. Si se agotaron las 8 rondas, o la última respuesta solo trae
+  // tool_use, `reply` queda vacío: el "escribiendo…" desaparecía y no llegaba nada, así que la
+  // persona no sabía si Amparito se había caído o la estaba ignorando.
+  //
+  // Se fuerza una salida de TEXTO con tool_choice "none". Cuesta una llamada, y solo ocurre en el
+  // camino que hoy termina en silencio — un turno lento es mejor que uno mudo.
+  if (!reply) {
+    try {
+      const cierre = await deps.modelo.crear({
+        model: MODEL,
+        max_tokens: 1024,
+        system,
+        tools: toolDefinitions,
+        // `tool_choice: none` existe en la API pero no en los tipos de este SDK (^0.32.1, que
+        // se quedó atrás). Se manda igual: el cast es sobre el TIPO, no sobre la conducta.
+        // Quitar `tools` no sirve de sustituto — una conversación con bloques `tool_use` exige
+        // que las tools sigan declaradas.
+        tool_choice: { type: "none" } as unknown as Anthropic.MessageCreateParams["tool_choice"],
+        messages: convo,
+      });
+      reply = textoDe(cierre);
+    } catch {
+      /* si también falla, queda el copy de abajo: lo que no puede pasar es no decir nada */
+    }
+    if (!reply) reply = SIN_RESPUESTA;
+  }
 
   // Guarda de la pregunta de doble cañón. `prompts.ts` lo prohíbe, pero una regla de prompt es
   // una petición: se violó tres veces en una sola conversación.
