@@ -139,6 +139,24 @@ function parseReply(raw: string): { text: string; options: string[]; recs: Rec[]
   return { text: clean(text), options, recs };
 }
 
+/**
+ * Construye las tarjetas seleccionables desde el evento del motor. Es la fuente de verdad: el
+ * nombre, el orden y la razón vienen del scorecard, así que el modelo no puede transcribirlos mal
+ * ni tiene que gastar atención en un protocolo mientras conversa.
+ */
+function recsDeEvento(data: Record<string, any>): Rec[] {
+  const recs = (data?.recomendaciones ?? []) as Array<{ nombre: string; reason_codes?: string[] }>;
+  return recs.map((r, i) => ({
+    nombre: r.nombre,
+    recomendado: i === 0,
+    razon: r.reason_codes?.[0] ?? "",
+  }));
+}
+
+// Después de recomendar, el sistema invita a lo que solo el LLM puede hacer bien: leer el
+// clausulado real y explicarlo en cristiano. Antes dependía de que el modelo se acordara.
+const PREGUNTAS_ASESOR = ["¿Qué cubre?", "¿Qué NO cubre?", "¿Cuánto cuesta?"];
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 export default function Chat({ interes, evento, offline }: { interes?: string | null; evento?: string | null; offline?: boolean }) {
@@ -153,6 +171,10 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
   const started = useRef(false);
   const offlineCancel = useRef(false);
   const afiliadoRef = useRef<{ nombre: string; ciudad: string } | null>(null);
+  // El cliente sabe qué pintó; el servidor es stateless. Antes el estado se derivaba de que el
+  // modelo escribiera "RECOMENDACION:" con formato exacto — una tilde y la conversación no salía
+  // nunca de DESCUBRIENDO.
+  const yaRecomendo = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
@@ -219,7 +241,11 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, afiliado: afiliadoRef.current ?? undefined }),
+        body: JSON.stringify({
+          messages: history,
+          afiliado: afiliadoRef.current ?? undefined,
+          yaRecomendo: yaRecomendo.current,
+        }),
       });
       const data = (await res.json()) as { reply: string; events: UiEvent[] };
       // Si la respuesta llegó antes de que se alcancen a leer los pasos, se completa la espera; si
@@ -230,6 +256,11 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
 
       const eventItems: ChatItem[] = [];
       let openForm: UiEvent["data"] | null = null;
+      // Las recomendaciones seleccionables se construyen del EVENTO del motor, no del texto del
+      // modelo. El evento ya trae nombre, aseguradora, orden y reason codes: pedirle al LLM que los
+      // transcriba en un protocolo era usarlo de plomería, y bastaba una tilde en "RECOMENDACIÓN:"
+      // para que el sistema quedara mudo. Así tampoco puede equivocarse al copiar un nombre.
+      let recsDelMotor: Rec[] = [];
       for (const ev of data.events ?? []) {
         if (ev.type === "quote") lastQuote.current = String(ev.data.quoteId ?? lastQuote.current);
         if (ev.type === "form") { openForm = ev.data; continue; }
@@ -242,21 +273,31 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
           };
           continue;
         }
+        if (ev.type === "propension") {
+          recsDelMotor = recsDeEvento(ev.data);
+          if (recsDelMotor.length) yaRecomendo.current = true;
+        }
         eventItems.push({ kind: "event", event: ev });
       }
+      // Si el modelo emitió el protocolo por costumbre, se respeta como respaldo (el texto ya salió
+      // limpio de `parseReply`), pero el motor manda.
+      const recs = recsDelMotor.length ? recsDelMotor : parsed.recs;
+      if (recs.length) yaRecomendo.current = true;
 
       const msgItems: ChatItem[] = [];
       if (parsed.text) msgItems.push({ kind: "msg", role: "assistant", text: parsed.text });
 
       // (El teatro de explicabilidad ya arrancó ANTES del fetch: cubre la latencia real en vez de
       //  sumarse a ella. Antes corría aquí, después de que la respuesta ya había llegado.)
-      // Si hay recomendaciones -> pantalla de "evaluando opciones" y luego las tarjetas.
       // La TARJETA va antes del texto: la frase suele comentar lo que la tarjeta muestra ("¿quieres
       // que te cuente cómo funciona el de Hogar?"), y leerla antes de ver Hogar no tiene sentido.
-      if (parsed.recs.length) {
+      if (recs.length) {
         setBusy(false);
         setProcessing(null);
-        setItems((cur) => [...cur, ...eventItems, { kind: "recommend", recs: parsed.recs }, ...msgItems]);
+        setItems((cur) => [...cur, ...eventItems, { kind: "recommend", recs }, ...msgItems]);
+        // Se invita a las preguntas donde el LLM es insustituible: leer el clausulado y explicarlo
+        // en cristiano. Antes esto quedaba a que el modelo se acordara de ofrecerlo.
+        setSuggestions(parsed.options.length ? parsed.options : PREGUNTAS_ASESOR);
         return true;
       }
 
