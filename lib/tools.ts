@@ -189,16 +189,16 @@ export const toolDefinitions: Anthropic.Tool[] = [
   },
 ];
 
-/** Evento estructurado que la UI renderiza como tarjeta. */
-export interface UiEvent {
-  /**
-   * "afiliado" no pinta tarjeta: es el hallazgo de identidad que el cliente debe RECORDAR y
-   * reenviar en los siguientes turnos. Sin él, Amparito identifica a la persona en el turno 1 y
-   * no sabe quién es en el turno 3 (el historial se reconstruye solo con los textos).
-   */
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado" | "feedback";
-  data: Record<string, unknown>;
-}
+/**
+ * Evento estructurado que la UI renderiza como tarjeta.
+ *
+ * La definición vive en `lib/estado/tipos.ts` y aquí solo se reexporta: es un contrato de
+ * presentación que comparten servidor y navegador, y este módulo importa el SDK de Anthropic,
+ * que el cliente no puede arrastrar. Declararlo en los dos sitios es cómo dos tipos que deben
+ * ser el mismo empiezan a divergir sin que nadie lo note.
+ */
+export type { UiEvent } from "./estado/tipos";
+import type { UiEvent } from "./estado/tipos";
 
 /** Ejecuta una tool y devuelve {result, event?}. Compuertas de cumplimiento EN SERVIDOR. */
 /**
