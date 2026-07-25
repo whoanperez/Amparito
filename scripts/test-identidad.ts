@@ -9,8 +9,7 @@
  */
 import { detectarCiudad, detectarNombre } from "../lib/afiliados/deteccion";
 import "./_env";
-import { identidadDe } from "./_identidad";
-import { getAffiliateGateway } from "../lib/afiliados";
+import { identidadDe, nombreDePrueba } from "./_identidad";
 
 let ok = true;
 const check = (label: string, cond: boolean) => {
@@ -53,17 +52,8 @@ async function main() {
 
   /* ── 2 · el caso real: decir el nombre AHORA dispara la búsqueda ────────── */
   console.log("\n===== El caso que motivó el bloque =====");
-  const nombreReal = process.env.TURSO_DATABASE_URL
-    ? await (async () => {
-        // Un afiliado real cualquiera, tomado de la propia base.
-        const gw = getAffiliateGateway();
-        for (const cand of ["maria fernanda amaya mora", "gerardo galvis penaloza"]) {
-          const h = await gw.buscar(cand);
-          if (h.estado === "unico") return cand;
-        }
-        return null;
-      })()
-    : "carolina ramirez lopez";
+  // El nombre lo elige la BASE, no el código. Aquí había dos nombres reales hardcodeados.
+  const nombreReal = await nombreDePrueba();
 
   if (nombreReal) {
     const r = await identidadDe(`soy ${nombreReal}`);

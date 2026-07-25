@@ -12,7 +12,42 @@ import { estadoInicial } from "../lib/estado/tipos";
 import type { EstadoConversacion } from "../lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, type HallazgoIdentidad } from "../lib/estado/reducir";
 import { ejecutarConsulta } from "../lib/afiliados/resolver";
+import { getAffiliateGateway } from "../lib/afiliados";
 import { contextoDeEstado } from "../lib/estado/contexto";
+
+/**
+ * Un afiliado real cualquiera para las pruebas, ELEGIDO EN CALIENTE.
+ *
+ * Antes había dos nombres reales hardcodeados, repetidos en dos gates, en un repo que declara
+ * (`lib/afiliados/gateway.ts`) que el índice de nombres "nunca se sube al repo público". Eran
+ * cadenas muertas mientras `.env.local` no se cargaba; en cuanto los gates empezaron a ver la
+ * base de verdad, pasaron a ser consultas vivas contra dos personas concretas.
+ *
+ * Preguntarle a la base cuál usar no cuesta nada y saca los nombres del código. Se piden varios
+ * porque hace falta uno SIN homónimos: con un nombre ambiguo la prueba mediría otra cosa.
+ */
+export async function nombreDePrueba(): Promise<string | null> {
+  const norm = (s: string) =>
+    s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+  if (!process.env.TURSO_DATABASE_URL) return "carolina ramirez lopez"; // sample sintético
+
+  const { createClient } = await import("@libsql/client");
+  const db = createClient({
+    url: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+  const r = await db.execute(
+    `SELECT nombre FROM afiliados
+      WHERE ciudad <> '' AND genero <> '' AND categoria <> '' AND grupo_familiar <> ''
+      LIMIT 25`
+  );
+  for (const fila of r.rows) {
+    const n = norm(String(fila.nombre));
+    if ((await getAffiliateGateway().buscar(n)).estado === "unico") return n;
+  }
+  return null;
+}
 
 export interface ResueltaIdentidad {
   hallazgo: HallazgoIdentidad;

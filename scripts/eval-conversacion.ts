@@ -18,8 +18,7 @@ import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "../lib/prompts
 import { estadoInicial } from "../lib/estado/tipos";
 import { siguienteFase } from "../lib/estado/reducir";
 import "./_env";
-import { identidadDe } from "./_identidad";
-import { getAffiliateGateway } from "../lib/afiliados";
+import { identidadDe, nombreDePrueba } from "./_identidad";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { executeTool } from "../lib/tools";
@@ -46,14 +45,8 @@ async function main() {
 
   /* ═══ 1 · Afiliado reconocido: valor antes que preguntas ═══════════════════ */
   titulo("1 · Nombre reconocido → tarjeta sin interrogatorio");
-  const nombreReal = process.env.TURSO_DATABASE_URL
-    ? await (async () => {
-        for (const c of ["maria fernanda amaya mora", "gerardo galvis penaloza"]) {
-          if ((await getAffiliateGateway().buscar(c)).estado === "unico") return c;
-        }
-        return null;
-      })()
-    : "carolina ramirez lopez";
+  // El nombre lo elige la BASE, no el código. Aquí había dos nombres reales hardcodeados.
+  const nombreReal = await nombreDePrueba();
 
   if (!nombreReal) {
     check("hay un afiliado real para la prueba", false);
