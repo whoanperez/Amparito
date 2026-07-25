@@ -27,10 +27,21 @@ const check = (label: string, cond: boolean, detalle?: string) => {
 // Se IMPORTAN de la pantalla, no se copian. Con dos listas sincronizadas a mano volvería a pasar
 // lo de B5: alguien cambia el `msg`, el gate sigue verde probando un string que ya nadie usa, y el
 // jurado toca un botón que no reconoce a nadie.
-import { CHIPS_ENTRADA, PERSONAS_DEMO } from "../components/Chat";
+import { CHIPS_ENTRADA, PERSONAS_DEMO, chipDeOpcion } from "../components/Chat";
 
 const PASTILLAS = PERSONAS_DEMO.map((p) => p.msg);
-const CHIP_SIN_TRABAJO = CHIPS_ENTRADA.find((c) => /sin trabajo/i.test(c))!;
+const CHIP_SIN_TRABAJO = CHIPS_ENTRADA.find((c) => /sin trabajo/i.test(c.texto))!;
+
+// #26 · la regla de las afordancias, verificada: cuatro familias de botón tenían la misma pinta y
+// dos comportamientos distintos, así que no se podía predecir qué hacía ninguno.
+check("el chip de arranque anti-venta es una respuesta ENTERA (envía)", CHIP_SIN_TRABAJO.completa);
+const chipNombre = CHIPS_ENTRADA.find((c) => /^Soy/.test(c.texto))!;
+check("el chip del nombre está INCOMPLETO (prellena)", !chipNombre.completa);
+check("y su etiqueta lo dice, en vez de mostrar una palabra suelta",
+  chipNombre.etiqueta.endsWith("…") && chipNombre.etiqueta !== chipNombre.texto,
+  `→ "${chipNombre.etiqueta}"`);
+check("una opción del modelo abierta se marca como incompleta", !chipDeOpcion("Vivo en ").completa);
+check("y una respuesta entera, como completa", chipDeOpcion("Sí, avancemos").completa);
 
 async function main() {
   /* ── 1 · un toque en una pastilla → reconocimiento ─────────────────────── */
@@ -62,7 +73,7 @@ async function main() {
 
   /* ── 2 · un toque en el chip → el anti-venta ───────────────────────────── */
   console.log("\n===== Un toque → \"hoy no te vendo nada\" =====");
-  const s = sanearPerfil({}, { textoUsuario: CHIP_SIN_TRABAJO });
+  const s = sanearPerfil({}, { textoUsuario: CHIP_SIN_TRABAJO.texto });
   check("el servidor detecta la falta de ingreso SIN que el modelo mande el flag",
     s.perfil.enriquecido?.sin_ingresos === true);
   check("y la marca como declarada, no inferida",

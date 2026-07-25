@@ -22,18 +22,25 @@ export const SIN_RESPUESTA =
 export const PREGUNTAS_ASESOR = ["¿Qué cubre?", "¿Qué NO cubre?", "¿Cuánto cuesta?"];
 
 /**
- * El primer mensaje. Vivía en `components/Chat.tsx` y se inyectaba como `messages[0]` con rol
- * `assistant`: un turno que el modelo nunca escribió, atribuido al modelo. Ahora lo produce el
- * servidor, que es quien decide las fases, y queda en un solo sitio donde se puede versionar.
+ * El primer mensaje.
  *
- * MUDANZA LITERAL. El copy tiene dos problemas conocidos —hace cuatro trabajos en orden invertido
- * (da una orden antes de presentarse) y ANUNCIA el anti-venta, que es como se quema el momento
- * que la gente recuerda— pero arreglarlos es el bloque 4. Mezclar mudanza con reescritura es cómo
- * se pierde la trazabilidad de qué rompió qué.
+ * QUÉ TENÍA MAL, y por qué importa más de lo que parece:
+ *
+ * 1 · Hacía CUATRO trabajos en orden invertido: daba una orden ("Dime tu nombre") antes de
+ *     presentarse. A quien acaba de abrir un chat se le pide algo antes de saber con quién habla.
+ *
+ * 2 · ANUNCIABA el anti-venta: "Y a veces te voy a decir que no". Ese es el activo diferencial
+ *     del producto —el momento que la gente recuerda tres horas después— y anunciarlo lo destruye:
+ *     cuando llegue el "hoy no te vendo nada" se leerá como GUION CUMPLIDO, no como honestidad.
+ *     Una promesa cumplida impresiona; una promesa anunciada y luego cumplida solo confirma.
+ *     Se gastaba en el primer frame, antes de existir.
+ *
+ * Ahora hace DOS, en orden: se presenta, y hace UNA sola invitación con su motivo. El anti-venta
+ * no se anuncia — se hace, y por eso sorprende.
  */
 export const SALUDO_INICIAL =
-  "Dime tu nombre: si estás afiliado a Colsubsidio te reconozco y nos saltamos el interrogatorio 💛 " +
-  "Soy Amparito — de amparar, protegerte. Y a veces te voy a decir que no.";
+  "Soy Amparito, de amparar: protegerte. Si me dices tu nombre y estás afiliado a Colsubsidio " +
+  "te reconozco, y nos saltamos el interrogatorio 💛";
 
 /** Eventos que son ESTADO, no contenido: no pintan tarjeta. */
 const NO_PINTAN = new Set(["form", "opciones"]);

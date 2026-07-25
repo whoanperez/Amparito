@@ -18,7 +18,7 @@ import {
 } from "../lib/estado/reducir";
 import { estadoInicial } from "../lib/estado/tipos";
 import type { EstadoConversacion, UiEvent } from "../lib/estado/tipos";
-import { vistaDeEstado, limpiarTexto } from "../lib/estado/vista";
+import { vistaDeEstado, limpiarTexto, SALUDO_INICIAL } from "../lib/estado/vista";
 import { sellar, abrir, abrirOInicial } from "../lib/estado/sello";
 import { contextoDeEstado } from "../lib/estado/contexto";
 import { sanearPerfil } from "../lib/engine/sanear";
@@ -313,6 +313,26 @@ titulo("El contexto le recuerda al modelo lo que el motor ya decidió");
   check("tras el anti-venta se le recuerda que dijo que no", ctxNo.includes("NO LE VENDES NADA"));
   check("con el motivo, para que no lo reinvente", ctxNo.includes("ingreso"));
   checkEq("y NO se le listan productos para ofrecer", ctxNo.includes("LO QUE YA LE RECOMENDASTE"), false);
+}
+
+/* 6c · El saludo ─────────────────────────────────────────────────────────────
+   El copy también se puede verificar cuando la propiedad es estructural. Estas dos lo son, y
+   ambas se habían roto en el saludo que había. */
+titulo("El saludo no quema el anti-venta ni da órdenes antes de presentarse");
+{
+  const s = SALUDO_INICIAL;
+  // El anti-venta es el momento que la gente recuerda. Anunciarlo lo convierte en guion cumplido
+  // en vez de honestidad: cuando llegue, ya no sorprende.
+  check("no anuncia el anti-venta",
+    !/te voy a decir que no|no te vendo|a veces.*que no/i.test(s), `→ "${s}"`);
+  // Presentarse antes de pedir. A quien abre un chat se le pide algo después de saber con quién
+  // habla, no antes.
+  const sePresenta = s.indexOf("Amparito");
+  const pide = s.search(/dime|me dices|dame/i);
+  check("se presenta ANTES de pedir nada", sePresenta >= 0 && pide > sePresenta,
+    `→ presenta@${sePresenta} pide@${pide}`);
+  check("una sola invitación, no un interrogatorio", (s.match(/\?/g) ?? []).length === 0);
+  check("y sigue prometiendo el arranque caliente", /reconozco/i.test(s));
 }
 
 /* 7 · El sello ───────────────────────────────────────────────────────────────

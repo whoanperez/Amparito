@@ -54,7 +54,38 @@ const GREETING = SALUDO_INICIAL;
 // Chips de arranque: prellenan la casilla para que la persona complete y edite.
 // El anti-venta es el momento que se recuerda tres horas después, y hoy había que provocarlo con
 // la frase exacta. Con el chip se DESCUBRE, que vale el doble.
-export const CHIPS_ENTRADA = ["Soy ", "Me quedé sin trabajo", "Prefiero no dar mi nombre"];
+/**
+ * Chips de arranque. La ETIQUETA y lo que se escribe son cosas distintas, y confundirlas producía
+ * un botón que decía "Soy" a secas — una palabra suelta, sin sentido para quien la lee (#25).
+ *
+ * Y `completa` resuelve el #26: había cuatro familias de botón con la MISMA pinta y dos
+ * comportamientos distintos —unos prellenaban, otros enviaban— así que no se podía predecir qué
+ * hacía ninguno. La regla ahora es una sola y se lee en el propio botón:
+ *
+ *    completa: true  → es una respuesta entera  → ENVÍA
+ *    completa: false → hay que terminarla       → PRELLENA, y lleva "…" para que se vea
+ */
+export interface Chip {
+  etiqueta: string;
+  texto: string;
+  completa: boolean;
+}
+
+export const CHIPS_ENTRADA: Chip[] = [
+  { etiqueta: "Soy…", texto: "Soy ", completa: false },
+  { etiqueta: "Me quedé sin trabajo", texto: "Me quedé sin trabajo", completa: true },
+  { etiqueta: "Prefiero no dar mi nombre", texto: "Prefiero no dar mi nombre", completa: true },
+];
+
+/**
+ * Una opción del modelo que termina en espacio necesita completarse ("Vivo en ", "Tengo un
+ * presupuesto de ") — así lo describe la tool `ofrecer_opciones`. El resto son respuestas
+ * enteras.
+ */
+export const chipDeOpcion = (opcion: string): Chip =>
+  /\s$/.test(opcion)
+    ? { etiqueta: `${opcion.trim()}…`, texto: opcion, completa: false }
+    : { etiqueta: opcion, texto: opcion, completa: true };
 
 // Entrada pull-first: tarjetas grandes "¿Qué quieres proteger?" (reemplaza la caja vacía)
 const PROTEGER = [
@@ -134,7 +165,7 @@ function insurerOf(name: string) {
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-export default function Chat({ interes, evento, offline }: { interes?: string | null; evento?: string | null; offline?: boolean }) {
+export default function Chat({ interes, evento, offline, jurado }: { interes?: string | null; evento?: string | null; offline?: boolean; jurado?: boolean }) {
   const proactivo = (evento && EVENTOS[evento.toLowerCase()]) || null;
   const [items, setItems] = useState<ChatItem[]>([{ kind: "msg", role: "assistant", text: proactivo ?? GREETING }]);
   const [input, setInput] = useState("");
@@ -190,8 +221,10 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interes]);
 
-  function pickSuggestion(opt: string) {
-    setInput(opt.endsWith(" ") ? opt : opt + " ");
+  /** Una sola puerta para los botones de texto: la completa se envía, la incompleta se prellena. */
+  function tocarChip(c: Chip) {
+    if (c.completa) { send(c.texto); return; }
+    setInput(c.texto.endsWith(" ") ? c.texto : c.texto + " ");
     setTimeout(() => inputRef.current?.focus(), 30);
   }
 
@@ -386,24 +419,44 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
           <div className="pullfirst">
             <div className="pf-chips">
               {CHIPS_ENTRADA.map((c) => (
-                <button key={c} className="pf-chip" onClick={() => pickSuggestion(c)}>{c}</button>
+                <button
+                  key={c.etiqueta}
+                  className={`pf-chip${c.completa ? "" : " incompleta"}`}
+                  onClick={() => tocarChip(c)}
+                >
+                  {c.etiqueta}
+                </button>
               ))}
             </div>
-            <div className="pf-jurado">
-              <span className="pf-jurado-lbl">Teclea un nombre y te reconozco. Prueba con uno de la base:</span>
-              <div className="pf-jurado-row">
-                {PERSONAS_DEMO.map((p) => (
-                  <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
-                ))}
+            {/*
+              El atajo del jurado solo aparece con ?jurado=1. La etiqueta decía "Prueba con uno de
+              la base:" junto a tres nombres: el producto le confesaba a quien mira que es un demo,
+              en el primer frame y antes de haber demostrado nada (#27). El atajo sigue existiendo
+              —es la red por si falla la conexión del salón— pero no se anuncia solo.
+            */}
+            {jurado && (
+              <div className="pf-jurado">
+                <span className="pf-jurado-lbl">Atajo de demo:</span>
+                <div className="pf-jurado-row">
+                  {PERSONAS_DEMO.map((p) => (
+                    <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {suggestions.length > 0 && !locked && (
           <div className="qr-row">
-            {suggestions.map((s) => (
-              <button key={s} className="quick" onClick={() => pickSuggestion(s)}>{s}</button>
+            {suggestions.map(chipDeOpcion).map((c) => (
+              <button
+                key={c.etiqueta}
+                className={`quick${c.completa ? "" : " incompleta"}`}
+                onClick={() => tocarChip(c)}
+              >
+                {c.etiqueta}
+              </button>
             ))}
           </div>
         )}
@@ -461,19 +514,32 @@ function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string
 function ProcessingCard({ variant }: { variant: "emision" | "reco" }) {
   const SETS: Record<string, string[]> = {
     emision: ["Validando tu información…", "Consultando con la aseguradora…", "Personalizando tu cobertura…", "Generando tu certificado…"],
-    // Los pasos REALES del motor de propensión (no relleno): demuestran el "no caja negra".
+    /*
+     * Los pasos son los REALES del motor, y por eso valen: no son relleno. Pero se dicen desde lo
+     * que le pasa a la PERSONA, no desde la arquitectura.
+     *
+     * "Ordenando por propensión, de forma determinista" es una frase para un jurado técnico, no
+     * para alguien que quiere saber qué lo protege. El producto que habla de su propio motor
+     * mientras trabaja se parece a un mago explicando el truco a mitad.
+     */
     reco: [
-      "Leyendo tu perfil de vida…",
-      "Sumando las señales que aplican a tu caso…",
-      "Descartando lo que no puedes tener y lo que hoy no te conviene…",
-      "Ordenando por propensión, de forma determinista…",
-      "Redactando el porqué de cada recomendación…",
+      "Leyendo lo que me contaste…",
+      "Viendo qué te protege de verdad y qué no…",
+      "Dejando fuera lo que hoy no te conviene…",
+      "Ordenando por lo que más te cuida…",
+      "Preparando el porqué de cada una…",
     ],
   };
   const steps = SETS[variant];
+  /*
+   * El subtítulo decía "Motor de propensión explicable · reglas que puedes auditar, no una caja
+   * negra". Es el producto narrando su propia ingeniería dentro de la conversación (#31). La
+   * explicabilidad NO se anuncia: está a un clic, en la traza, y ahí se comprueba. Anunciarla
+   * mientras se espera es pedir que se confíe en vez de mostrar.
+   */
   const sub = variant === "reco"
-    ? "Motor de propensión explicable · reglas que puedes auditar, no una caja negra."
-    : "Estamos personalizando tu seguro con estándar de calidad Colsubsidio.";
+    ? "Vas a poder ver por qué, punto por punto."
+    : "Estamos preparando tu solicitud con el respaldo de Colsubsidio.";
   const [i, setI] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setI((x) => (x + 1) % steps.length), 1300);
