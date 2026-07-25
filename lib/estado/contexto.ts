@@ -59,12 +59,56 @@ function ambiguo(e: EstadoConversacion): string {
 }
 
 /**
- * Devuelve el bloque del turno, o `null` si no hay nada que decir sobre la identidad.
+ * Lo que el motor YA decidió, para que el modelo no tenga que adivinarlo.
  *
- * Es una función del ESTADO, no del hallazgo: por eso el mismo `resultado` produce instrucciones
- * distintas según en qué turno se esté.
+ * Los `tool_result` no sobreviven entre turnos: el historial se reconstruye solo con los textos.
+ * Así que al asesorar el modelo no sabía de qué producto estaba hablando —y el prompt le prohíbe
+ * haberlo nombrado sin que el motor lo dijera—, ni recordaba haberse negado a vender.
+ *
+ * Los nombres salen del motor, nunca de una transcripción del modelo.
+ */
+function veredicto(e: EstadoConversacion): string | null {
+  const v = e.veredicto;
+  if (!v) return null;
+
+  if (v.tipo === "no_venta") {
+    return (
+      `## YA LE DIJISTE QUE HOY NO LE VENDES NADA\n` +
+      `Motivo: ${v.no_venta?.motivo ?? "no hay ingreso con qué sostener una póliza"}\n` +
+      `NO te retractes ni vuelvas a ofrecer productos de pago, aunque insista. Si pregunta, ` +
+      `sostenlo con calidez y ofrécele lo que sí le sirve hoy. Tampoco vuelvas a llamar ` +
+      `calcular_propension salvo que te diga algo que cambie su situación de ingreso.` +
+      (v.obligatorios.length
+        ? `\nLo único que sí debes seguir señalando es lo obligatorio por ley: ${v.obligatorios.map((o) => o.nombre).join(", ")}.`
+        : "")
+    );
+  }
+
+  const nombres = v.recomendaciones.map((r) => r.nombre);
+  if (!nombres.length) return null;
+  return (
+    `## LO QUE YA LE RECOMENDASTE (dicho por el motor, no lo cambies)\n` +
+    `En pantalla ya tiene: ${nombres.join(", ")}.\n` +
+    `Si dice "ese", "el seguro" o "eso" sin más, se refiere a ${nombres[0]}.\n` +
+    `NO vuelvas a llamar calcular_propension salvo que te dé información nueva que cambie su ` +
+    `perfil. Ya puedes hablar de estos productos por su nombre: el motor los respaldó.` +
+    (v.peer ? `\nPrueba social disponible: ${v.peer.descripcion} (${v.peer.n} personas).` : "")
+  );
+}
+
+/**
+ * Devuelve el bloque del turno, o `null` si no hay nada que decirle al modelo sobre lo que el
+ * servidor ya sabe.
+ *
+ * Es una función del ESTADO, no del hallazgo del turno: por eso el mismo `resultado` produce
+ * instrucciones distintas según en qué turno se esté.
  */
 export function contextoDeEstado(e: EstadoConversacion): string | null {
+  const bloques = [identidad(e), veredicto(e)].filter(Boolean);
+  return bloques.length ? bloques.join("\n\n") : null;
+}
+
+function identidad(e: EstadoConversacion): string | null {
   const id = e.identidad;
 
   if (id.resultado === "reconocido") return reconocido(e);

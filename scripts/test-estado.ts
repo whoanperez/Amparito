@@ -20,6 +20,7 @@ import { estadoInicial } from "../lib/estado/tipos";
 import type { EstadoConversacion, UiEvent } from "../lib/estado/tipos";
 import { vistaDeEstado, limpiarTexto } from "../lib/estado/vista";
 import { sellar, abrir, abrirOInicial } from "../lib/estado/sello";
+import { contextoDeEstado } from "../lib/estado/contexto";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
@@ -285,6 +286,33 @@ titulo("La vista no compite con una pregunta abierta");
   const cerrado = cerrarTurno(e, { eventos: [mismoObjeto] });
   checkEq("el veredicto quedó guardado", cerrado.veredicto?.tipo, "recomendacion");
   checkEq("pero al turno siguiente ya no se repiten", vistaDeEstado(cerrado, "¿Te la explico?", []).sugerencias.length, 0);
+}
+
+/* 6b · El modelo sabe de qué producto habla ──────────────────────────────────
+   Los `tool_result` no sobreviven entre turnos: el historial se reconstruye solo con los textos.
+   Al asesorar, el modelo no sabía de qué producto hablaba —y el prompt le prohíbe haberlo
+   nombrado sin que el motor lo dijera—, ni recordaba haberse negado a vender. */
+titulo("El contexto le recuerda al modelo lo que el motor ya decidió");
+{
+  // Adverso primero: sin veredicto no se inventa un bloque.
+  let e = estadoInicial();
+  e.turno = 2;
+  checkEq("sin veredicto no hay bloque de recomendación", contextoDeEstado(e), null);
+
+  const prop = calcularPropension(PERSONAS.Carolina);
+  const conReco = cerrarTurno(e, { eventos: [eventoPropension(prop)] });
+  const ctxReco = contextoDeEstado(conReco) ?? "";
+  check("se le recuerda qué recomendó", ctxReco.includes(prop.recomendaciones[0].nombre));
+  check("y a qué se refiere un 'ese' de la persona", ctxReco.includes('Si dice "ese"'));
+  check("con la instrucción de no re-calcular", ctxReco.includes("NO vuelvas a llamar calcular_propension"));
+
+  // Tras el anti-venta, el bloque protege la negativa en vez de recordarle productos.
+  const { perfil } = sanearPerfil({}, { textoUsuario: "me quedé sin trabajo, no tengo ingresos" });
+  const sinVenta = cerrarTurno(e, { eventos: [eventoPropension(calcularPropension(perfil))] });
+  const ctxNo = contextoDeEstado(sinVenta) ?? "";
+  check("tras el anti-venta se le recuerda que dijo que no", ctxNo.includes("NO LE VENDES NADA"));
+  check("con el motivo, para que no lo reinvente", ctxNo.includes("ingreso"));
+  checkEq("y NO se le listan productos para ofrecer", ctxNo.includes("LO QUE YA LE RECOMENDASTE"), false);
 }
 
 /* 7 · El sello ───────────────────────────────────────────────────────────────
