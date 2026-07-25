@@ -23,7 +23,8 @@ export interface AfirmacionSinRespaldo {
   motivo: string;
 }
 
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const sinTildes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+const norm = (s: string) => sinTildes(s).toLowerCase();
 
 /** Cuantificadores: números o palabras de cantidad. */
 const CANTIDAD = /\b(\d[\d.,]*|varios|varias|muchos|muchas|miles|cientos|algunos|algunas|otros|otras)\b/;
@@ -57,16 +58,38 @@ export function afirmacionesSinRespaldo(
   e: EstadoConversacion
 ): AfirmacionSinRespaldo[] {
   const hallazgos: AfirmacionSinRespaldo[] = [];
+
+  /**
+   * El primer nombre, como PALABRA y con MAYÚSCULA. Dos accidentes que hay que evitar:
+   *
+   *   · con `includes` a secas, alguien llamado Ana convertía "hay varias opciones para mañana"
+   *     en una afirmación sobre la base — "manana" contiene "ana";
+   *   · con solo límite de palabra, Luz, Rosa, Cruz, Paz, Sol o Mar son nombres propios Y
+   *     sustantivos comunes, así que "varias alternativas de luz solar" disparaba.
+   *
+   * La mayúscula es la señal que los separa, y es la misma heurística que ya usa `detectarNombre`.
+   * El límite por la izquierda deja pasar el plural, que es como aparece en el caso real:
+   * "hay varios Carolinas".
+   *
+   * Coste asumido: si el modelo escribe el nombre en minúscula, se escapa. Es el lado correcto
+   * en el que fallar — dejar pasar una frase rara es mejor que mutilar una buena.
+   */
   const nombre = e.identidad.nombre?.trim().split(/\s+/)[0];
-  const primerNombre = nombre ? norm(nombre) : null;
+  const reNombre =
+    nombre && nombre.length >= 3
+      ? new RegExp(`\\b${sinTildes(nombre).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`)
+      : null;
 
   for (const frase of frasesDe(texto)) {
     const f = norm(frase);
+    // El nombre se busca sobre el texto con su CAPITALIZACIÓN intacta; todo lo demás, en
+    // minúsculas.
+    const conMayusculas = sinTildes(frase);
 
     // 1 · Cardinalidad de homónimos. Dos señales: cuantificador + o bien una referencia al
     //     registro, o bien el propio nombre de la persona ("hay varios Carolinas"), que es como
     //     apareció en la conversación real.
-    const hablaDelRegistro = REGISTRO.test(f) || (primerNombre !== null && f.includes(primerNombre));
+    const hablaDelRegistro = REGISTRO.test(f) || (reNombre !== null && reNombre.test(conMayusculas));
     if (CANTIDAD.test(f) && hablaDelRegistro && !e.identidad.ambiguo) {
       hallazgos.push({
         frase,
@@ -109,7 +132,7 @@ export function instruccionDeCorreccion(hallazgos: AfirmacionSinRespaldo[]): str
   return (
     "Tu respuesta afirma cosas sobre la base de afiliados de Colsubsidio que el sistema NO " +
     "verificó. Reescríbela quitando esas afirmaciones, sin sustituirlas por otras: si no lo " +
-    "sabes, no lo digas. Mantén el resto igual.\n" +
+    "sabes, no lo digas. Mantén el resto igual y conserva UNA SOLA pregunta.\n" +
     hallazgos.map((h) => `- "${h.frase}" → ${h.motivo}`).join("\n")
   );
 }

@@ -73,6 +73,19 @@ titulo("NO dispara con frases legítimas");
   check("decir que NO aparece cuando de verdad no apareció", limpio("No apareces en la base de afiliados de Colsubsidio, pero te atiendo igual.", e));
   check("prueba social cuando SÍ hay celda", limpio("12.400 personas como tú ya tienen algo parecido.", conPeer()));
   check("varios homónimos cuando de verdad los hay", limpio("Hay varias Carolinas en la base, por eso te pregunto la ciudad.", conHomonimos()));
+
+  // Nombres cortos contenidos en palabras comunes. Con `includes` a secas, alguien llamado Ana
+  // convertía "mañana" en una afirmación sobre la base — y nadie se habría enterado hasta que le
+  // pasara a una Ana de verdad.
+  const ana = anonimo();
+  ana.identidad = { ...ana.identidad, resultado: "no_encontrado", nombre: "Ana Gómez", intentos: 1 };
+  check("'mañana' no es un homónimo de Ana", limpio("Hay varias opciones para mañana.", ana));
+  check("ni 'ganancia', ni 'manzana'", limpio("Son muchas ganancias y varias manzanas.", ana));
+  check("pero SÍ dispara con el nombre como palabra", !limpio("Hay varias Anas en Colsubsidio.", ana));
+
+  const luz = anonimo();
+  luz.identidad = { ...luz.identidad, resultado: "no_encontrado", nombre: "Luz Marina", intentos: 1 };
+  check("un nombre corto dentro de otra palabra tampoco", limpio("Tienes varias alternativas de luz solar.", luz));
 }
 
 titulo("SÍ dispara con afirmaciones fabricadas");
