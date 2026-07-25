@@ -163,8 +163,45 @@ export interface NoVenta {
   alternativa: string;
 }
 
+/* ── Traza auditable (RNF-6) ─────────────────────────────────────────────────
+   "Toda recomendación persiste {perfil, reglas, pesos, reason codes, cita de fuente};
+   inspeccionable en pantalla (no caja negra)." Los datos ya existían dentro del motor: las
+   señales se recolectaban con su peso y se tiraban, y al resultado solo llegaba la razón.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/** Una señal que aplicó: qué campo del perfil la disparó, qué dice y cuánto pesó. */
+export interface SenalAplicada {
+  feature: string;
+  razon: string;
+  peso: number;
+}
+
+export interface TrazaProducto {
+  id: string;
+  nombre: string;
+  score: number;
+  senales: SenalAplicada[];
+  /** Dónde terminó, para poder explicar también lo que NO se recomendó. */
+  resultado: "recomendado" | "obligatorio" | "descartado" | "ya_cubierto" | "fuera_del_top";
+}
+
+export interface TrazaDecision {
+  /** Versión del scorecard con el que se decidió. Sin esto dos trazas no son comparables. */
+  version_reglas: string;
+  /** Perfil que ENTRÓ al motor, con la procedencia de cada campo (`_origen`). */
+  perfil: Perfil;
+  gate_asequibilidad: { categoria: string; prioriza_prima_baja: boolean };
+  /** Si la jerarquía de protección movió el orden contra el puntaje. */
+  jerarquia_aplicada: boolean;
+  /** Por qué se afirmó (o no) la prueba social. */
+  peer: { afirmada: boolean; motivo: string };
+  productos: TrazaProducto[];
+}
+
 export interface PropensionResult {
   recomendaciones: Recomendacion[];
+  /** Traza auditable de esta decisión (RNF-6). Aditiva: nada existente cambia de forma. */
+  traza?: TrazaDecision;
   /** Si viene, NO se recomienda ningún producto de pago: no es una venta perdida, es criterio. */
   no_venta?: NoVenta;
   /**

@@ -5,6 +5,7 @@ import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
 import { sanearPerfil, type SegmentoBase } from "./engine/sanear";
+import { registrar } from "./auditoria";
 import { Perfil } from "./engine/types";
 
 /**
@@ -211,7 +212,21 @@ export interface ToolCtx {
   segmentoBase?: SegmentoBase;
 }
 
+/**
+ * Punto ÚNICO por donde pasan las 9 tools. Aquí se registra la decisión (RNF-6): no en nueve
+ * sitios distintos, que es como se pierde la mitad de la traza.
+ */
 export async function executeTool(
+  name: string,
+  input: Record<string, unknown>,
+  ctx: ToolCtx = {}
+): Promise<{ result: unknown; event?: UiEvent }> {
+  const salida = await ejecutar(name, input, ctx);
+  registrar(name, input, salida.result);
+  return salida;
+}
+
+async function ejecutar(
   name: string,
   input: Record<string, unknown>,
   ctx: ToolCtx = {}

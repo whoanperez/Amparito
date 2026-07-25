@@ -154,6 +154,16 @@ async function main() {
     `→ ${advR.recomendaciones[0]?.nombre ?? "—"}`);
   check("prueba social AUSENTE sin ejes verificados", advR.peer === null);
 
+  /* ═══ 6b · La traza auditable (RNF-6) ═════════════════════════════════════ */
+  titulo("6b · Traza auditable: se puede ver por qué");
+  const tz = advR.traza!;
+  check("la recomendación deja traza", !!tz);
+  check("los pesos suman el score", tz.productos.every((p) => p.senales.reduce((a, s) => a + s.peso, 0) === p.score));
+  check("cada campo del perfil dice de dónde vino", !!tz.perfil._origen);
+  check("dice por qué NO se afirmó la prueba social", tz.peer.afirmada === false && !!tz.peer.motivo,
+    `→ ${tz.peer.motivo}`);
+  check("y con qué versión de reglas se decidió", tz.version_reglas !== "?", `→ v${tz.version_reglas}`);
+
   /* ═══ 7 · Guarda de la pregunta de doble cañón ═════════════════════════════ */
   titulo("7 · Doble cañón → la guarda lo detecta");
   const mala = "¿tienes algún vehículo (carro, moto o bici), o tu vivienda es propia o en arriendo?";

@@ -8,7 +8,8 @@
  */
 import weightsData from "../../data/weights.json";
 import { getProduct } from "../catalog";
-import { lookupPeer } from "./peer";
+import { lookupPeer, MIN_N as MIN_N_PEER } from "./peer";
+import { ejesPeerVerificados } from "./sanear";
 import {
   Perfil,
   PropensionResult,
@@ -17,6 +18,8 @@ import {
   WeightsFile,
   Recomendacion,
   Obligatorio,
+  TrazaDecision,
+  TrazaProducto,
   Descartado,
   YaCubierto,
 } from "./types";
@@ -77,7 +80,7 @@ interface Scored {
   id: string;
   w: ProductoWeights;
   score: number;
-  reasons: Array<{ razon: string; peso: number }>;
+  reasons: Array<{ feature: string; razon: string; peso: number }>;
   yaCubierto?: { razon: string };
   hasRealSignal: boolean; // ¿aplicó alguna señal que NO sea un prior (tasa base)?
 }
@@ -117,11 +120,13 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
     .map(([id, w]) => {
       let score = 0;
       let hasRealSignal = false;
-      const reasons: Array<{ razon: string; peso: number }> = [];
+      // `feature` se guarda además de la razón: la traza tiene que poder decir QUÉ campo del
+      // perfil disparó cada señal, no solo qué dice. Es la diferencia entre explicar y afirmar.
+      const reasons: Array<{ feature: string; razon: string; peso: number }> = [];
       for (const s of w["señales"]) {
         if (senalAplica(perfil, s)) {
           score += s.peso;
-          reasons.push({ razon: s.razon, peso: s.peso });
+          reasons.push({ feature: s.feature, razon: s.razon, peso: s.peso });
           if (!s.feature.startsWith("prior.")) hasRealSignal = true;
         }
       }
@@ -130,6 +135,7 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
         if ((perfil.ya_cubierto ?? []).includes(r.si_tiene)) {
           score += r.peso;
           yaCubierto = { razon: r.razon };
+          reasons.push({ feature: `ya_cubierto.${r.si_tiene}`, razon: r.razon, peso: r.peso });
         }
       }
       reasons.sort((a, b) => b.peso - a.peso);
@@ -227,15 +233,53 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
     !!scored.find((x) => x.id === recomendaciones[0].id)?.w.protege_ingreso &&
     recomendaciones.some((r, i) => i > 0 && r.score > recomendaciones[0].score);
 
+  const peerResult = lookupPeer(perfil);
+
+  // RNF-6 · traza auditable. Se arma AQUÍ porque solo ahora se sabe dónde terminó cada producto.
+  const descIds = new Set(descartados.map((d) => d.id));
+  const cubiertoIds = new Set(scored.filter((x) => x.yaCubierto).map((x) => x.id));
+  const traza: TrazaDecision = {
+    version_reglas: String((weights as unknown as { _meta?: { version?: unknown } })._meta?.version ?? "?"),
+    perfil, // trae `_origen`: la procedencia de cada campo
+    gate_asequibilidad: { categoria: cat || "(vacío)", prioriza_prima_baja: primaBajaPrimero },
+    jerarquia_aplicada: jerarquiaAplicada,
+    peer: peerResult
+      ? { afirmada: true, motivo: `celda encontrada con n=${peerResult.n} (umbral mínimo ${MIN_N_PEER})` }
+      : {
+          afirmada: false,
+          motivo: perfil._origen && !ejesPeerVerificados(perfil)
+            ? "los 4 ejes del peer-group no están verificados (base o declarados)"
+            : "no hay celda para este segmento, o su tamaño está bajo el umbral mínimo",
+        },
+    productos: scored
+      .map((x) => ({
+        id: x.id,
+        nombre: getProduct(x.id)?.nombre ?? x.id,
+        score: x.score,
+        senales: x.reasons,
+        resultado: (obligIds.has(x.id)
+          ? "obligatorio"
+          : cubiertoIds.has(x.id)
+            ? "ya_cubierto"
+            : recIds.has(x.id)
+              ? "recomendado"
+              : descIds.has(x.id)
+                ? "descartado"
+                : "fuera_del_top") as TrazaProducto["resultado"],
+      }))
+      .sort((a, b) => b.score - a.score),
+  };
+
   return {
     recomendaciones,
+    traza,
     obligatorios,
     jerarquia: jerarquiaAplicada
       ? "Primero lo que reemplaza tu ingreso: hay personas que dependen de él. Lo demás va después, aunque encaje bien."
       : undefined,
     descartados,
     ledger: { riesgos_hoy, ya_cubierto: yaCubiertoList },
-    peer: lookupPeer(perfil),
+    peer: peerResult,
   };
 }
 

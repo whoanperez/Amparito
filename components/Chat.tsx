@@ -601,6 +601,7 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   const peer = data.peer as { descripcion: string; n: number; pct: number } | null;
   const noVenta = data.no_venta as { motivo: string; alternativa: string } | undefined;
   const jerarquia = data.jerarquia as string | undefined;
+  const traza = data.traza as TrazaData | undefined;
   const top = recs[0];
 
   // El segundo NO: "hoy no te sirve". Reemplaza la tarjeta entera — no tiene sentido mostrar un
@@ -702,6 +703,11 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
+      {/* Traza auditable (RNF-6): "inspeccionable en pantalla — no caja negra". Es lo que convierte
+          "confía en mí" en "míralo": el perfil que entró con la procedencia de cada campo, las
+          reglas que aplicaron con su peso, y la versión del scorecard con la que se decidió. */}
+      {traza && <TrazaDecision traza={traza} />}
+
       {/* Descartados — la pregunta de segundo orden: por qué NO lo otro */}
       {descartados.length > 0 && (
         <details className="pp-disc" open>
@@ -714,6 +720,95 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
         </details>
       )}
     </div>
+  );
+}
+
+/* ===== Traza auditable de la decisión (RNF-6) =====
+   "Toda recomendación persiste {perfil, reglas, pesos, reason codes, cita de fuente};
+   inspeccionable en pantalla (no caja negra)." Va colapsada: no es para el usuario común, es para
+   quien pregunta "¿y por qué?" — un jurado, cumplimiento, o alguien que desconfía. Que exista y se
+   pueda abrir es el punto. */
+interface TrazaData {
+  version_reglas: string;
+  perfil: Record<string, any>;
+  gate_asequibilidad: { categoria: string; prioriza_prima_baja: boolean };
+  jerarquia_aplicada: boolean;
+  peer: { afirmada: boolean; motivo: string };
+  productos: Array<{
+    id: string;
+    nombre: string;
+    score: number;
+    resultado: string;
+    senales: Array<{ feature: string; razon: string; peso: number }>;
+  }>;
+}
+
+const RESULTADO_ETIQUETA: Record<string, string> = {
+  recomendado: "recomendado",
+  obligatorio: "obligatorio por ley",
+  ya_cubierto: "ya lo tienes",
+  descartado: "descartado",
+  fuera_del_top: "no entró al top",
+};
+
+function TrazaDecision({ traza }: { traza: TrazaData }) {
+  const origen = (traza.perfil?._origen ?? {}) as Record<string, string>;
+  const campos = Object.entries(traza.perfil ?? {}).filter(([k]) => k !== "_origen" && k !== "enriquecido");
+  const enr = Object.entries((traza.perfil?.enriquecido ?? {}) as Record<string, unknown>);
+
+  return (
+    <details className="tz">
+      <summary>Ver cómo llegué a esto</summary>
+
+      <div className="tz-lbl">Lo que supe de ti, y de dónde lo supe</div>
+      <ul className="tz-perfil">
+        {[...campos, ...enr.map(([k, v]) => [`enriquecido.${k}`, v] as [string, unknown])].map(([k, v]) => (
+          <li key={k}>
+            <code>{k}</code> = {Array.isArray(v) ? v.join(", ") : String(v)}
+            <span className={`tz-org ${origen[k] ?? origen[`enriquecido.${k}`] ?? ""}`}>
+              {origen[k] ?? origen[`enriquecido.${k}`] ?? "—"}
+            </span>
+          </li>
+        ))}
+        {campos.length === 0 && enr.length === 0 && <li>No tenía ningún dato tuyo.</li>}
+      </ul>
+      <p className="tz-nota">
+        <b>base</b> = vino de Colsubsidio · <b>declarado</b> = lo dijiste y se verificó ·{" "}
+        <b>inferido</b> = se dedujo, y por eso no habilita afirmaciones sobre la base.
+      </p>
+
+      <div className="tz-lbl">Las reglas que aplicaron, y cuánto pesó cada una</div>
+      <div className="tz-tabla">
+        {traza.productos.filter((p) => p.senales.length > 0).map((p) => (
+          <div className="tz-prod" key={p.id}>
+            <div className="tz-prod-top">
+              <b>{p.nombre}</b>
+              <span className="tz-score">{p.score}</span>
+              <span className={`tz-res ${p.resultado}`}>{RESULTADO_ETIQUETA[p.resultado] ?? p.resultado}</span>
+            </div>
+            <ul>
+              {p.senales.map((s, i) => (
+                <li key={i}>
+                  <span className="tz-peso">{s.peso > 0 ? `+${s.peso}` : s.peso}</span>
+                  <code>{s.feature}</code> {s.razon}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="tz-lbl">Decisiones del motor</div>
+      <ul className="tz-meta">
+        <li>
+          Gate de asequibilidad · categoría <code>{traza.gate_asequibilidad.categoria}</code> →{" "}
+          {traza.gate_asequibilidad.prioriza_prima_baja ? "prioriza prima baja" : "sin prioridad de prima"}
+        </li>
+        <li>Jerarquía de protección · {traza.jerarquia_aplicada ? "aplicada (movió el orden)" : "no hizo falta"}</li>
+        <li>Prueba social · {traza.peer.afirmada ? "afirmada" : "NO afirmada"}: {traza.peer.motivo}</li>
+        <li>Versión del scorecard · <code>{traza.version_reglas}</code></li>
+      </ul>
+    </details>
   );
 }
 
