@@ -241,6 +241,49 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   return { perfil: perfil as Perfil, descartes };
 }
 
+/**
+ * Resumen de lo que YA está evidente en la conversación, derivado del texto de la persona.
+ *
+ * Existe porque `/api/chat` es stateless: el modelo reconstruye el perfil del historial crudo en
+ * cada turno y a veces no ve que ya preguntó. En la conversación real preguntó dos veces por los
+ * dependientes y dos veces por el uso del carro, con las mismas palabras.
+ *
+ * Es determinista y no necesita estado en el cliente: usa las mismas listas de términos con las
+ * que `sanearPerfil` verifica la evidencia.
+ */
+export function resumenEvidencia(textoUsuario: string): string | null {
+  const texto = norm(textoUsuario);
+  if (!texto.trim()) return null;
+  const menciona = (t: string[]) => t.some((x) => texto.includes(x));
+
+  const vehiculos = Object.entries(TERMINOS_VEHICULO)
+    .filter(([, t]) => menciona(t))
+    .map(([k]) => k);
+  const mascotas = Object.entries(TERMINOS_MASCOTA)
+    .filter(([, t]) => menciona(t))
+    .map(([k]) => k);
+  const hablóDeVivienda = menciona(TERMINOS_VIVIENDA);
+  const hablóDeDependientes = menciona([
+    "hijo", "hija", "hijos", "esposa", "esposo", "pareja", "mama", "papa", "madre", "padre",
+    "depende", "dependen", "a cargo", "solo yo", "nadie",
+  ]);
+  const hablóDeIngreso = menciona(["ingreso", "gano", "sueldo", "salario", "trabajo", "empleo", "desemplead"]);
+
+  const sabe: string[] = [];
+  const falta: string[] = [];
+  (vehiculos.length ? sabe : falta).push(vehiculos.length ? `vehículo = ${vehiculos.join(", ")}` : "vehículo");
+  (hablóDeDependientes ? sabe : falta).push("quién depende de su ingreso");
+  (hablóDeVivienda ? sabe : falta).push("vivienda");
+  if (mascotas.length) sabe.push(`mascota = ${mascotas.join(", ")}`);
+  if (hablóDeIngreso) sabe.push("su situación de ingreso");
+
+  return (
+    `## LO QUE YA TE CONTÓ (no lo vuelvas a preguntar)\n` +
+    (sabe.length ? `Ya sabes: ${sabe.join("; ")}.\n` : `Todavía no te ha contado nada concreto.\n`) +
+    (falta.length ? `Falta por saber: ${falta.join("; ")}. Pregunta solo lo de mayor valor y una cosa por turno.` : `No necesitas preguntar nada más: recomienda ya.`)
+  );
+}
+
 /** ¿Los 4 ejes del peer-group están verificados (base o declarados)? */
 export function ejesPeerVerificados(perfil: Perfil): boolean {
   const o = perfil._origen ?? {};

@@ -221,6 +221,59 @@ export function detectarEstado(
   return turnosUsuario <= 1 ? "SALUDO" : "DESCUBRIENDO";
 }
 
+/**
+ * Familias de tema. Una pregunta que toca DOS familias distintas es de doble cañón, aunque lleve
+ * un solo signo de interrogación — y ese es exactamente el caso que rompió la conversación real:
+ * "¿tienes algún vehículo, o tu vivienda es propia o en arriendo?" tiene un solo "?" y dos
+ * preguntas. La respuesta ("propio") se registró como vivienda propia y decidió la venta.
+ *
+ * Se cuentan SUSTANTIVOS de tema, no cualquier "o": así "¿la usas para el diario, para trabajar,
+ * o de vez en cuando?" sigue siendo una sola pregunta con tres opciones, que es válida y deseable.
+ */
+const TEMAS: Record<string, string[]> = {
+  vehiculo: ["vehiculo", "carro", "moto", "bici", "patineta", "camioneta", "automovil"],
+  vivienda: ["vivienda", "casa", "apartamento", "apto", "arriendo", "inmueble"],
+  familia: ["hijo", "hijos", "esposa", "esposo", "pareja", "familia", "dependen", "depende"],
+  mascota: ["mascota", "perro", "gato"],
+  // "ingreso" NO va aquí: "¿alguien depende de tu ingreso?" es UNA pregunta (familia + ingreso van
+  // juntos en este dominio), y es justo la de mayor valor informativo. Solo términos de monto.
+  dinero: ["sueldo", "salario", "presupuesto", "cuanto ganas"],
+  salud: ["salud", "enfermedad", "eps", "medico"],
+  viaje: ["viaje", "viajas", "viajar"],
+};
+
+/** ¿La respuesta encadena dos temas distintos en una sola pregunta? */
+export function esDobleCanon(texto: string): boolean {
+  const sinOpciones = texto
+    .split("\n")
+    .filter((l) => !/^\s*OPCIONES:/i.test(l))
+    .join(" ");
+  const preguntas = sinOpciones
+    .split(/(?<=\?)/)
+    .map((s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase())
+    .filter((s) => s.includes("?"));
+
+  return preguntas.some((p) => {
+    const tocados = Object.values(TEMAS).filter((terminos) => terminos.some((t) => p.includes(t)));
+    return tocados.length >= 2;
+  });
+}
+
+/**
+ * Cuenta las preguntas de una respuesta. Protege la regla "una sola pregunta por turno", que el
+ * prompt ya pide pero que se violó tres veces en una sola conversación real. La línea OPCIONES no
+ * cuenta: son respuestas que la persona daría, no preguntas.
+ */
+export function contarPreguntas(texto: string): number {
+  return (
+    texto
+      .split("\n")
+      .filter((l) => !/^\s*OPCIONES:/i.test(l))
+      .join("\n")
+      .split("?").length - 1
+  );
+}
+
 /** Ensambla el prompt del turno: base + un solo bloque de estado (+ contexto del servidor). */
 export function buildSystemPrompt(estado: Estado, contexto?: string): string {
   return [BASE, ESTADOS[estado], contexto?.trim(), CIERRE].filter(Boolean).join("\n\n");

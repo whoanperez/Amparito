@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { buildSystemPrompt, detectarEstado } from "@/lib/prompts";
+import { buildSystemPrompt, contarPreguntas, esDobleCanon, detectarEstado } from "@/lib/prompts";
 import { toolDefinitions, executeTool, UiEvent, type ToolCtx } from "@/lib/tools";
 import { resolverIdentidad } from "@/lib/afiliados/resolver";
+import { resumenEvidencia } from "@/lib/engine/sanear";
 
 export const maxDuration = 60;
 
@@ -58,14 +59,17 @@ export async function POST(req: NextRequest) {
     // prompt iba en cada turno y las secciones competían: el arranque caliente perdía contra el
     // ESTADO 2 ("haz 1 a 3 micro-preguntas"), que era más específico.
     const estado = detectarEstado(messages, { afiliadoReconocido });
-    const system = buildSystemPrompt(estado, contexto);
+    const textoUsuario = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
+
+    // Lo que ya está evidente en la conversación, derivado del texto. El route es stateless, así
+    // que sin esto el modelo re-deduce el perfil del historial crudo y repite preguntas: en la
+    // conversación real preguntó dos veces por los dependientes y dos por el uso del carro.
+    const evidencia = estado === "DESCUBRIENDO" ? resumenEvidencia(textoUsuario) : null;
+    const system = buildSystemPrompt(estado, [contexto, evidencia].filter(Boolean).join("\n\n"));
 
     // Contexto de las tools: `sanearPerfil` verifica los campos con gate contra lo que la PERSONA
     // escribió (no contra lo que escribió Amparito — ahí estaba el bug de `vivienda:"propia"`).
-    const toolCtx: ToolCtx = {
-      textoUsuario: messages.filter((m) => m.role === "user").map((m) => m.content).join("\n"),
-      segmentoBase,
-    };
+    const toolCtx: ToolCtx = { textoUsuario, segmentoBase };
 
     const client = new Anthropic(); // usa ANTHROPIC_API_KEY del entorno
 
@@ -115,11 +119,34 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const reply = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
+    const textoDe = (r: Anthropic.Message) =>
+      r.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("\n")
+        .trim();
+
+    let reply = textoDe(response);
+
+    // Guarda de la pregunta de doble cañón. `prompts.ts` lo prohíbe, pero una regla de prompt es
+    // una petición: se violó tres veces en una sola conversación. Y el daño es real — "¿tienes
+    // vehículo, o tu vivienda es propia?" produjo un "propio" que se registró como vivienda propia
+    // y decidió la venta. Un solo reintento, y si vuelve a pasar se deja como esté.
+    if (contarPreguntas(reply) > 1 || esDobleCanon(reply)) {
+      const reintento = await client.messages.create({
+        model: MODEL,
+        max_tokens: 1024,
+        system:
+          system +
+          `\n\n## CORRECCIÓN INMEDIATA\nTu respuesta anterior traía más de una pregunta. Reescríbela ` +
+          `con UNA SOLA pregunta, la más importante, y guarda el resto para los siguientes turnos. ` +
+          `Prohibido unir dos temas con "o".`,
+        tools: toolDefinitions,
+        messages: [...convo, { role: "assistant", content: reply }, { role: "user", content: "Reescribe tu último mensaje con una sola pregunta." }],
+      });
+      const corregido = textoDe(reintento);
+      if (corregido && contarPreguntas(corregido) <= 1 && !esDobleCanon(corregido)) reply = corregido;
+    }
 
     return NextResponse.json({ reply, events });
   } catch (err) {
