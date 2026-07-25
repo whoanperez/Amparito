@@ -546,6 +546,29 @@ async function main() {
     check("la corrección viaja como mensaje", String((llamadas[1].messages.at(-1) as { content: string }).content).includes("UNA SOLA pregunta"));
   }
 
+  titulo("Defecto #3 — no se publican afirmaciones sobre la base sin respaldo");
+  {
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "no_encontrado",
+      nombre: "Carolina Ramírez",
+    });
+    const fabricada = "Mucho gusto. Hay varios Carolinas en Colsubsidio 😅 ¿En qué ciudad estás?";
+
+    // El modelo se corrige al primer aviso: es el camino esperado.
+    const { d, llamadas } = deps([dice(fabricada), dice("Mucho gusto. ¿En qué ciudad estás?")], { resolver });
+    const r = await ejecutarTurno({ messages: HOLA }, d);
+    checkEq("la afirmación fabricada no se publica", textoDe(r).includes("varios Carolinas"), false);
+    checkEq("gana la versión corregida", textoDe(r), "Mucho gusto. ¿En qué ciudad estás?");
+    check("la corrección le dice exactamente qué afirmó de más",
+      String((llamadas[1].messages.at(-1) as { content: string }).content).includes("no devolvió homónimos"));
+
+    // Y el adverso que importa: si INSISTE, se poda la frase en vez de publicarla.
+    const { d: d2 } = deps([dice(fabricada), dice(fabricada)], { resolver });
+    const r2 = await ejecutarTurno({ messages: HOLA }, d2);
+    checkEq("si insiste, la frase se poda", textoDe(r2).includes("varios Carolinas"), false);
+    check("y sobrevive el resto del mensaje", textoDe(r2).includes("¿En qué ciudad estás?"), `→ "${textoDe(r2)}"`);
+  }
+
   console.log(`\n${ok ? "✅" : "❌"} ${total} verificaciones · ${ok ? "todo en verde" : "HAY FALLOS"}`);
   process.exit(ok ? 0 : 1);
 }

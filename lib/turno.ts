@@ -19,6 +19,7 @@ import type { ConsultaIdentidad, EstadoConversacion, UiEvent, UiVista } from "@/
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
+import { afirmacionesSinRespaldo, instruccionDeCorreccion, quitarFrases } from "@/lib/estado/validar";
 import { SALUDO_INICIAL, SIN_RESPUESTA, vistaDeEstado } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
@@ -348,6 +349,43 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     });
     const corregido = textoDe(reintento);
     if (corregido && contarPreguntas(corregido) <= 1 && !esDobleCanon(corregido)) reply = corregido;
+  }
+
+  // GUARDA DE AFIRMACIONES SOBRE LA BASE (#3). El servidor dijo "cero coincidencias con Carolina"
+  // y Amparito dijo "hay varios Carolinas": una afirmación fabricada sobre la base de datos de
+  // Colsubsidio, dicha con la autoridad de quien acaba de consultarla. El prompt ya lo prohíbe,
+  // pero una regla de prompt es una petición probabilística.
+  let sinRespaldo = afirmacionesSinRespaldo(reply, estado);
+  if (sinRespaldo.length) {
+    try {
+      const corregida = await deps.modelo.crear({
+        model: MODEL,
+        max_tokens: 1024,
+        system,
+        tools: toolDefinitions,
+        tool_choice: { type: "none" } as unknown as Anthropic.MessageCreateParams["tool_choice"],
+        messages: [
+          ...convo,
+          { role: "assistant", content: reply },
+          { role: "user", content: instruccionDeCorreccion(sinRespaldo) },
+        ],
+      });
+      const texto = textoDe(corregida);
+      if (texto) {
+        reply = texto;
+        sinRespaldo = afirmacionesSinRespaldo(reply, estado);
+      }
+    } catch {
+      /* si el reintento falla, queda la poda de abajo */
+    }
+
+    // Si INSISTE, se poda la frase. Es cirugía y puede dejar el mensaje algo cojo, pero de los
+    // dos males el otro es peor: publicar una cifra inventada sobre la base de afiliados de
+    // Colsubsidio es exactamente el daño que este producto no se puede permitir.
+    if (sinRespaldo.length) {
+      const podado = quitarFrases(reply, sinRespaldo);
+      reply = podado || SIN_RESPUESTA;
+    }
   }
 
   estado = cerrarTurno(estado, { eventos: events, perfilUsado, descartes });
