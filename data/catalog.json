@@ -8,16 +8,44 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["moto", "bici", "trabajo de riesgo", "domicilios", "construccion", "transporte", "deporte", "unico ingreso", "accidente", "obrero", "mensajeria"],
-      "coberturas": ["Muerte accidental y muerte presunta por desaparecimiento (incluye homicidio, terrorismo, atraco, ahogamiento, electrocución, mordedura de animal, intoxicación accidental y aviación comercial)", "Desmembración con indemnización escalonada del 3% al 100% según la pérdida", "Incapacidad total y permanente cuando la pérdida de capacidad laboral supera el 50% (certificada por Junta de Calificación)"],
-      "exclusiones": ["Enfermedades o lesiones preexistentes (diagnosticadas o tratadas antes de la vigencia)", "Participación en riñas, salvo legítima defensa", "Guerra, motín, rebelión, sedición o asonada", "Accidentes bajo influencia de alcohol, drogas o sustancias no prescritas", "Práctica o entrenamiento profesional de deportes de alto riesgo", "Accidentes como tripulante o pasajero de aeronave privada o helicóptero"],
-      "prima_regla": { "base": 18000, "por_edad": 250, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "moto",
+        "bici",
+        "trabajo de riesgo",
+        "domicilios",
+        "construccion",
+        "transporte",
+        "deporte",
+        "unico ingreso",
+        "accidente",
+        "obrero",
+        "mensajeria"
+      ],
+      "coberturas": [
+        "Muerte accidental y muerte presunta por desaparecimiento (incluye homicidio, terrorismo, atraco, ahogamiento, electrocución, mordedura de animal, intoxicación accidental y aviación comercial)",
+        "Desmembración con indemnización escalonada del 3% al 100% según la pérdida",
+        "Incapacidad total y permanente cuando la pérdida de capacidad laboral supera el 50% (certificada por Junta de Calificación)"
+      ],
+      "exclusiones": [
+        "Enfermedades o lesiones preexistentes (diagnosticadas o tratadas antes de la vigencia)",
+        "Participación en riñas, salvo legítima defensa",
+        "Guerra, motín, rebelión, sedición o asonada",
+        "Accidentes bajo influencia de alcohol, drogas o sustancias no prescritas",
+        "Práctica o entrenamiento profesional de deportes de alto riesgo",
+        "Accidentes como tripulante o pasajero de aeronave privada o helicóptero"
+      ],
+      "prima_regla": {
+        "base": 18000,
+        "por_edad": 250,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Prima mensual según edad y coberturas contratadas (valor de referencia). La muerte debe ocurrir dentro de los 365 días siguientes al accidente.",
         "consecuencias_no_pago": "Tras la mora la cobertura se suspende y el siniestro ocurrido en mora no se indemniza."
       },
       "fuente": "https://www.colsubsidio.com/hubfs/documentos/colsubsidio/poliza-de-seguro-de-accidentes-personales-colsubsidio.pdf",
-      "precio_tipo": "referencia"
+      "precio_tipo": "referencia",
+      "valor_asegurado": null
     },
     {
       "id": "vida_panamerican",
@@ -27,16 +55,40 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["hijo", "hija", "bebe", "matrimonio", "hogar", "unico ingreso", "padres mayores", "credito", "hipoteca", "familia", "fallecimiento"],
-      "coberturas": ["Fallecimiento por cualquier causa: muerte natural o accidental, incluye homicidio, suicidio y muerte por desaparecimiento (art. 1145 C. de Comercio), sin periodos de carencia", "Incapacidad total y permanente cuando la pérdida de capacidad laboral es igual o superior al 50% (dictamen de ARL, AFP o Junta de Calificación)"],
-      "exclusiones": ["Guerra declarada o no, guerra civil, invasión, rebelión, sedición o asonada", "Fisión o fusión nuclear, radiación y contaminación radiactiva", "Reticencia o inexactitud en la declaración del estado del riesgo (arts. 1058 y 1158 C. de Comercio)"],
-      "prima_regla": { "base": 25000, "por_edad": 400, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "hijo",
+        "hija",
+        "bebe",
+        "matrimonio",
+        "hogar",
+        "unico ingreso",
+        "padres mayores",
+        "credito",
+        "hipoteca",
+        "familia",
+        "fallecimiento"
+      ],
+      "coberturas": [
+        "Fallecimiento por cualquier causa: muerte natural o accidental, incluye homicidio, suicidio y muerte por desaparecimiento (art. 1145 C. de Comercio), sin periodos de carencia",
+        "Incapacidad total y permanente cuando la pérdida de capacidad laboral es igual o superior al 50% (dictamen de ARL, AFP o Junta de Calificación)"
+      ],
+      "exclusiones": [
+        "Guerra declarada o no, guerra civil, invasión, rebelión, sedición o asonada",
+        "Fisión o fusión nuclear, radiación y contaminación radiactiva",
+        "Reticencia o inexactitud en la declaración del estado del riesgo (arts. 1058 y 1158 C. de Comercio)"
+      ],
+      "prima_regla": {
+        "base": 25000,
+        "por_edad": 400,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Prima mensual según edad y valor asegurado (valor de referencia).",
         "consecuencias_no_pago": "La póliza se cancela por mora y se pierde la cobertura y la antigüedad."
       },
       "fuente": "https://f.hubspotusercontent10.net/hubfs/6993919/Colombia/Pagina%20Vive%20Col/documentaci%C3%B3n%20vive%20cr%C3%A9ditos%20tyc/Con%20clausulado%20Seguro%20Panamerican.pdf",
-      "precio_tipo": "referencia"
+      "precio_tipo": "referencia",
+      "valor_asegurado": null
     },
     {
       "id": "salud_bmi",
@@ -46,16 +98,37 @@
       "estandarizado": false,
       "requiere_asesoria": true,
       "periodicidad": "mensual",
-      "gatillos_vida": ["salud", "enfermedad", "hospitalizacion", "cirugia", "medicina prepagada", "hijos salud"],
-      "coberturas": ["Hospitalización y cirugía", "Consultas con especialistas", "Exámenes diagnósticos", "Urgencias"],
-      "exclusiones": ["Preexistencias según declaración", "Tratamientos estéticos", "Periodos de carencia según plan"],
-      "prima_regla": { "base": 120000, "por_edad": 3000, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "salud",
+        "enfermedad",
+        "hospitalizacion",
+        "cirugia",
+        "medicina prepagada",
+        "hijos salud"
+      ],
+      "coberturas": [
+        "Hospitalización y cirugía",
+        "Consultas con especialistas",
+        "Exámenes diagnósticos",
+        "Urgencias"
+      ],
+      "exclusiones": [
+        "Preexistencias según declaración",
+        "Tratamientos estéticos",
+        "Periodos de carencia según plan"
+      ],
+      "prima_regla": {
+        "base": 120000,
+        "por_edad": 3000,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Depende de edad, grupo familiar y declaración de salud; requiere asesoría personalizada.",
         "consecuencias_no_pago": "Suspensión de servicios médicos tras la mora que defina el contrato."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Valor estimado. Este producto requiere asesoría; las condiciones exactas las define la aseguradora."
+      "nota_precio": "Valor estimado. Este producto requiere asesoría; las condiciones exactas las define la aseguradora.",
+      "valor_asegurado": null
     },
     {
       "id": "asistencia_medica_familiar_mundial",
@@ -65,16 +138,36 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["familia", "hijos", "padres mayores", "medico en casa", "urgencia menor", "salud basica"],
-      "coberturas": ["Médico a domicilio", "Orientación médica telefónica 24/7", "Traslado en ambulancia", "Descuentos en farmacias"],
-      "exclusiones": ["Cirugías y hospitalización", "Tratamientos de alto costo"],
-      "prima_regla": { "base": 22000, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "familia",
+        "hijos",
+        "padres mayores",
+        "medico en casa",
+        "urgencia menor",
+        "salud basica"
+      ],
+      "coberturas": [
+        "Médico a domicilio",
+        "Orientación médica telefónica 24/7",
+        "Traslado en ambulancia",
+        "Descuentos en farmacias"
+      ],
+      "exclusiones": [
+        "Cirugías y hospitalización",
+        "Tratamientos de alto costo"
+      ],
+      "prima_regla": {
+        "base": 22000,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Tarifa plana mensual por grupo familiar (valor de referencia).",
         "consecuencias_no_pago": "Suspensión del servicio de asistencia tras 30 días de mora."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Coberturas de referencia; el detalle final lo confirma el proveedor de la asistencia."
+      "nota_precio": "Coberturas de referencia; el detalle final lo confirma el proveedor de la asistencia.",
+      "valor_asegurado": null
     },
     {
       "id": "soat_mundial",
@@ -84,17 +177,38 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "anual",
-      "gatillos_vida": ["carro", "moto", "vehiculo", "soat", "transito", "papeles del carro"],
-      "coberturas": ["Gastos médicos, quirúrgicos, farmacéuticos y hospitalarios por accidente de tránsito (hasta $36.749.788)", "Indemnización por incapacidad permanente (hasta $10.505.430)", "Muerte y gastos funerarios (hasta $43.772.625)", "Gastos de transporte de las víctimas"],
-      "exclusiones": ["Daños materiales al vehículo", "Responsabilidad civil por daños a bienes de terceros"],
-      "prima_regla": { "base": 343300, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "carro",
+        "moto",
+        "vehiculo",
+        "soat",
+        "transito",
+        "papeles del carro"
+      ],
+      "coberturas": [
+        "Gastos médicos, quirúrgicos, farmacéuticos y hospitalarios por accidente de tránsito (hasta $36.749.788)",
+        "Indemnización por incapacidad permanente (hasta $10.505.430)",
+        "Muerte y gastos funerarios (hasta $43.772.625)",
+        "Gastos de transporte de las víctimas"
+      ],
+      "exclusiones": [
+        "Daños materiales al vehículo",
+        "Responsabilidad civil por daños a bienes de terceros"
+      ],
+      "prima_regla": {
+        "base": 343300,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Tarifa regulada por el Gobierno (Superintendencia Financiera) según tipo de vehículo, cilindraje y modelo.",
         "consecuencias_no_pago": "Circular sin SOAT vigente genera inmovilización del vehículo y multa."
       },
       "fuente": "https://www.fasecolda.com/ramos/soat/tarifas-comerciales/cobertura-por-victima/",
-      "precio_tipo": "regulado",
-      "nota_precio": "Tarifa oficial 2026 para moto de 100 a 200cc; varía según cilindraje y tipo de vehículo."
+      "precio_tipo": "requiere_datos",
+      "nota_precio": "La tarifa del SOAT la fija el Gobierno según tipo de vehículo, cilindraje y modelo. Se confirma con los datos del vehículo.",
+      "valor_asegurado": null,
+      "nota_valor_asegurado": "Los topes por cobertura son regulados y están en el detalle (gastos médicos, incapacidad, muerte y gastos funerarios)."
     },
     {
       "id": "todo_riesgo_carro_chubb",
@@ -104,16 +218,36 @@
       "estandarizado": false,
       "requiere_asesoria": true,
       "periodicidad": "mensual",
-      "gatillos_vida": ["carro nuevo", "carro", "choque", "robo carro", "vehiculo familiar"],
-      "coberturas": ["Pérdida total y parcial por daños", "Hurto", "Responsabilidad civil", "Asistencia en carretera"],
-      "exclusiones": ["Conductor sin licencia", "Uso comercial no declarado", "Deducibles según plan"],
-      "prima_regla": { "base": 180000, "por_edad": 1500, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "carro nuevo",
+        "carro",
+        "choque",
+        "robo carro",
+        "vehiculo familiar"
+      ],
+      "coberturas": [
+        "Pérdida total y parcial por daños",
+        "Hurto",
+        "Responsabilidad civil",
+        "Asistencia en carretera"
+      ],
+      "exclusiones": [
+        "Conductor sin licencia",
+        "Uso comercial no declarado",
+        "Deducibles según plan"
+      ],
+      "prima_regla": {
+        "base": 180000,
+        "por_edad": 1500,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Depende del valor comercial del vehículo, modelo, uso y perfil del conductor; requiere inspección.",
         "consecuencias_no_pago": "Cancelación de la póliza y pérdida de cobertura tras la mora contractual."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Valor estimado. Requiere asesoría e inspección del vehículo."
+      "nota_precio": "Valor estimado. Requiere asesoría e inspección del vehículo.",
+      "valor_asegurado": null
     },
     {
       "id": "moto_asistencia_mundial",
@@ -123,16 +257,37 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["moto", "moto nueva", "domicilios", "mensajeria", "robo moto", "accidente moto"],
-      "coberturas": ["Hurto calificado de la moto", "Accidentes personales del conductor", "Asistencia jurídica básica", "Grúa y asistencia en vía"],
-      "exclusiones": ["Daños por competencias o piques", "Conductor sin licencia", "Hurto por descuido comprobado"],
-      "prima_regla": { "base": 35000, "por_edad": 200, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "moto",
+        "moto nueva",
+        "domicilios",
+        "mensajeria",
+        "robo moto",
+        "accidente moto"
+      ],
+      "coberturas": [
+        "Hurto calificado de la moto",
+        "Accidentes personales del conductor",
+        "Asistencia jurídica básica",
+        "Grúa y asistencia en vía"
+      ],
+      "exclusiones": [
+        "Daños por competencias o piques",
+        "Conductor sin licencia",
+        "Hurto por descuido comprobado"
+      ],
+      "prima_regla": {
+        "base": 35000,
+        "por_edad": 200,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Prima mensual según edad del conductor (valor de referencia).",
         "consecuencias_no_pago": "Suspensión de cobertura y asistencias tras 30 días de mora."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma la aseguradora."
+      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma la aseguradora.",
+      "valor_asegurado": null
     },
     {
       "id": "bici_patineta_bolivar",
@@ -142,16 +297,37 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["bici", "bicicleta", "patineta", "scooter", "ciclovia", "robo bici"],
-      "coberturas": ["Hurto calificado", "Daños por accidente", "Accidentes personales del ciclista", "Responsabilidad civil a terceros"],
-      "exclusiones": ["Uso en competencias", "Hurto sin violencia (descuido)", "Accesorios no declarados"],
-      "prima_regla": { "base": 15000, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "bici",
+        "bicicleta",
+        "patineta",
+        "scooter",
+        "ciclovia",
+        "robo bici"
+      ],
+      "coberturas": [
+        "Hurto calificado",
+        "Daños por accidente",
+        "Accidentes personales del ciclista",
+        "Responsabilidad civil a terceros"
+      ],
+      "exclusiones": [
+        "Uso en competencias",
+        "Hurto sin violencia (descuido)",
+        "Accesorios no declarados"
+      ],
+      "prima_regla": {
+        "base": 15000,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Tarifa mensual según valor declarado de la bici o patineta (valor de referencia).",
         "consecuencias_no_pago": "Suspensión de cobertura tras 30 días de mora."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma la aseguradora."
+      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma la aseguradora.",
+      "valor_asegurado": null
     },
     {
       "id": "mascotas_seguro_bolivar",
@@ -161,16 +337,39 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["perro", "gato", "mascota", "cachorro", "veterinario", "adopte"],
-      "coberturas": ["Gastos veterinarios por urgencia", "Daños materiales o físicos causados a terceros por tu mascota (responsabilidad civil)", "Gastos exequiales por fallecimiento de la mascota"],
-      "exclusiones": ["Enfermedades preexistentes", "Vacunación", "Peluquería y estética", "Recreación", "Tratamientos preventivos", "Medicamentos o tratamientos posteriores a la atención de urgencia"],
-      "prima_regla": { "base": 28000, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "perro",
+        "gato",
+        "mascota",
+        "cachorro",
+        "veterinario",
+        "adopte"
+      ],
+      "coberturas": [
+        "Gastos veterinarios por urgencia",
+        "Daños materiales o físicos causados a terceros por tu mascota (responsabilidad civil)",
+        "Gastos exequiales por fallecimiento de la mascota"
+      ],
+      "exclusiones": [
+        "Enfermedades preexistentes",
+        "Vacunación",
+        "Peluquería y estética",
+        "Recreación",
+        "Tratamientos preventivos",
+        "Medicamentos o tratamientos posteriores a la atención de urgencia"
+      ],
+      "prima_regla": {
+        "base": 28000,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Tarifa mensual por mascota (valor de referencia). Ingreso solo para mascotas entre 4 meses y 9 años.",
         "consecuencias_no_pago": "Suspensión de la cobertura veterinaria tras 30 días de mora."
       },
       "fuente": "https://www.segurosbolivar.com/seguro-para-mascotas",
-      "precio_tipo": "referencia"
+      "precio_tipo": "referencia",
+      "valor_asegurado": null
     },
     {
       "id": "mascotas_prepagada_vetplus",
@@ -180,16 +379,38 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["perro", "gato", "mascota", "veterinario frecuente", "vacunas", "control mascota"],
-      "coberturas": ["Plan Diamante: atención de accidentes y enfermedades a nivel nacional", "Enfermedades crónico-degenerativas", "Condiciones hereditarias (con carencia: solo después del primer año)", "Tratamiento de cáncer", "Médico veterinario a domicilio", "Atención de urgencias"],
-      "exclusiones": ["Servicios fuera de la red VetPlus", "Condiciones hereditarias durante el primer año (carencia)"],
-      "prima_regla": { "base": 42000, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "perro",
+        "gato",
+        "mascota",
+        "veterinario frecuente",
+        "vacunas",
+        "control mascota"
+      ],
+      "coberturas": [
+        "Plan Diamante: atención de accidentes y enfermedades a nivel nacional",
+        "Enfermedades crónico-degenerativas",
+        "Condiciones hereditarias (con carencia: solo después del primer año)",
+        "Tratamiento de cáncer",
+        "Médico veterinario a domicilio",
+        "Atención de urgencias"
+      ],
+      "exclusiones": [
+        "Servicios fuera de la red VetPlus",
+        "Condiciones hereditarias durante el primer año (carencia)"
+      ],
+      "prima_regla": {
+        "base": 42000,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Plan de medicina prepagada veterinaria (no es un seguro). Tarifa mensual por mascota (valor de referencia).",
         "consecuencias_no_pago": "Suspensión del servicio en red tras 30 días de mora."
       },
       "fuente": "https://vetpluscolombia.com/",
-      "precio_tipo": "referencia"
+      "precio_tipo": "referencia",
+      "valor_asegurado": null
     },
     {
       "id": "hogar_chubb",
@@ -199,16 +420,38 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["casa nueva", "apartamento", "mudanza", "vivienda", "robo casa", "incendio", "inundacion", "terremoto"],
-      "coberturas": ["Incendio del edificio (hasta $80M / $160M / $320M según el plan)", "Incendio de contenidos (hasta $40M / $80M / $160M)", "Responsabilidad civil extracontractual (hasta $40M / $80M / $160M)", "Hurto de contenidos (hasta $5,6M / $11,2M / $22,4M)"],
-      "exclusiones": ["Deducible en hurto de contenidos: 10% de la pérdida, mínimo 0,5 SMMLV", "Deducible en huelga, motín, asonada o actos malintencionados: 10%, mínimo 3 SMMLV"],
-      "prima_regla": { "base": 45000, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "casa nueva",
+        "apartamento",
+        "mudanza",
+        "vivienda",
+        "robo casa",
+        "incendio",
+        "inundacion",
+        "terremoto"
+      ],
+      "coberturas": [
+        "Incendio del edificio (hasta $80M / $160M / $320M según el plan)",
+        "Incendio de contenidos (hasta $40M / $80M / $160M)",
+        "Responsabilidad civil extracontractual (hasta $40M / $80M / $160M)",
+        "Hurto de contenidos (hasta $5,6M / $11,2M / $22,4M)"
+      ],
+      "exclusiones": [
+        "Deducible en hurto de contenidos: 10% de la pérdida, mínimo 0,5 SMMLV",
+        "Deducible en huelga, motín, asonada o actos malintencionados: 10%, mínimo 3 SMMLV"
+      ],
+      "prima_regla": {
+        "base": 45000,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Prima mensual según el plan y los valores asegurados elegidos (valor de referencia).",
         "consecuencias_no_pago": "Suspensión de cobertura tras la mora contractual."
       },
       "fuente": "https://www.chubb.com/content/dam/chubb-sites/chubb-com/co-es/personas-y-familias/leal/pdf/Terminos%20y%20Condiciones%20-%20Hogar.pdf",
-      "precio_tipo": "referencia"
+      "precio_tipo": "referencia",
+      "valor_asegurado": null
     },
     {
       "id": "arrendamiento_mundial",
@@ -218,16 +461,36 @@
       "estandarizado": false,
       "requiere_asesoria": true,
       "periodicidad": "mensual",
-      "gatillos_vida": ["arriendo", "arrendar", "inquilino", "propietario", "canon", "inmueble en renta"],
-      "coberturas": ["Canon de arrendamiento en mora", "Servicios públicos e IVA", "Daños al inmueble", "Gastos legales de restitución"],
-      "exclusiones": ["Contratos sin estudio aprobado", "Cánones superiores al cupo aprobado"],
-      "prima_regla": { "base": 0, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "arriendo",
+        "arrendar",
+        "inquilino",
+        "propietario",
+        "canon",
+        "inmueble en renta"
+      ],
+      "coberturas": [
+        "Canon de arrendamiento en mora",
+        "Servicios públicos e IVA",
+        "Daños al inmueble",
+        "Gastos legales de restitución"
+      ],
+      "exclusiones": [
+        "Contratos sin estudio aprobado",
+        "Cánones superiores al cupo aprobado"
+      ],
+      "prima_regla": {
+        "base": 0,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Porcentaje del canon mensual; sujeto a estudio y aprobación del arrendatario.",
         "consecuencias_no_pago": "Pérdida del amparo del canon y gastos asociados."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Valor estimado. Requiere estudio y aprobación del arrendatario."
+      "nota_precio": "Valor estimado. Requiere estudio y aprobación del arrendatario.",
+      "valor_asegurado": null
     },
     {
       "id": "exequial_gea",
@@ -237,16 +500,36 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["funeral", "exequias", "fallecimiento", "padres mayores", "abuelos", "prevision", "tranquilidad familia"],
-      "coberturas": ["Servicio funerario completo", "Traslados a nivel nacional", "Cofre y sala de velación", "Trámites y asesoría legal del proceso"],
-      "exclusiones": ["Carencia de 6 meses para muerte natural en mayores de 65 años al ingreso"],
-      "prima_regla": { "base": 16000, "por_edad": 300, "edad_pivote": 40 },
+      "gatillos_vida": [
+        "funeral",
+        "exequias",
+        "fallecimiento",
+        "padres mayores",
+        "abuelos",
+        "prevision",
+        "tranquilidad familia"
+      ],
+      "coberturas": [
+        "Servicio funerario completo",
+        "Traslados a nivel nacional",
+        "Cofre y sala de velación",
+        "Trámites y asesoría legal del proceso"
+      ],
+      "exclusiones": [
+        "Carencia de 6 meses para muerte natural en mayores de 65 años al ingreso"
+      ],
+      "prima_regla": {
+        "base": 16000,
+        "por_edad": 300,
+        "edad_pivote": 40
+      },
       "art9": {
         "forma_calculo": "Prima mensual por grupo familiar más ajuste por integrantes mayores de 40 años (valor de referencia).",
         "consecuencias_no_pago": "Suspensión del servicio exequial tras 60 días de mora."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma el proveedor exequial."
+      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma el proveedor exequial.",
+      "valor_asegurado": null
     },
     {
       "id": "asistencia_viajes_bmi",
@@ -256,16 +539,38 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "por_viaje",
-      "gatillos_vida": ["viaje", "vacaciones", "exterior", "avion", "visa", "mochilero", "trabajo en el exterior"],
-      "coberturas": ["Gastos médicos en viaje", "Pérdida de equipaje", "Cancelación de viaje", "Repatriación"],
-      "exclusiones": ["Preexistencias", "Deportes extremos no declarados", "Viajes a zonas de conflicto"],
-      "prima_regla": { "base": 95000, "por_edad": 800, "edad_pivote": 60 },
+      "gatillos_vida": [
+        "viaje",
+        "vacaciones",
+        "exterior",
+        "avion",
+        "visa",
+        "mochilero",
+        "trabajo en el exterior"
+      ],
+      "coberturas": [
+        "Gastos médicos en viaje",
+        "Pérdida de equipaje",
+        "Cancelación de viaje",
+        "Repatriación"
+      ],
+      "exclusiones": [
+        "Preexistencias",
+        "Deportes extremos no declarados",
+        "Viajes a zonas de conflicto"
+      ],
+      "prima_regla": {
+        "base": 95000,
+        "por_edad": 800,
+        "edad_pivote": 60
+      },
       "art9": {
         "forma_calculo": "Tarifa por viaje según destino, duración y edad del viajero (valor de referencia).",
         "consecuencias_no_pago": "Sin pago no se activa la cobertura del viaje."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma el proveedor."
+      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma el proveedor.",
+      "valor_asegurado": null
     },
     {
       "id": "asistencias_multiples_mundial",
@@ -275,16 +580,37 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["plomeria", "cerrajeria", "electricista", "imprevistos", "hogar asistencia", "reparaciones"],
-      "coberturas": ["Plomería de emergencia", "Cerrajería", "Electricista", "Vidriería", "Orientación legal telefónica"],
-      "exclusiones": ["Remodelaciones y mantenimiento programado", "Materiales no incluidos"],
-      "prima_regla": { "base": 19000, "por_edad": 0, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "plomeria",
+        "cerrajeria",
+        "electricista",
+        "imprevistos",
+        "hogar asistencia",
+        "reparaciones"
+      ],
+      "coberturas": [
+        "Plomería de emergencia",
+        "Cerrajería",
+        "Electricista",
+        "Vidriería",
+        "Orientación legal telefónica"
+      ],
+      "exclusiones": [
+        "Remodelaciones y mantenimiento programado",
+        "Materiales no incluidos"
+      ],
+      "prima_regla": {
+        "base": 19000,
+        "por_edad": 0,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Tarifa plana mensual por hogar (valor de referencia).",
         "consecuencias_no_pago": "Suspensión de asistencias tras 30 días de mora."
       },
       "precio_tipo": "referencia",
-      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma el proveedor."
+      "nota_precio": "Coberturas y precio de referencia; el detalle final lo confirma el proveedor.",
+      "valor_asegurado": null
     },
     {
       "id": "vida_credito_panamerican",
@@ -294,16 +620,35 @@
       "estandarizado": true,
       "requiere_asesoria": false,
       "periodicidad": "mensual",
-      "gatillos_vida": ["credito", "cupo de credito", "deuda", "prestamo", "tarjeta", "desempleo"],
-      "coberturas": ["Pago del saldo de la deuda por fallecimiento del deudor, por cualquier causa (incluye homicidio, suicidio y desaparecimiento), sin carencias", "Incapacidad total y permanente con pérdida de capacidad laboral igual o superior al 50%"],
-      "exclusiones": ["Guerra declarada o no, invasión, rebelión, sedición o asonada", "Riesgo nuclear y contaminación radiactiva", "Reticencia o inexactitud en la declaración del riesgo (arts. 1058 y 1158 C. de Comercio)"],
-      "prima_regla": { "base": 9000, "por_edad": 150, "edad_pivote": 30 },
+      "gatillos_vida": [
+        "credito",
+        "cupo de credito",
+        "deuda",
+        "prestamo",
+        "tarjeta",
+        "desempleo"
+      ],
+      "coberturas": [
+        "Pago del saldo de la deuda por fallecimiento del deudor, por cualquier causa (incluye homicidio, suicidio y desaparecimiento), sin carencias",
+        "Incapacidad total y permanente con pérdida de capacidad laboral igual o superior al 50%"
+      ],
+      "exclusiones": [
+        "Guerra declarada o no, invasión, rebelión, sedición o asonada",
+        "Riesgo nuclear y contaminación radiactiva",
+        "Reticencia o inexactitud en la declaración del riesgo (arts. 1058 y 1158 C. de Comercio)"
+      ],
+      "prima_regla": {
+        "base": 9000,
+        "por_edad": 150,
+        "edad_pivote": 30
+      },
       "art9": {
         "forma_calculo": "Prima mensual según saldo del crédito y edad (valor de referencia).",
         "consecuencias_no_pago": "El crédito queda sin amparo y la deuda pasa a herederos o codeudores."
       },
       "fuente": "https://f.hubspotusercontent10.net/hubfs/6993919/Colombia/Pagina%20Vive%20Col/documentaci%C3%B3n%20vive%20cr%C3%A9ditos%20tyc/Con%20clausulado%20Seguro%20Panamerican.pdf",
-      "precio_tipo": "referencia"
+      "precio_tipo": "referencia",
+      "valor_asegurado": null
     }
   ]
 }

@@ -50,9 +50,14 @@ export async function POST(req: NextRequest) {
       canal: "Amparito",
     });
 
-    const closing = `¡Listo, quedaste asegurado! 🎉 Tu certificado llegará al correo ${
-      contacto?.correo ?? ""
-    } en las próximas horas. ¿Te ayudo con algo más?`;
+    // Nada se emite de verdad (mock-adapter). El cierre no puede prometer una póliza ni un correo.
+    // B9 añadirá aquí los tiempos reales del handoff a la aseguradora.
+    const aseguradora = String((event?.data as Record<string, unknown>)?.aseguradora ?? "la aseguradora");
+    const closing =
+      `Con esto tu solicitud queda completa 🎉 Te cuento qué pasaría de aquí en adelante: ` +
+      `Colsubsidio la envía a ${aseguradora}, que es quien expide la póliza y te remite el certificado.\n\n` +
+      `Una aclaración importante: esto es una **simulación del proceso**. Hoy no se emitió ninguna ` +
+      `póliza y no vas a recibir ningún correo. ¿Te ayudo con algo más?`;
 
     return NextResponse.json({ event, closing });
   } catch (err) {

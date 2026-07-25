@@ -257,6 +257,11 @@ a { text-decoration: none; color: inherit; }
 .pc-grid b { font-size: 15px; font-weight: 700; color: var(--tinta); }
 .pc-grid b span { font-size: 12px; color: var(--gris); font-weight: 500; }
 .pc-grid b.ok { color: var(--verde); }
+/* Simulación: el mock no emite nada, así que la tarjeta no puede vestirse de póliza vigente. */
+.pc-badge.sim { background: var(--amarillo-claro); color: #7a5a00; }
+.pc-grid b.sim { color: #7a5a00; }
+.pc-sim-note { margin-top: 12px; font-size: 12.5px; line-height: 1.5; color: var(--gris); }
+.pc-sim-note b { color: var(--tinta); font-weight: 700; }
 .pc-cert-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--gris); margin-bottom: 6px; }
 .policycard .cert { margin-top: 0; }
 @media (max-width: 560px) { .pc-grid { grid-template-columns: repeat(2, 1fr); } .pc-id { font-size: 26px; } }
@@ -350,6 +355,15 @@ a { text-decoration: none; color: inherit; }
 .pp-antiventa b { display: block; font-size: 15px; font-weight: 800; }
 .pp-antiventa span { display: block; font-size: 13.5px; color: #d9dbe0; margin-top: 2px; line-height: 1.4; }
 
+/* Obligatorio por ley — banda propia, con el peso visual del anti-venta. No es un producto
+   más del ranking: es lo que la ley exige, y va antes que cualquier recomendación. */
+.pp-oblig { border: 2px solid var(--azul); background: #f2f8ff; border-radius: 12px; padding: 14px 16px; }
+.pp-oblig-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--azul); }
+.pp-oblig-name { font-size: 16px; font-weight: 800; color: var(--tinta); margin-top: 4px; }
+.pp-oblig-name small { font-size: 12px; font-weight: 600; color: var(--gris); margin-left: 6px; }
+.pp-oblig-txt { font-size: 14px; line-height: 1.5; color: var(--tinta); margin-top: 6px; }
+.pp-oblig-cons { font-size: 13.5px; line-height: 1.5; color: var(--azul-osc); font-weight: 600; margin-top: 8px; }
+
 .pp-why { background: #fffdf3; border: 1px solid var(--amarillo); border-radius: 12px; padding: 14px; }
 .pp-why-top { display: flex; align-items: center; gap: 10px; }
 .pp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--verde); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex-shrink: 0; }
@@ -397,6 +411,12 @@ a { text-decoration: none; color: inherit; }
 .price-tag { margin-top: 8px; font-size: 12px; color: #8a6d00; background: #fff6c8; display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
 .price-tag.reg { color: #0a5c2e; background: #e8f5ee; }
 .price-note { margin-top: 6px; font-size: 12px; color: var(--gris); }
+/* Sin precio: la tarifa depende de datos que el chat no tiene. No se muestra ningún número. */
+.card .big.nop { font-size: 16px; font-weight: 700; color: var(--azul); line-height: 1.35; }
+/* "¿De cuánto es la póliza?" — se responde siempre, con la verdad cuando no se sabe. */
+.va-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.va-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--gris); }
+.va-val { font-size: 14px; font-weight: 700; color: var(--tinta); }
 .cov { margin-top: 14px; border-top: 1px solid var(--borde); padding-top: 10px; }
 .cov > summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
 .cov > summary::before { content: "▸"; transition: transform .15s; }

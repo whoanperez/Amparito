@@ -293,7 +293,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     setProcessing(null);
     if (result.event) {
       setItems((cur) => [...cur, { kind: "event", event: result.event },
-        { kind: "msg", role: "assistant", text: result.closing ?? "¡Listo, quedaste asegurado!" },
+        { kind: "msg", role: "assistant", text: result.closing ?? "Tu solicitud queda completa. Recuerda que esto es una simulación: no se emitió ninguna póliza." },
         { kind: "video" }]);
     } else {
       setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." }]);
@@ -575,6 +575,9 @@ function ImpactoCard({ data }: { data: Record<string, any> }) {
 /* ===== Tarjeta de propensión (el porqué: WhyThis + GapsLedger + PeerProof + Descartados) ===== */
 function PropensionCard({ data }: { data: Record<string, any> }) {
   const recs = (data.recomendaciones ?? []) as Array<{ nombre: string; aseguradora: string; reason_codes: string[] }>;
+  const obligatorios = (data.obligatorios ?? []) as Array<{
+    nombre: string; aseguradora: string; razon: string; consecuencia: string;
+  }>;
   const descartados = (data.descartados ?? []) as Array<{ nombre: string; motivo: string }>;
   const riesgos = (data.ledger?.riesgos_hoy ?? []) as string[];
   const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
@@ -587,6 +590,17 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
         <span className="pp-eyebrow">Por qué esto es para ti</span>
         <div className="pp-title">Así analicé tu protección</div>
       </div>
+
+      {/* Obligatorio por ley: va ANTES de todo. No compite con el ranking porque no es una
+          recomendación — distinguir "la ley te obliga" de "yo te sugiero" es criterio. */}
+      {obligatorios.map((o, i) => (
+        <div className="pp-oblig" key={i}>
+          <div className="pp-oblig-lbl">Esto no es recomendación, es obligación</div>
+          <div className="pp-oblig-name">{o.nombre} <small>{o.aseguradora}</small></div>
+          <p className="pp-oblig-txt">{o.razon}</p>
+          <p className="pp-oblig-cons">⚠️ {o.consecuencia}</p>
+        </div>
+      ))}
 
       {/* Anti-venta como HÉROE — el momento honesto que gana confianza */}
       {yaCubierto.length > 0 && (
@@ -668,17 +682,39 @@ function EventCard({ event }: { event: UiEvent }) {
 
   if (event.type === "quote") {
     const regulado = d.precio_tipo === "regulado";
+    // Sin precio: la tarifa depende de datos que el chat no tiene. Se muestran las coberturas,
+    // nunca un número — usar la tarifa de otra variante sería peor que no dar precio.
+    const sinPrecio = d.precio_tipo === "requiere_datos" || d.prima == null;
     return (
       <div className="card">
-        <h4>Cotización · {String(d.aseguradora)}</h4>
-        <div className="big">
-          ${Number(d.prima).toLocaleString("es-CO")} <span className="sub">/{String(d.periodicidad).replace("_", " ")}</span>
-        </div>
+        <h4>{sinPrecio ? "Coberturas" : "Cotización"} · {String(d.aseguradora)}</h4>
+        {sinPrecio ? (
+          <div className="big nop">Se cotiza con los datos de tu vehículo</div>
+        ) : (
+          <div className="big">
+            ${Number(d.prima).toLocaleString("es-CO")} <span className="sub">/{String(d.periodicidad).replace("_", " ")}</span>
+          </div>
+        )}
         <div className="sub">{String(d.producto)}</div>
-        <div className={`price-tag ${regulado ? "reg" : ""}`}>
-          {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
-        </div>
+        {!sinPrecio && (
+          <div className={`price-tag ${regulado ? "reg" : ""}`}>
+            {regulado ? "Tarifa oficial regulada" : "Valor de referencia (el precio final lo confirma la aseguradora)"}
+          </div>
+        )}
         {d.nota_precio && <div className="price-note">{String(d.nota_precio)}</div>}
+        {!sinPrecio && d.edad_usada == null && (
+          <div className="price-note">Calculado sobre la tarifa base: el valor final varía con tu edad.</div>
+        )}
+        {/* De cuánto es la póliza. Si no lo sabemos, se dice — no se inventa. */}
+        <div className="va-row">
+          <span className="va-lbl">Valor asegurado</span>
+          <span className="va-val">
+            {typeof d.valor_asegurado === "number"
+              ? `$${Number(d.valor_asegurado).toLocaleString("es-CO")}`
+              : "Lo define la aseguradora según el plan"}
+          </span>
+        </div>
+        {d.nota_valor_asegurado && <div className="price-note">{String(d.nota_valor_asegurado)}</div>}
         {/* Capa 2 — qué cubre / qué no: SIEMPRE visible (cumple Ley 1328 Art. 9, sin saturar) */}
         <div className="cov2">
           <p className="cov-lbl">Te cubre</p>
@@ -725,7 +761,7 @@ function EventCard({ event }: { event: UiEvent }) {
     return (
       <div className="policycard">
         <div className="pc-top">
-          <span className="pc-badge">✓ Póliza activa</span>
+          <span className="pc-badge sim">SIMULACIÓN · demo</span>
           <div className="pc-logo">
             <span className="pc-mono" style={{ background: ins.color }}>{ins.short.charAt(0)}</span>
             <span className="pc-brand" style={{ color: ins.color }}>{ins.short}</span>
@@ -734,13 +770,17 @@ function EventCard({ event }: { event: UiEvent }) {
         <div className="pc-product">{String(d.producto)}</div>
         <div className="pc-id">{String(d.policyId)}</div>
         <div className="pc-grid">
-          <div><small>Asegurado</small><b>{String(d.asegurado)}</b></div>
-          <div><small>Vigencia</small><b>{String(d.vigenciaMeses)} meses</b></div>
-          <div><small>Pagas</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
-          <div><small>Estado</small><b className="ok">Activa</b></div>
+          <div><small>Tomador</small><b>{String(d.asegurado)}</b></div>
+          <div><small>Vigencia que tendría</small><b>{String(d.vigenciaMeses)} meses</b></div>
+          <div><small>Pagaría</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
+          <div><small>Estado</small><b className="sim">Simulada</b></div>
         </div>
-        <div className="pc-cert-label">Certificado digital</div>
+        <div className="pc-cert-label">Certificado simulado</div>
         <div className="cert">{String(d.certificado)}</div>
+        <p className="pc-sim-note">
+          Esta es una simulación del proceso completo. <b>No se emitió ninguna póliza</b> y no vas a
+          recibir ningún correo.
+        </p>
       </div>
     );
   }

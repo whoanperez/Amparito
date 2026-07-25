@@ -16,6 +16,7 @@ import {
   ProductoWeights,
   WeightsFile,
   Recomendacion,
+  Obligatorio,
   Descartado,
   YaCubierto,
 } from "./types";
@@ -23,7 +24,8 @@ import {
 const weights = weightsData as unknown as WeightsFile;
 
 const MAX_RECOMENDACIONES = 2;
-const MAX_DESCARTADOS = 4;
+// Dos motivos distintos convencen; cuatro plantillas idénticas delatan.
+const MAX_DESCARTADOS = 2;
 const MAX_REASON_CODES = 4;
 
 /** Marcador interno: las señales `prior.*` (tasas base citadas) siempre aplican. */
@@ -131,9 +133,27 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
     return a.id.localeCompare(b.id);
   };
 
+  // Obligatorios por ley que la persona NO tiene. Salen ANTES del ranking y no compiten por un
+  // cupo: el SOAT perdía contra Vida y terminaba en descartados con un "esto lo puedes sumar más
+  // adelante" — sobre un seguro sin el cual inmovilizan el vehículo.
+  const obligatorios: Obligatorio[] = scored
+    .filter((x) => x.w.obligatorio_legal && !x.yaCubierto && x.hasRealSignal)
+    .sort(ordenar)
+    .map((x) => {
+      const p = getProduct(x.id)!;
+      return {
+        id: x.id,
+        nombre: p.nombre,
+        aseguradora: p.aseguradora,
+        razon: x.reasons[0]?.razon ?? "Obligatorio por ley para tu vehículo.",
+        consecuencia: x.w.consecuencia_legal ?? "No tenerlo tiene consecuencias legales.",
+      };
+    });
+  const obligIds = new Set(obligatorios.map((o) => o.id));
+
   // Recomendaciones: con señal REAL (no solo un prior), no ya-cubierto, que cierran solas.
   const recomendaciones: Recomendacion[] = scored
-    .filter((x) => !x.yaCubierto && x.score > 0 && x.hasRealSignal && !x.w.requiere_asesoria)
+    .filter((x) => !x.yaCubierto && x.score > 0 && x.hasRealSignal && !x.w.requiere_asesoria && !obligIds.has(x.id))
     .sort(ordenar)
     .slice(0, MAX_RECOMENDACIONES)
     .map((x) => {
@@ -154,8 +174,9 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
 
   // Descartados: tuvieron señal REAL pero no entraron al top → con motivo honesto.
   // (Un producto empujado solo por un prior —ej. Mascotas por la tasa DANE— no se lista.)
+  // Un obligatorio NUNCA puede aparecer aquí: no es "menor prioridad", es la ley.
   const descartados: Descartado[] = scored
-    .filter((x) => !x.yaCubierto && x.score > 0 && x.hasRealSignal && !recIds.has(x.id))
+    .filter((x) => !x.yaCubierto && x.score > 0 && x.hasRealSignal && !recIds.has(x.id) && !obligIds.has(x.id))
     .sort(ordenar)
     .slice(0, MAX_DESCARTADOS)
     .map((x) => ({ id: x.id, nombre: getProduct(x.id)!.nombre, motivo: motivoDescarte(x, topNombre) }));
@@ -164,6 +185,7 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
 
   return {
     recomendaciones,
+    obligatorios,
     descartados,
     ledger: { riesgos_hoy, ya_cubierto: yaCubiertoList },
     peer: lookupPeer(perfil),
@@ -171,6 +193,8 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
 }
 
 function motivoDescarte(x: Scored, topNombre?: string): string {
+  // El motivo específico del producto manda: la plantilla genérica producía viñetas idénticas.
+  if (x.w.motivo_descarte) return x.w.motivo_descarte;
   if (x.w.requiere_asesoria) {
     return "Requiere asesoría personalizada; te conecto con un asesor si te interesa.";
   }

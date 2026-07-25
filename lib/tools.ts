@@ -264,6 +264,15 @@ export async function executeTool(
             forma_calculo: p.art9.forma_calculo,
             consecuencias_no_pago: p.art9.consecuencias_no_pago,
           },
+          // "¿de cuánto es la póliza?" es la primera pregunta de cualquiera. Si no lo sabemos,
+          // se dice; no se inventa ni se sustituye por la calculadora de impacto.
+          valor_asegurado: p.valor_asegurado ?? null,
+          nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+          instruccion_valor_asegurado:
+            p.valor_asegurado == null
+              ? "El valor asegurado NO está en el catálogo. Si lo preguntan, di la verdad: lo define " +
+                "la aseguradora según el plan y lo confirma un asesor. NUNCA inventes una cifra."
+              : undefined,
         },
         event: {
           type: "compliance",
@@ -284,10 +293,69 @@ export async function executeTool(
           },
         };
       }
+      // Compuerta 2: la tarifa depende de datos que el chat no tiene (cilindraje, tipo de
+      // vehículo). Se muestran las coberturas, NUNCA un número — inventarlo o usar el de otra
+      // variante (la tarifa de moto para un carro) es peor que no dar precio.
+      if (p.precio_tipo === "requiere_datos") {
+        return {
+          result: {
+            sin_precio: true,
+            motivo: p.nota_precio ?? "La tarifa depende de datos del vehículo.",
+            instruccion:
+              "NO des ninguna cifra de prima para este producto. Explica de qué depende la tarifa, " +
+              "muestra las coberturas y ofrece confirmarla con los datos del vehículo o con un asesor.",
+            coberturas: p.coberturas,
+            exclusiones: p.exclusiones,
+          },
+          event: {
+            type: "quote",
+            data: {
+              producto: p.nombre,
+              aseguradora: p.aseguradora,
+              prima: null,
+              periodicidad: p.periodicidad,
+              coberturas: p.coberturas,
+              exclusiones: p.exclusiones,
+              forma_calculo: p.art9.forma_calculo,
+              consecuencias: p.art9.consecuencias_no_pago,
+              fuente: p.fuente ?? null,
+              precio_tipo: "requiere_datos",
+              nota_precio: p.nota_precio ?? null,
+              valor_asegurado: p.valor_asegurado ?? null,
+              nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+            },
+          },
+        };
+      }
+
       const perfil = (input.perfil ?? {}) as { edad?: number; ciudad?: string; contexto?: string };
-      const quote = await gateway.quote(p.id, perfil);
+      let quote;
+      try {
+        quote = await gateway.quote(p.id, perfil);
+      } catch (e) {
+        // Prima no cotizable (catálogo incompleto). Se degrada a asesoría, nunca a un número falso.
+        return {
+          result: {
+            error: "PRIMA_NO_COTIZABLE",
+            instruccion:
+              "No hay una prima confiable para este producto. NO inventes ninguna cifra: dilo con " +
+              "honestidad y llama escalate_to_human.",
+            detalle: e instanceof Error ? e.message : String(e),
+          },
+        };
+      }
       return {
-        result: quote,
+        result: {
+          ...quote,
+          valor_asegurado: p.valor_asegurado ?? null,
+          nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+          instruccion_valor_asegurado:
+            p.valor_asegurado == null
+              ? "El valor asegurado NO está definido en el catálogo. Si preguntan de cuánto es la " +
+                "póliza, di la verdad: lo define la aseguradora según el plan y lo confirma un asesor. " +
+                "NUNCA inventes una cifra ni uses la calculadora de impacto como si fuera la suma asegurada."
+              : undefined,
+        },
         event: {
           type: "quote",
           data: {
@@ -304,6 +372,9 @@ export async function executeTool(
             fuente: p.fuente ?? null,
             precio_tipo: p.precio_tipo ?? "referencia",
             nota_precio: p.nota_precio ?? null,
+            valor_asegurado: p.valor_asegurado ?? null,
+            nota_valor_asegurado: p.nota_valor_asegurado ?? null,
+            edad_usada: quote.edadUsada,
           },
         },
       };

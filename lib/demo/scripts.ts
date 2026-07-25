@@ -50,7 +50,7 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
     { role: "assistant", say: "¿Te gustaría quedar asegurada?" },
     { role: "user", say: "Sí, quiero." },
     { role: "assistant", say: "Perfecto. Con estos datos queda listo al instante.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Carolina Ramírez López", "22/07/1987") } } },
-    { role: "assistant", say: "¡Listo, Carolina! Ya quedaste asegurada. Tu hijo está protegido." },
+    { role: "assistant", say: "¡Listo, Carolina! Tu solicitud queda completa. Ojo: esto es una simulación del proceso — no se emitió ninguna póliza." },
   ],
 
   // C · Jaime — anti-venta 2: ya tiene Exequial; se le ofrece Vida (incapacidad).

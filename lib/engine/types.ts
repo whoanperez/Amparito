@@ -69,6 +69,15 @@ export interface ProductoWeights {
   "señales": Senal[];
   redundancia?: Redundancia[];
   nota?: string;
+  /**
+   * Obligatorio por ley (ej. SOAT, Ley 769/2002). NO compite por un cupo del ranking y NUNCA
+   * puede caer en descartados: si la persona no lo tiene, va en su propia banda arriba.
+   */
+  obligatorio_legal?: boolean;
+  /** Consecuencia real de no tenerlo. Se muestra en la banda de obligatorios. */
+  consecuencia_legal?: string;
+  /** Motivo específico de descarte. Sin esto, todos los descartados dicen la misma frase. */
+  motivo_descarte?: string;
 }
 
 export interface GateAffordability {
@@ -113,8 +122,23 @@ export interface Peer {
   pct: number;
 }
 
+/**
+ * Obligatorio por ley que la persona NO tiene. No es una recomendación: es una obligación.
+ * Distinguir las dos cosas es criterio, y evita decirle "esto lo puedes sumar más adelante"
+ * a alguien sobre un seguro sin el cual le inmovilizan el vehículo.
+ */
+export interface Obligatorio {
+  id: string;
+  nombre: string;
+  aseguradora: string;
+  razon: string;
+  consecuencia: string;
+}
+
 export interface PropensionResult {
   recomendaciones: Recomendacion[];
+  /** Banda propia, por encima del ranking. Vacía si no aplica o si ya lo tiene. */
+  obligatorios: Obligatorio[];
   descartados: Descartado[];
   ledger: {
     riesgos_hoy: string[];
