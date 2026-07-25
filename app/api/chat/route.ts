@@ -26,8 +26,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(salida);
   } catch (err) {
     console.error("[amparito] error:", err);
+    // El fallback también publica una vista bien formada. Devolver solo `reply` obligaría al
+    // cliente a tener un camino alterno para el caso de error — justo la clase de decisión que
+    // este trabajo le quitó — y ese camino sería el menos probado de todos.
+    const disculpa = "Se me trabó la consulta en este momento 😅. ¿Intentamos de nuevo?";
     return NextResponse.json(
-      { reply: "Se me trabó la consulta en este momento 😅. ¿Intentamos de nuevo?", events: [] },
+      {
+        ui: {
+          bloques: [{ t: "texto", contenido: disculpa }],
+          sugerencias: [],
+          entrada: { habilitada: true },
+        },
+        // Sin estado: el turno se pierde, pero el siguiente arranca de cero en vez de heredar
+        // uno a medio construir.
+        estado: "",
+        reply: disculpa,
+        events: [],
+      },
       { status: 200 }
     );
   }

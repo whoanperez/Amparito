@@ -5,21 +5,36 @@ import FlowVideo from "./FlowVideo";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 import { SALUDO_INICIAL } from "@/lib/estado/vista";
+import type { Bloque, Rec, UiEvent, UiVista } from "@/lib/estado/tipos";
 
-interface UiEvent {
-  // Copia deliberada del tipo del servidor: así el cliente no arrastra el SDK de Anthropic.
-  // "afiliado" no pinta tarjeta — es el hallazgo de identidad que hay que recordar entre turnos.
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado" | "feedback";
-  data: Record<string, any>;
-}
-interface Rec { nombre: string; recomendado: boolean; razon: string }
+// `UiEvent` y `Rec` se IMPORTAN, ya no se copian. La copia existía porque el tipo vivía en
+// `lib/tools.ts`, que arrastra el SDK de Anthropic al bundle del cliente. Ahora vive en
+// `lib/estado/tipos.ts`, que no importa ni el SDK ni el cliente de la base — verificado: el
+// bundle de /chat no crece.
+
 interface ChatItem {
-  kind: "msg" | "event" | "recommend" | "video";
+  /** "proteger" es la grilla de seis: ahora la decide el SERVIDOR y llega como un bloque más,
+   *  en su posición. Antes el cliente la sacaba contando burbujas, sin saber que el agente
+   *  acababa de hacer una pregunta abierta. */
+  kind: "msg" | "event" | "recommend" | "video" | "proteger";
   role?: "user" | "assistant";
   text?: string;
   event?: UiEvent;
   recs?: Rec[];
   voice?: boolean; // ítem generado por la voz (para fusionar transcripts consecutivos)
+}
+
+/** Traduce lo que el servidor decidió pintar a los ítems del transcript. Sin decisiones propias:
+ *  el orden y el contenido ya vienen resueltos. */
+function bloquesAItems(bloques: Bloque[]): ChatItem[] {
+  return bloques.map((b): ChatItem => {
+    switch (b.t) {
+      case "texto": return { kind: "msg", role: "assistant", text: b.contenido };
+      case "tarjetas": return { kind: "recommend", recs: b.recs };
+      case "evento": return { kind: "event", event: b.evento };
+      case "elegir_proteccion": return { kind: "proteger" };
+    }
+  });
 }
 interface Contacto {
   nombre: string;
@@ -105,59 +120,17 @@ function insurerOf(name: string) {
   return INSURER[name] ?? { color: "#0b62b4", short: name };
 }
 
-function clean(t: string): string {
-  return t
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/^#{1,6}\s*/gm, "")
-    .replace(/^\s*[-•]\s+/gm, "")
-    .replace(/`/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-// Extrae texto, quick-replies (OPCIONES) y recomendaciones (RECOMENDACION) del reply
-function parseReply(raw: string): { text: string; options: string[]; recs: Rec[] } {
-  let text = raw;
-  const recs: Rec[] = [];
-  raw.split("\n").forEach((line) => {
-    const mm = line.match(/^\s*RECOMENDACION:\s*(.+)$/i);
-    if (mm) {
-      const parts = mm[1].split("|").map((s) => s.trim());
-      recs.push({
-        nombre: parts[0] || "",
-        recomendado: /recomendad/i.test(parts[1] || ""),
-        razon: parts[2] || "",
-      });
-      text = text.replace(line, "");
-    }
-  });
-  let options: string[] = [];
-  const om = text.match(/OPCIONES:\s*(.+)\s*$/im);
-  if (om) {
-    options = om[1].split("|").map((s) => s.trim()).filter(Boolean).slice(0, 4);
-    text = text.replace(om[0], "");
-  }
-  return { text: clean(text), options, recs };
-}
-
-/**
- * Construye las tarjetas seleccionables desde el evento del motor. Es la fuente de verdad: el
- * nombre, el orden y la razón vienen del scorecard, así que el modelo no puede transcribirlos mal
- * ni tiene que gastar atención en un protocolo mientras conversa.
+/*
+ * Aquí vivían `clean`, `parseReply`, `recsDeEvento` y `PREGUNTAS_ASESOR`. Los cuatro eran el
+ * cliente DERIVANDO lo que el servidor ya sabía:
+ *
+ *   · `parseReply` sacaba con regex dos protocolos de texto (`RECOMENDACION:` y `OPCIONES:`) que
+ *     ya no existen — bastaba una tilde para que el sistema quedara mudo, y nunca tuvo cobertura.
+ *   · `recsDeEvento` existía TRIPLICADA (aquí, en el player offline y dentro de un test), y la
+ *     única versión cubierta era la copia que vivía en el test.
+ *   · `clean` y `PREGUNTAS_ASESOR` son decisiones de presentación, y la presentación la arma
+ *     ahora `lib/estado/vista.ts`, donde sí la cubre un gate.
  */
-function recsDeEvento(data: Record<string, any>): Rec[] {
-  const recs = (data?.recomendaciones ?? []) as Array<{ nombre: string; reason_codes?: string[] }>;
-  return recs.map((r, i) => ({
-    nombre: r.nombre,
-    recomendado: i === 0,
-    razon: r.reason_codes?.[0] ?? "",
-  }));
-}
-
-// Después de recomendar, el sistema invita a lo que solo el LLM puede hacer bien: leer el
-// clausulado real y explicarlo en cristiano. Antes dependía de que el modelo se acordara.
-const PREGUNTAS_ASESOR = ["¿Qué cubre?", "¿Qué NO cubre?", "¿Cuánto cuesta?"];
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -172,11 +145,13 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
   const lastQuote = useRef<string | null>(null);
   const started = useRef(false);
   const offlineCancel = useRef(false);
-  const afiliadoRef = useRef<{ nombre: string; ciudad: string } | null>(null);
-  // El cliente sabe qué pintó; el servidor es stateless. Antes el estado se derivaba de que el
-  // modelo escribiera "RECOMENDACION:" con formato exacto — una tilde y la conversación no salía
-  // nunca de DESCUBRIENDO.
-  const yaRecomendo = useRef(false);
+  /**
+   * El estado de la conversación, SELLADO y opaco. El cliente lo guarda y lo reenvía sin leerlo:
+   * si pudiera leerlo empezaría a derivar de él, que es exactamente el problema que este trabajo
+   * elimina. Aquí vivían `afiliadoRef` y `yaRecomendo` — dos booleanos con los que el navegador
+   * intentaba representar una máquina de cuatro fases con slots, perfil y veredicto.
+   */
+  const estadoRef = useRef<string | undefined>(undefined);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
@@ -243,71 +218,32 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: history,
-          afiliado: afiliadoRef.current ?? undefined,
-          yaRecomendo: yaRecomendo.current,
-        }),
+        body: JSON.stringify({ messages: history, estado: estadoRef.current }),
       });
-      const data = (await res.json()) as { reply: string; events: UiEvent[] };
+      const data = (await res.json()) as { ui: UiVista; estado: string };
+      if (!data?.ui) throw new Error("respuesta sin vista");
       // Si la respuesta llegó antes de que se alcancen a leer los pasos, se completa la espera; si
       // tardó más, no se suma nada.
       await esperaMinima;
       setProcessing(null);
-      const parsed = parseReply(data.reply || "");
+      // El estado viaja opaco: se guarda y se reenvía, nunca se interpreta.
+      estadoRef.current = data.estado;
 
-      const eventItems: ChatItem[] = [];
-      let openForm: UiEvent["data"] | null = null;
-      // Las recomendaciones seleccionables se construyen del EVENTO del motor, no del texto del
-      // modelo. El evento ya trae nombre, aseguradora, orden y reason codes: pedirle al LLM que los
-      // transcriba en un protocolo era usarlo de plomería, y bastaba una tilde en "RECOMENDACIÓN:"
-      // para que el sistema quedara mudo. Así tampoco puede equivocarse al copiar un nombre.
-      let recsDelMotor: Rec[] = [];
-      for (const ev of data.events ?? []) {
-        if (ev.type === "quote") lastQuote.current = String(ev.data.quoteId ?? lastQuote.current);
-        if (ev.type === "form") { openForm = ev.data; continue; }
-        // El servidor detectó (o desambiguó) a la persona: lo recordamos para los siguientes
-        // turnos. No pinta tarjeta — es estado, no contenido.
-        if (ev.type === "afiliado") {
-          afiliadoRef.current = {
-            nombre: String(ev.data.nombre ?? ""),
-            ciudad: String(ev.data.ciudad ?? ""),
-          };
-          continue;
+      // El cliente ya no decide NADA de lo que se pinta: el orden, si va una tarjeta antes del
+      // texto, si aparece la grilla de proteger y qué sugerencias se ofrecen ya vienen resueltos.
+      // Aquí solo se traducen a ítems del transcript.
+      const nuevos = bloquesAItems(data.ui.bloques);
+      for (const b of data.ui.bloques) {
+        if (b.t === "evento" && b.evento.type === "quote") {
+          lastQuote.current = String(b.evento.data.quoteId ?? lastQuote.current);
         }
-        if (ev.type === "propension") {
-          recsDelMotor = recsDeEvento(ev.data);
-          if (recsDelMotor.length) yaRecomendo.current = true;
-        }
-        eventItems.push({ kind: "event", event: ev });
-      }
-      // Si el modelo emitió el protocolo por costumbre, se respeta como respaldo (el texto ya salió
-      // limpio de `parseReply`), pero el motor manda.
-      const recs = recsDelMotor.length ? recsDelMotor : parsed.recs;
-      if (recs.length) yaRecomendo.current = true;
-
-      const msgItems: ChatItem[] = [];
-      if (parsed.text) msgItems.push({ kind: "msg", role: "assistant", text: parsed.text });
-
-      // (El teatro de explicabilidad ya arrancó ANTES del fetch: cubre la latencia real en vez de
-      //  sumarse a ella. Antes corría aquí, después de que la respuesta ya había llegado.)
-      // La TARJETA va antes del texto: la frase suele comentar lo que la tarjeta muestra ("¿quieres
-      // que te cuente cómo funciona el de Hogar?"), y leerla antes de ver Hogar no tiene sentido.
-      if (recs.length) {
-        setBusy(false);
-        setProcessing(null);
-        setItems((cur) => [...cur, ...eventItems, { kind: "recommend", recs }, ...msgItems]);
-        // Se invita a las preguntas donde el LLM es insustituible: leer el clausulado y explicarlo
-        // en cristiano. Antes esto quedaba a que el modelo se acordara de ofrecerlo.
-        setSuggestions(parsed.options.length ? parsed.options : PREGUNTAS_ASESOR);
-        return true;
       }
 
-      // Igual cuando la respuesta trae una tarjeta (cotización, coberturas, póliza): primero se ve,
-      // después se comenta.
-      setItems((cur) => (eventItems.length ? [...cur, ...eventItems, ...msgItems] : [...cur, ...msgItems]));
-      setSuggestions(parsed.options);
-      if (openForm) setActiveForm(openForm);
+      setBusy(false);
+      setProcessing(null);
+      setItems((cur) => [...cur, ...nuevos]);
+      setSuggestions(data.ui.sugerencias);
+      setActiveForm(data.ui.entrada.formulario ?? null);
       return true;
     } catch {
       // silentFail: quien llama maneja el fallo (ej. cae al demo offline) sin mostrar el aviso.
@@ -383,16 +319,10 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
 
   const locked = busy || !!processing || !!activeForm;
   const showStarters = items.length === 1 && !interes && !proactivo && !locked;
-  // Las 6 tarjetas aparecen en el turno 2 y SOLO si la persona no se identificó: para un afiliado
-  // reconocido preguntarle qué quiere proteger es empezar el interrogatorio que veníamos a matar.
-  const showProteger =
-    !showStarters &&
-    !locked &&
-    !afiliadoRef.current &&
-    !interes &&
-    !proactivo &&
-    items.filter((i) => i.kind === "msg" && i.role === "user").length === 1 &&
-    !items.some((i) => i.kind === "recommend" || i.kind === "event");
+  // `showProteger` vivía aquí: seis condiciones, tres de ellas contando ítems del array. El
+  // cliente decidía si mostrar la grilla sin poder saber lo único que importaba —si el agente
+  // acababa de hacer una pregunta abierta—, y por eso salían las seis tarjetas al lado de una
+  // pregunta. Ahora lo decide el servidor y llega como un bloque más, en su posición.
 
   return (
     <div className="chat-shell">
@@ -422,6 +352,18 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
             <RecommendCards key={i} recs={item.recs!} onPick={(n) => send(`Quiero el ${n}`)} />
           ) : item.kind === "video" ? (
             <FlowVideo key={i} />
+          ) : item.kind === "proteger" ? (
+            <div key={i} className="pullfirst">
+              <div className="pf-q">¿Qué te gustaría proteger?</div>
+              <div className="pf-grid">
+                {PROTEGER.map((p) => (
+                  <button key={p.t} className="pf-card" onClick={() => send(p.msg)} disabled={locked}>
+                    <span className="pf-ico">{p.ico}</span>
+                    <span className="pf-t">{p.t}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
             <EventCard key={i} event={item.event!} />
           )
@@ -446,21 +388,6 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
                   <button key={p.n} className="pf-persona" onClick={() => startPersona(p)}>{p.n}</button>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Las 6 tarjetas aparecen en el turno 2, solo si la persona no se identificó. */}
-        {showProteger && (
-          <div className="pullfirst">
-            <div className="pf-q">¿Qué te gustaría proteger?</div>
-            <div className="pf-grid">
-              {PROTEGER.map((p) => (
-                <button key={p.t} className="pf-card" onClick={() => send(p.msg)}>
-                  <span className="pf-ico">{p.ico}</span>
-                  <span className="pf-t">{p.t}</span>
-                </button>
-              ))}
             </div>
           </div>
         )}
@@ -952,7 +879,12 @@ function FeedbackCard({ data }: { data: Record<string, any> }) {
 
 /* ===== Tarjetas ===== */
 function EventCard({ event }: { event: UiEvent }) {
-  const d = event.data;
+  // El tipo compartido declara `data: Record<string, unknown>`, que es lo correcto en el
+  // servidor. Aquí se relaja a propósito y en UN solo punto: estas tarjetas leen el payload
+  // crudo de cada tool, y darle un tipo real a cada uno es parte de construir la capa de
+  // presentación que hoy no existe — hoy la estructura interna del motor ES el view-model, y
+  // eso es trabajo del bloque 4 (#28), no de este paso.
+  const d = event.data as Record<string, any>;
 
   if (event.type === "propension") return <PropensionCard data={d} />;
   if (event.type === "impacto") return <ImpactoCard data={d} />;
