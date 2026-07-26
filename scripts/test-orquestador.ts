@@ -20,6 +20,7 @@ import type { HallazgoIdentidad } from "../lib/estado/reducir";
 import { abrir, sellar } from "../lib/estado/sello";
 import { estadoInicial } from "../lib/estado/tipos";
 import { vistaDeEstado, opcionesDeEventos } from "../lib/estado/vista";
+import { prellenado, ETIQUETA_PRELLENO } from "../components/Chat";
 import { executeTool } from "../lib/tools";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { SALUDO_INICIAL, SIN_RESPUESTA } from "../lib/estado/vista";
@@ -165,6 +166,68 @@ async function main() {
     await ejecutarTurno({ messages: [{ role: "user", content: "12/03/2005" }], estado: sellar(yaVerificado) }, dv);
     const juntoV = (lv[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
     check("tras confirmar, el contexto verificado sí entra", juntoV.includes("## SEGMENTO VERIFICADO"));
+  }
+
+  titulo("El formulario nace con lo que ya se sabe (5e)");
+  {
+    /*
+     * Nacía vacío por construcción, incluso para alguien a quien Amparito acababa de reconocer y
+     * saludar por su nombre. El pitch dice que "lo acompaña hasta completar el proceso" y ahí le
+     * entregaba una hoja en blanco.
+     */
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "reconocido",
+      nombre: "Carolina Ramírez López",
+      segmento: { GENERO: "F", CATEGORIA: "A" },
+    });
+    const base = abrir((await ejecutarTurno({ messages: [{ role: "user", content: "Soy Carolina Ramírez López" }] },
+      deps([dice("Hola.")], { resolver }).d)).estado)!;
+    base.identidad.verificada = true;
+
+    // Con la tool REAL: el doble por defecto devuelve siempre un evento de propensión, así que
+    // este bloque estaría midiendo el doble y no `collect_customer_data`.
+    const { d } = deps(
+      [usaTool("collect_customer_data", { productId: "vida_panamerican" }), dice("Ahí lo tienes.")],
+      { resolver, ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno(
+      { messages: [{ role: "user", content: "Sí, avancemos" }], estado: sellar(base) },
+      d
+    );
+    // El formulario no es un bloque del hilo: `vistaDeEstado` lo pone en `entrada`, porque
+    // mientras está abierto la casilla de texto se deshabilita.
+    check("el formulario se abre", !!r.ui.entrada.formulario);
+    const conocido = r.ui.entrada.formulario?.conocido as
+      | { nombre?: string; origen?: string }
+      | undefined;
+    check("y llega con el nombre ya escrito", conocido?.nombre === "Carolina Ramírez López");
+    check("  …etiquetado como venido de la base, porque está verificada", conocido?.origen === "base");
+    check("  …y el componente lo pinta en el campo", prellenado(conocido).nombre === "Carolina Ramírez López");
+
+    /*
+     * SOLO el nombre, y hay que decirlo sin adornos: la base tiene nombre, género, rango de edad,
+     * categoría, grupo familiar y ciudad. NO tiene documento, fecha de nacimiento, celular ni
+     * correo. Prellenar esos cuatro sería inventarse una capacidad que Colsubsidio no nos dio.
+     */
+    const campos = Object.keys(prellenado(conocido));
+    check("y NO se inventa lo que la base no tiene", campos.join() === "nombre", `→ ${campos.join(", ") || "nada"}`);
+  }
+
+  titulo("Sin verificar, lo que se escribe es lo que ella dijo (5e)");
+  {
+    // Andrés no aparece en la base: su nombre también se prellena, pero no se le atribuye a
+    // Colsubsidio un dato que puso él.
+    const resolver = async (): Promise<HallazgoIdentidad> => ({ estado: "no_encontrado", nombre: "Andrés Gómez Ruiz" });
+    // Con la tool REAL: el doble por defecto devuelve siempre un evento de propensión, así que
+    // este bloque estaría midiendo el doble y no `collect_customer_data`.
+    const { d } = deps(
+      [usaTool("collect_customer_data", { productId: "vida_panamerican" }), dice("Ahí lo tienes.")],
+      { resolver, ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "Soy Andrés Gómez Ruiz" }] }, d);
+    const conocido = r.ui.entrada.formulario?.conocido as { origen?: string } | undefined;
+    check("el origen dice que lo dijo él, no la base", conocido?.origen === "declarado");
+    check("y la etiqueta que se pinta lo refleja", ETIQUETA_PRELLENO["declarado"] === "lo dijiste tú");
   }
 
   titulo("Lo verificado llega también a la fase que cotiza (5b)");

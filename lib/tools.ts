@@ -232,7 +232,20 @@ import type { UiEvent } from "./estado/tipos";
  * empiezan a divergir — uno gana `perfilPrevio` y el otro no, y el turno deja de acumular sin
  * que nada se queje.
  */
-export interface ToolCtx extends SanearCtx {}
+export interface ToolCtx extends SanearCtx {
+  /**
+   * Lo que el servidor ya sabe de la persona y puede escribirle en el formulario.
+   *
+   * El formulario nacía VACÍO por construcción —`useState({ nombre: "", ... })`— incluso para
+   * alguien a quien Amparito acababa de reconocer y saludar por su nombre. El pitch del producto
+   * dice que "lo acompaña hasta completar el proceso" y ahí le entregaba una hoja en blanco.
+   *
+   * Con `origen` porque no es lo mismo: si vino verificado de la base se dice así; si lo escribió
+   * la persona, también. Etiquetar de "tu afiliación" algo que no lo es sería la misma falsa
+   * atribución que ya apareció dos veces en este bloque.
+   */
+  conocido?: { nombre?: string; origen?: "base" | "declarado" };
+}
 
 /**
  * Punto ÚNICO por donde pasan las 9 tools. Aquí se registra la decisión (RNF-6): no en nueve
@@ -520,9 +533,24 @@ async function ejecutar(
       if (!p) return { result: { error: "Producto no encontrado" } };
       // Última cotización válida: el frontend usa su propio quoteId guardado,
       // aquí solo señalamos que se abra el formulario para este producto.
+      // Lo que ya se sabe viaja al formulario. Antes solo iba el producto, así que la pantalla no
+      // tenía forma de saber el nombre de alguien a quien acababa de reconocer.
+      const conocido = ctx.conocido?.nombre
+        ? { nombre: ctx.conocido.nombre, origen: ctx.conocido.origen ?? "declarado" }
+        : undefined;
       return {
-        result: { estado: "FORMULARIO_ABIERTO", instruccion: "El formulario se abrió en pantalla. Espera a que la persona lo complete." },
-        event: { type: "form", data: { productId: p.id, producto: p.nombre, aseguradora: p.aseguradora } },
+        result: {
+          estado: "FORMULARIO_ABIERTO",
+          instruccion:
+            "El formulario se abrió en pantalla, con lo que ya sabemos de ella ya escrito. NO le " +
+            "pidas esos datos por chat ni se los leas en voz alta: dile en una frase qué falta y " +
+            "espera a que lo complete.",
+          ya_escrito: conocido ? Object.keys(conocido).filter((k) => k !== "origen") : [],
+        },
+        event: {
+          type: "form",
+          data: { productId: p.id, producto: p.nombre, aseguradora: p.aseguradora, conocido },
+        },
       };
     }
 

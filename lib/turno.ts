@@ -192,6 +192,16 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     textoUsuario,
     segmentoBase: estado.identidad.segmento,
     perfilPrevio: estado.perfil,
+    // El nombre que el formulario puede traer ya escrito. Si la persona está verificada es el
+    // canónico de la base; si no, es el que ella misma escribió — y se etiqueta distinto, porque
+    // decirle "de tu afiliación" a algo que no lo es sería atribuirle a Colsubsidio un dato que no
+    // puso.
+    conocido: estado.identidad.nombre
+      ? {
+          nombre: estado.identidad.nombre,
+          origen: estado.identidad.verificada ? "base" : "declarado",
+        }
+      : undefined,
   };
 
   const convo: Anthropic.MessageParam[] = messages.map((m) => ({

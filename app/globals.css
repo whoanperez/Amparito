@@ -574,6 +574,9 @@ a { text-decoration: none; color: inherit; }
 .tz-peso { font-family: ui-monospace, monospace; font-weight: 700; color: var(--tinta); min-width: 30px; }
 /* La traza pasó de volcado a lectura (#28): el nombre del campo se lee, el valor se destaca y el
    identificador interno del motor ya no sale a pantalla. */
+/* De dónde salió lo que el formulario trae ya escrito. Pequeño y al lado de la etiqueta: informa
+   sin competir con el campo. */
+.df-origen { margin-left: .4rem; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #0a5c2e; background: #e8f5ee; padding: 1px 6px; border-radius: 999px; }
 .tz-campo { font-weight: 600; color: var(--gris); }
 .tz-valor { font-weight: 700; color: var(--tinta); }
 .tz-razon { flex: 1 1 60%; color: var(--tinta); }

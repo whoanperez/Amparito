@@ -591,8 +591,34 @@ function ProcessingCard({ variant }: { variant: "emision" | "reco" }) {
 }
 
 /* ===== Formulario de datos ===== */
+/**
+ * Qué trae ya escrito el formulario, y de dónde salió.
+ *
+ * Nacía VACÍO por construcción —`useState({ nombre: "", ... })`— incluso para alguien a quien
+ * Amparito acababa de reconocer y saludar por su nombre. El pitch del producto dice que "lo
+ * acompaña hasta completar el proceso" y aquí le entregaba una hoja en blanco.
+ *
+ * SOLO EL NOMBRE, y conviene decirlo sin adornos: la base de afiliados tiene nombre, género, rango
+ * de edad, categoría, grupo familiar y ciudad. NO tiene documento, ni fecha de nacimiento, ni
+ * celular, ni correo. Prellenar esos cuatro sería inventarse una capacidad que Colsubsidio no nos
+ * ha dado — la misma disciplina del sello de simulación.
+ */
+export function prellenado(conocido?: { nombre?: string; origen?: string }): Partial<Contacto> {
+  return conocido?.nombre ? { nombre: conocido.nombre } : {};
+}
+
+/** De dónde salió lo que ya está escrito, para no atribuirle a Colsubsidio lo que dijo la persona. */
+export const ETIQUETA_PRELLENO: Record<string, string> = {
+  base: "de tu afiliación",
+  declarado: "lo dijiste tú",
+};
+
 function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => void }) {
-  const [f, setF] = useState<Contacto>({ nombre: "", tipoDocumento: "CC", numeroDocumento: "", fechaNacimiento: "", celular: "", correo: "" });
+  const conocido = data?.conocido as { nombre?: string; origen?: string } | undefined;
+  const [f, setF] = useState<Contacto>({
+    nombre: "", tipoDocumento: "CC", numeroDocumento: "", fechaNacimiento: "", celular: "", correo: "",
+    ...prellenado(conocido),
+  });
   const [consent, setConsent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   function set<K extends keyof Contacto>(k: K, v: Contacto[K]) { setF((p) => ({ ...p, [k]: v })); }
@@ -623,9 +649,15 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
       <div className="df-head">
         <span className="badge">Últimos datos</span>
         <h4>Completa tus datos para {String(data.producto)}</h4>
-        <p>Es rápido. Con esto emitimos tu póliza al instante.</p>
+        <p>{conocido?.nombre ? "Ya escribí lo que sabía de ti. Falta lo demás." : "Es rápido. Con esto emitimos tu póliza al instante."}</p>
       </div>
-      <label>Nombres y apellidos completos
+      <label>
+        Nombres y apellidos completos
+        {/* Prellenado pero EDITABLE: el nombre de la base puede venir en mayúsculas o con una tilde
+            distinta, y este dato acaba en un documento legal. Se ofrece hecho, no impuesto. */}
+        {conocido?.nombre && (
+          <span className="df-origen">{ETIQUETA_PRELLENO[conocido.origen ?? "declarado"]}</span>
+        )}
         <input value={f.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej: Juan Camilo Pérez Cuervo" />
       </label>
       <div className="df-row">
