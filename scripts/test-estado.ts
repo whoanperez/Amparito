@@ -377,6 +377,27 @@ titulo("La vista no compite con una pregunta abierta");
    * El TOPE vive en el servidor, no en el prompt: si el modelo resalta seis cosas no resalta
    * ninguna, y eso no se puede dejar a una petición probabilística.
    */
+  /*
+   * ── Dónde NO puede caer el énfasis ────────────────────────────────────────
+   *
+   * El prompt ya lo pedía y el modelo hizo lo contrario: en un flujo real las SEIS marcas cayeron
+   * sobre lo prohibido — dos preguntas, tres nombres de producto y un precio. Cero aciertos. Y el
+   * efecto es PEOR que no resaltar: subraya lo que ya está en las tarjetas y deja sin marcar lo
+   * único que importa, así que la jerarquía queda al revés.
+   */
+  const PRODS = ["Seguro de Vida", "Asistencia Médica Familiar"];
+  const marcado = (t: string) => /\*\*/.test(limpiarTexto(t, { productos: PRODS }));
+  check("una pregunta no se resalta", !marcado("necesito tu edad: **¿cuántos años tienes?**"));
+  check("un nombre de producto tampoco, que ya está en la tarjeta",
+    !marcado("Lo primero: **el Seguro de Vida**."));
+  check("ni una cifra suelta", !marcado("Por **27 mil pesos al mes** quedas cubierta."));
+  // De PRESENCIA: no basta con quitar lo malo, lo bueno tiene que seguir resaltándose.
+  check("y lo que SÍ debe recordar, sí", marcado("Si algo te pasara, **tu familia se queda sin ingreso**."));
+  // El orden importa: si el tope se aplicara antes, dos marcas prohibidas gastarían el cupo y la
+  // buena se quedaría fuera.
+  check("las marcas prohibidas no gastan el cupo de las buenas",
+    marcado("**el Seguro de Vida**, **¿cuánto cuesta?** y **tu familia se queda sin ingreso**"));
+
   const conExceso = limpiarTexto("Importa **tu ingreso**, y **tu familia**, y **esto**, y **esto otro**.");
   checkEq("se admiten dos énfasis por mensaje", (conExceso.match(/\*\*/g) ?? []).length / 2, MAX_ENFASIS);
   // Lo que sobra pierde la MARCA, no el texto: pasarse de énfasis no puede costarle una frase a

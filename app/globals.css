@@ -218,7 +218,12 @@ a { text-decoration: none; color: inherit; }
 .chat-title .advisor-btn:hover { border-color: var(--azul); background: #f2f8ff; }
 .chat-title .advisor-btn:disabled { opacity: .5; cursor: default; }
 @media (max-width: 480px) { .chat-title .advisor-btn { font-size: 0; padding: 8px 11px; } .chat-title .advisor-btn::before { content: "☎"; font-size: 16px; } }
-.msgs { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
+/* Un intercambio de ocho turnos se leía como un bloque continuo: todo con el mismo espaciado.
+   Cada mensaje de la persona ABRE un intercambio, así que ahí va el aire — separar la conversación
+   por turnos ayuda más a leerla que cualquier color. */
+.msgs { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+.msgs > .msg.user { margin-top: 16px; }
+.msgs > *:first-child { margin-top: 0; }
 .msg { max-width: 82%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; background: var(--azul); color: var(--blanco); border-bottom-right-radius: 4px; }
 .msg.bot { align-self: flex-start; background: var(--blanco); border: 1px solid var(--borde); border-bottom-left-radius: 4px; }
@@ -425,6 +430,7 @@ a { text-decoration: none; color: inherit; }
 .pp-col.cov li::before { content: "✓"; position: absolute; left: 0; color: var(--verde); font-weight: 800; }
 .pp-empty { font-size: 12.5px; color: var(--gris); }
 
+.pp-why { margin-bottom: 10px; }
 .pp-peer { background: var(--gris-suave); border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.5; color: var(--tinta); }
 .pp-peer b { color: var(--azul); font-weight: 800; }
 
