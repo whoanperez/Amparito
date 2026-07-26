@@ -385,12 +385,26 @@ titulo("La vista no compite con una pregunta abierta");
    * efecto es PEOR que no resaltar: subraya lo que ya está en las tarjetas y deja sin marcar lo
    * único que importa, así que la jerarquía queda al revés.
    */
-  const PRODS = ["Seguro de Vida", "Asistencia Médica Familiar"];
+  const PRODS = ["Seguro de Vida", "Asistencia Médica Familiar", "SOAT"];
   const marcado = (t: string) => /\*\*/.test(limpiarTexto(t, { productos: PRODS }));
   check("una pregunta no se resalta", !marcado("necesito tu edad: **¿cuántos años tienes?**"));
+  /*
+   * Y aunque los signos queden FUERA de la marca. Se mira la oración entera, no el trozo: con solo
+   * el trozo, "¿**cuántos años tienes**?" se colaba — y es la forma más natural de escribirlo.
+   */
+  check("  …aunque los signos queden fuera de la marca", !marcado("¿**cuántos años tienes**?"));
+  check("  …pero una pregunta ANTERIOR no arrastra a la frase siguiente",
+    marcado("¿Te sirve? Pues mira: **tu ingreso es lo que sostiene la casa**."));
   check("un nombre de producto tampoco, que ya está en la tarjeta",
     !marcado("Lo primero: **el Seguro de Vida**."));
   check("ni una cifra suelta", !marcado("Por **27 mil pesos al mes** quedas cubierta."));
+  /*
+   * Pero el nombre solo se cae cuando el énfasis es ESO y poco más. Con `includes` a secas se caía
+   * "sin SOAT te pueden inmovilizar la moto" — que es una advertencia legal y de las frases que más
+   * valen del producto. Ahí el nombre es parte de la idea, no la idea.
+   */
+  check("un producto nombrado DENTRO de una idea sí se resalta",
+    marcado("Ojo: **sin SOAT te pueden inmovilizar la moto**."));
   // De PRESENCIA: no basta con quitar lo malo, lo bueno tiene que seguir resaltándose.
   check("y lo que SÍ debe recordar, sí", marcado("Si algo te pasara, **tu familia se queda sin ingreso**."));
   // El orden importa: si el tope se aplicara antes, dos marcas prohibidas gastarían el cupo y la
