@@ -141,18 +141,16 @@ export function contextoDeEstado(e: EstadoConversacion): string | null {
 }
 
 /**
- * El sello de la verificación, propiedad del SERVIDOR.
+ * El sello de la verificación se MUDÓ a `vista.ts`, donde vive la tarjeta que lo pinta.
  *
- * La primera versión de esto le decía al modelo "la pantalla lo dice" — y la pantalla no dice nada.
- * Es la misma falta que el video que desmentía al sello de simulación: un archivo afirmando algo
- * sobre otra superficie que no es cierto.
+ * Mientras estuvo aquí era una instrucción: "cierra el mensaje con esta frase LITERAL". O sea que
+ * la honestidad del paso dependía de que el modelo se acordara de copiarla. Ahora no la escribe
+ * nadie más que el código, y por eso no puede faltar.
  *
- * Aquí no se le pide al modelo que lo redacte a su manera: es una revelación de honestidad, así que
- * las palabras las pone el código y el modelo solo las coloca. Cuando la verificación sea real,
- * esta constante desaparece y con ella la frase.
+ * Se reexporta porque el hecho sigue siendo del servidor: quien importe el aviso desde aquí no
+ * tiene por qué enterarse de la mudanza.
  */
-export const AVISO_VERIFICACION =
-  "Esta validación es simulada para la demostración: no se contrasta contra los sistemas de Colsubsidio.";
+export { AVISO_VERIFICACION } from "./vista";
 
 /**
  * Lo que TODO bloque de identidad tiene que dejar claro.
@@ -202,13 +200,23 @@ function identidad(e: EstadoConversacion): string | null {
         `hasta que confirme que es ella: no inventes ni insinúes su edad, su categoría, su ciudad ni ` +
         `su composición familiar.\n` +
         `${YA_SE_BUSCO}\n` +
-        `Salúdala por su primer nombre (${primerNombre}), di en una línea que lo que Colsubsidio ` +
-        `tiene de ella no se lo enseñas a nadie más, y pídele la fecha de expedición de su documento. ` +
-        `Una sola pregunta.\n` +
-        `Y cierra el mensaje con esta frase LITERAL, en su propia línea: "${AVISO_VERIFICACION}"` +
+        `Salúdala por su primer nombre (${primerNombre}) y di en UNA línea que lo que Colsubsidio ` +
+        `tiene de ella no se lo enseñas a nadie más. Ahí paras.\n` +
+        /*
+         * La pregunta ya no la hace el modelo. Escrita en la prosa, se leía igual que cualquier otro
+         * párrafo —nada decía que es un paso instrumental— y el aviso de que la validación es
+         * simulada dependía de que se acordara de copiarlo. Ahora las dos cosas van en una tarjeta
+         * enmarcada que pinta el servidor, y aquí solo hay que impedir que se dupliquen.
+         */
+        `LA PREGUNTA NO LA ESCRIBES TÚ: el sistema pinta, justo debajo de tu mensaje, una tarjeta ` +
+        `que le pide la fecha de expedición de su documento y que acota qué hay de simulado. Tu ` +
+        `mensaje va SIN pregunta y sin mencionar esa fecha: si la repites, la persona la ve dos ` +
+        `veces y parece que algo se rompió.\n` +
+        `Y no lo enmarques como algo "de la demostración": pedir un dato que solo ella sabría es ` +
+        `del producto y se queda. Lo simulado es solo la comprobación.` +
         (id.intentosVerificacion > 0
-          ? `\nYa lo intentó una vez y no salió. Pídeselo UNA última vez, sin presionar, y ofrécele ` +
-            `seguir sin eso si prefiere.`
+          ? `\nYa lo intentó una vez y no salió. Dile en media línea que no pasa nada y que puede ` +
+            `seguir sin eso si prefiere. La tarjeta se lo vuelve a pedir sola: no insistas tú.`
           : ``)
       );
     }

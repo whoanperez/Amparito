@@ -591,6 +591,30 @@ a { text-decoration: none; color: inherit; }
 }
 .demo > summary, .demo > *:first-child { margin-top: 0; }
 
+/* La pregunta de la verificación, ENMARCADA — y enmarcada como PRODUCTO.
+   La primera versión llevaba `.demo` en el contenedor, así que la cinta "Solo para la demo" caía
+   sobre la pregunta y decía algo falso: que pedir un dato de identidad es parte del montaje. Sin
+   ese dato no se puede enseñar lo que Colsubsidio tiene de alguien, así que el paso se queda.
+   Lo simulado es solo la comprobación, y por eso `.demo` va únicamente en el aviso de abajo —
+   la misma estructura que ya usa el formulario de datos con su nota de valores de ejemplo. */
+.verif {
+  /* El mismo 82% que `.msg`: la tarjeta es parte del turno de Amparito, y dos anchos distintos a
+     dos centímetros se leen como un descuadre, no como jerarquía. */
+  align-self: flex-start; max-width: 82%; background: var(--blanco);
+  border: 1px solid var(--borde); border-top: 4px solid var(--amarillo);
+  border-radius: 16px; padding: 18px 20px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.06);
+}
+.vf-badge {
+  display: inline-block; background: #eaf2fb; color: var(--azul);
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+  padding: 4px 11px; border-radius: 999px;
+}
+.vf-q { margin-top: 11px; font-size: 17px; font-weight: 700; line-height: 1.35; color: var(--tinta); }
+.vf-real { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--gris); }
+/* El resto del aspecto —fondo, borde discontinuo y cinta— lo pone `.demo`, que ya existe. */
+.vf-sim { margin: 14px 0 0; font-size: 12.5px; line-height: 1.5; color: #5c4300; }
+
 /* El rótulo de demo va EN el resumen, visible sin abrir: plegado tiene que leerse como
    instrumentación, no como una función del producto. */
 .tz-demo { display: inline-block; margin-right: 8px; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #7a5a00; background: var(--amarillo-claro); border: 1px dashed #c99b00; padding: 2px 7px; border-radius: 4px; }
