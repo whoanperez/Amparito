@@ -645,6 +645,11 @@ a { text-decoration: none; color: inherit; }
 .pg-btn { display: block; width: 100%; margin-top: 10px; padding: 12px; background: var(--amarillo); color: var(--tinta); border: none; border-radius: 999px; font-family: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
 .pg-btn:hover { filter: brightness(.96); }
 .pg-btn:disabled { opacity: .5; cursor: default; }
+/* Lo verificado y lo de ejemplo NO se pintan igual: verde para lo que vino de Colsubsidio,
+   amarillo discontinuo —el lenguaje de la demo— para lo que rellenamos nosotros. Si se vieran
+   iguales, el formulario estaría diciendo que la base tiene datos que no tiene. */
+.df-origen.ejemplo { color: #7a5a00; background: var(--amarillo-claro); border: 1px dashed #c99b00; }
+.df-aviso { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #5c4300; }
 .df-origen { margin-left: .4rem; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #0a5c2e; background: #e8f5ee; padding: 1px 6px; border-radius: 999px; }
 .tz-campo { font-weight: 600; color: var(--gris); }
 .tz-valor { font-weight: 700; color: var(--tinta); }
