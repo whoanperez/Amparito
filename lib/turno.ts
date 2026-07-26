@@ -163,8 +163,18 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // Corre también en RECONOCIDO. Antes solo en DESCUBRIENDO, así que un afiliado reconocido no
   // tenía ninguna protección contra preguntas repetidas — y en la conversación real preguntó dos
   // veces por los dependientes y dos por el uso del carro, con las mismas palabras.
+  //
+  // Y CORRE SIEMPRE, incluida ASESORANDO. Antes se apagaba justo ahí — que es la fase donde
+  // cotiza, es decir donde de verdad preguntaba de más: a Carolina le pedía la edad, los
+  // dependientes y el ingreso teniendo su segmento verificado en la mano. El bloque sabe adaptarse
+  // (`puedePreguntar`): en ASESORANDO deja de invitar a preguntar y pasa a frenarlo.
   const puedePreguntar = estado.fase === "DESCUBRIENDO" || estado.fase === "RECONOCIDO";
-  const evidencia = puedePreguntar ? resumenEvidencia(textoUsuario, estado.perfil) : null;
+  const evidencia = resumenEvidencia(textoUsuario, estado.perfil, {
+    puedePreguntar,
+    // El segmento verificado se resuelve al decir el nombre; el perfil solo lo recibe cuando el
+    // motor corre. Entre esos dos momentos está el tramo donde antes preguntaba de más.
+    segmentoBase: estado.identidad.segmento,
+  });
   // Dos bloques en vez de un string: el primero es invariable y lleva el punto de corte de caché
   // (#39). El texto que ve el modelo es el mismo de siempre — ver `bloquesDeSystem`.
   const system = bloquesDeSystem(

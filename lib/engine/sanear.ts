@@ -482,10 +482,54 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
  * Es determinista y no necesita estado en el cliente: usa las mismas listas de términos con las
  * que `sanearPerfil` verifica la evidencia.
  */
-export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): string | null {
+export interface OpcionesResumen {
+  /**
+   * El segmento verificado, tal como vive en `estado.identidad`.
+   *
+   * Va aparte de `perfilPrevio` porque son dos momentos distintos: la identidad se resuelve en
+   * cuanto la persona dice su nombre, pero el perfil solo recibe esos ejes DESPUÉS de que el motor
+   * haya corrido. Sin esto, entre el reconocimiento y la primera recomendación el bloque no sabía
+   * nada de ella — y ese es justo el tramo donde antes preguntaba de más.
+   */
+  segmentoBase?: SegmentoBase;
+  /**
+   * ¿La fase actual puede abrir preguntas de perfilamiento? En ASESORANDO no — y ese matiz es la
+   * mitad de este paso: el bloque ahora corre SIEMPRE, así que tiene que saber decir "ya no
+   * preguntes" en vez de "pregunta lo de mayor valor".
+   */
+  puedePreguntar?: boolean;
+}
+
+/**
+ * La edad EXACTA, si la persona llegó a decirla.
+ *
+ * `RANGO_EDAD` viene de la base y sirve para puntuar; la prima necesita un número. Son dos datos
+ * distintos, y confundirlos es lo que hacía que Amparito preguntara la edad a alguien cuyo rango ya
+ * tenía verificado. Se busca con patrón, no con un número suelto: "gano 39 mil" no es una edad.
+ */
+const EDAD_DICHA =
+  // El `(?!…)` es el arreglo de un falso positivo encontrado al revisar: "tengo 40 mil pesos
+  // ahorrados" devolvía 40 años. En una conversación de seguros se habla de plata todo el rato, así
+  // que un número detrás de "tengo" es tan probablemente dinero como edad.
+  /\b(?:tengo|cumplo|cumpli|voy a cumplir)\s+(\d{2})\b(?!\s*(?:mil|millon|lucas|barras|pesos|k\b))|\b(\d{2})\s*anos?\b/;
+
+export function edadDicha(textoNormalizado: string): number | null {
+  const m = textoNormalizado.match(EDAD_DICHA);
+  const n = Number(m?.[1] ?? m?.[2]);
+  return Number.isFinite(n) && n >= 18 && n <= 99 ? n : null;
+}
+
+export function resumenEvidencia(
+  textoUsuario: string,
+  perfilPrevio?: Perfil,
+  opciones: OpcionesResumen = {}
+): string | null {
+  const puedePreguntar = opciones.puedePreguntar !== false;
   const texto = norm(textoUsuario);
   const enr = perfilPrevio?.enriquecido ?? {};
-  const tienePerfil = Object.keys(enr).length > 0;
+  // Antes miraba solo `enriquecido`, así que un afiliado con los cuatro ejes de la base y sin nada
+  // conversacional contaba como "sin perfil".
+  const tienePerfil = Object.keys(perfilPrevio ?? {}).some((k) => k !== "_origen");
   if (!texto.trim() && !tienePerfil) return null;
   const menciona = (t: readonly string[]) => mencionaTermino(texto, t);
 
@@ -502,13 +546,25 @@ export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): s
     ...(enr.tiene_mascota ?? []),
   ]));
   const hablóDeVivienda = menciona(TERMINOS_VIVIENDA) || enr.vivienda !== undefined;
-  const hablóDeDependientes =
-    // Los términos siguen la convención de lib/vocabulario.ts: `*` = prefijo, sin `*` = palabra
-    // exacta. Antes eran `includes` a secas, con el mismo riesgo que hundió a "auto"/"autorizo".
+  // Lo dijo ELLA: va en la lista de lo conversacional.
+  // Los términos siguen la convención de lib/vocabulario.ts: `*` = prefijo, sin `*` = palabra
+  // exacta. Antes eran `includes` a secas, con el mismo riesgo que hundió a "auto"/"autorizo".
+  const contóDependientes =
     menciona([
       "hijo*", "hija*", "esposa*", "esposo*", "pareja*", "mama", "papa", "madre", "padre",
       "depend*", "a cargo", "solo yo", "nadie",
     ]) || enr.dependientes !== undefined;
+
+  /*
+   * Pero el grupo familiar YA responde esta pregunta —incluido "Sin grupo familiar", que responde
+   * que nadie—, así que tampoco falta por saber. Se distingue de lo anterior a propósito: si vino
+   * de la base, decir "te lo contó ella" sería atribuirle a la persona algo que no dijo, y afirmar
+   * de más sobre la base es justo lo que el validador existe para impedir. Ya está listado arriba
+   * como verificado; aquí solo deja de pedirse.
+   */
+  const sabeDependientes =
+    contóDependientes ||
+    (opciones.segmentoBase?.SEGMENTO_GRUPO_FAMILIAR ?? perfilPrevio?.SEGMENTO_GRUPO_FAMILIAR) !== undefined;
   const hablóDeIngreso =
     menciona(["ingreso*", "gano", "sueldo*", "salario*", "trabaj*", "emple*", "desemplead*"]) ||
     enr.sin_ingresos !== undefined;
@@ -516,16 +572,62 @@ export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): s
   const sabe: string[] = [];
   const falta: string[] = [];
   (vehiculos.length ? sabe : falta).push(vehiculos.length ? `vehículo = ${vehiculos.join(", ")}` : "vehículo");
-  (hablóDeDependientes ? sabe : falta).push("quién depende de su ingreso");
+  if (contóDependientes) sabe.push("quién depende de su ingreso");
+  else if (!sabeDependientes) falta.push("quién depende de su ingreso");
   (hablóDeVivienda ? sabe : falta).push("vivienda");
   if (mascotas.length) sabe.push(`mascota = ${mascotas.join(", ")}`);
   if (hablóDeIngreso) sabe.push("su situación de ingreso");
 
-  return (
-    `## LO QUE YA TE CONTÓ (no lo vuelvas a preguntar)\n` +
-    (sabe.length ? `Ya sabes: ${sabe.join("; ")}.\n` : `Todavía no te ha contado nada concreto.\n`) +
-    (falta.length ? `Falta por saber: ${falta.join("; ")}. Pregunta solo lo de mayor valor y una cosa por turno.` : `No necesitas preguntar nada más: recomienda ya.`)
-  );
+  /*
+   * ── Los ejes de la base ───────────────────────────────────────────────────
+   *
+   * Faltaban por completo, y eran la mitad del bug que se veía en producción: Amparito le
+   * preguntaba la edad a alguien cuyo rango vino verificado de Colsubsidio. Se listan APARTE de lo
+   * conversacional a propósito — decir "tú me contaste que tienes 36 a 45" sería falso, y afirmar
+   * de más sobre la base es justo lo que el validador existe para impedir.
+   */
+  const org = perfilPrevio?._origen ?? {};
+  const base = opciones.segmentoBase ?? {};
+  const ETIQUETAS: Array<[keyof Perfil & keyof SegmentoBase, string]> = [
+    ["RANGO_EDAD", "edad"],
+    ["SEGMENTO_GRUPO_FAMILIAR", "grupo familiar"],
+    ["CATEGORIA", "categoría"],
+    ["GENERO", "género"],
+  ];
+  // Vale por las dos vías: el segmento recién resuelto y el perfil que ya pasó por la compuerta.
+  const valorVerificado = (k: keyof Perfil & keyof SegmentoBase) =>
+    base[k] ?? (org[k as string] === "base" ? (perfilPrevio?.[k] as string | undefined) : undefined);
+  const verificado = ETIQUETAS.map(([k, etq]) => [etq, valorVerificado(k)] as const)
+    .filter(([, v]) => !!v)
+    .map(([etq, v]) => `${etq} = ${String(v)}`);
+
+  // La edad exacta es OTRO dato que el rango. Si ya la dijo, no se vuelve a pedir; si no, se pide
+  // en el único momento en que hace falta.
+  const edad = edadDicha(texto);
+  const lineaEdad = edad
+    ? `Edad exacta: ${edad} años, la dijo ella. Ya la tienes: no la vuelvas a pedir.`
+    : (opciones.segmentoBase?.RANGO_EDAD ?? perfilPrevio?.RANGO_EDAD)
+      ? `Para COTIZAR necesitas la edad exacta — la base solo da el rango. Pídela únicamente cuando ` +
+        `vayas a cotizar, y di para qué sirve. Nunca antes.`
+      : null;
+
+  return [
+    `## LO QUE YA SABES DE ESTA PERSONA (no lo vuelvas a preguntar)`,
+    verificado.length ? `Verificado por Colsubsidio: ${verificado.join("; ")}.` : null,
+    sabe.length ? `Te lo contó ella: ${sabe.join("; ")}.` : null,
+    !verificado.length && !sabe.length ? `Todavía no sabes nada concreto de ella.` : null,
+    lineaEdad,
+    falta.length
+      ? puedePreguntar
+        ? `Falta por saber: ${falta.join("; ")}. Pregunta solo lo de mayor valor y una cosa por turno.`
+        : `Falta por saber: ${falta.join("; ")} — pero NO abras preguntas de perfilamiento aquí: ya ` +
+          `hay recomendación en pantalla. Si algo falta de verdad, se afina cuando ella lo mencione.`
+      : puedePreguntar
+        ? `No necesitas preguntar nada más: recomienda ya.`
+        : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** ¿Los 4 ejes del peer-group están verificados (base o declarados)? */

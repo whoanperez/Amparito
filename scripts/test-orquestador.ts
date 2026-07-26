@@ -153,6 +153,47 @@ async function main() {
     check("el contexto verificado entra al prompt", junto.includes("## SEGMENTO VERIFICADO"));
   }
 
+  titulo("Lo verificado llega también a la fase que cotiza (5b)");
+  {
+    /*
+     * El bug que se veía en producción: a Carolina, reconocida, Amparito le preguntaba la edad, los
+     * dependientes y el ingreso. La causa no era el prompt — era que el bloque de "lo que ya sabes"
+     * se apagaba en ASESORANDO, justo la fase donde cotiza. La regla vivía en una fase y el
+     * conocimiento en el estado.
+     *
+     * Se comprueba de punta a punta: por el turno real, con el estado sellado de vuelta.
+     */
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "reconocido",
+      nombre: "Carolina Ramírez López",
+      segmento: { GENERO: "F", CATEGORIA: "A", RANGO_EDAD: "36 a 45 años", SEGMENTO_GRUPO_FAMILIAR: "Monoparental" },
+    });
+    const { d: d1 } = deps([dice("Bienvenida, Carolina.")], { resolver });
+    const t1 = await ejecutarTurno({ messages: [{ role: "user", content: "Soy Carolina Ramírez López" }] }, d1);
+
+    // Turno 2: ya hay veredicto, así que la fase es ASESORANDO — donde antes no llegaba nada.
+    const conVeredicto = abrir(t1.estado)!;
+    conVeredicto.veredicto = { entregado: true, tipo: "recomendacion", recomendaciones: [], obligatorios: [], peer: null };
+    const { d: d2, llamadas: l2 } = deps([dice("Claro.")], { resolver });
+    const t2 = await ejecutarTurno(
+      {
+        messages: [
+          { role: "user", content: "Soy Carolina Ramírez López" },
+          { role: "assistant", content: "Bienvenida." },
+          { role: "user", content: "Quiero el Seguro de Vida" },
+        ],
+        estado: sellar(conVeredicto),
+      },
+      d2
+    );
+    checkEq("la fase del turno es ASESORANDO", abrir(t2.estado)?.fase, "ASESORANDO");
+    const sys2 = (l2[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
+    check("y el prompt SÍ le dice lo que ya sabe de ella", sys2.includes("LO QUE YA SABES DE ESTA PERSONA"));
+    check("  …incluida la edad verificada", /Verificado por Colsubsidio[^\n]*36 a 45/.test(sys2));
+    check("  …y que la edad exacta se pide solo al cotizar", /únicamente cuando vayas a cotizar/.test(sys2));
+    check("  …y que aquí NO abra preguntas de perfilamiento", /NO abras preguntas de perfilamiento/.test(sys2));
+  }
+
   titulo("La guarda del doble cañón");
   {
     const { d, llamadas } = deps([

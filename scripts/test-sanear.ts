@@ -7,7 +7,7 @@
  * pregunta de doble cañón) y eso decidió la venta. Y mandó `CATEGORIA:"B"` para alguien que
  * acababa de decir que no tiene ingresos, apagando `prioriza_prima_baja`.
  */
-import { sanearPerfil, resumenEvidencia } from "../lib/engine/sanear";
+import { sanearPerfil, resumenEvidencia, edadDicha } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
 let ok = true;
@@ -366,6 +366,67 @@ check("a quien su familia mantiene NO se le recomienda proteger su ingreso",
   `→ ${rReal.recomendaciones.map((r) => r.nombre).join(", ") || "ninguna"}`);
 // De presencia, no de ausencia: tiene que recomendar OTRA cosa, no quedarse en blanco.
 check("y sí se le recomienda lo que de verdad le sirve", rReal.recomendaciones.length > 0);
+
+/* ── 8 · lo verificado viaja a todas las fases (B14 · 5b) ─────────────────── */
+/*
+ * POR QUÉ. En producción Amparito le preguntaba la edad, los dependientes y el ingreso a Carolina
+ * —cuyo segmento vino verificado de la base—. La causa no era el prompt: era que este bloque no
+ * mencionaba NI UNO de los ejes de la base, y que `turno.ts` lo apagaba justo en ASESORANDO, que
+ * es la fase donde cotiza. La regla vivía en una fase y el conocimiento en el estado.
+ */
+console.log("\n===== Lo verificado viaja a todas las fases =====");
+
+const CAROLINA: Parameters<typeof resumenEvidencia>[1] = {
+  GENERO: "F", RANGO_EDAD: "36 a 45 años", CATEGORIA: "A", SEGMENTO_GRUPO_FAMILIAR: "Monoparental",
+  _origen: { GENERO: "base", RANGO_EDAD: "base", CATEGORIA: "base", SEGMENTO_GRUPO_FAMILIAR: "base" },
+};
+
+const rPuede = resumenEvidencia("Soy Carolina Ramírez López", CAROLINA, { puedePreguntar: true }) ?? "";
+check("los ejes de la base aparecen, con su procedencia", /Verificado por Colsubsidio/.test(rPuede));
+check("  …con la edad", /36 a 45/.test(rPuede));
+check("  …y el grupo familiar", /Monoparental/.test(rPuede));
+// La contradicción que tenía: listaba el segmento como verificado y en la línea siguiente pedía
+// preguntar lo mismo — peleando además con el prompt de RECONOCIDO, que lo prohíbe con todas las
+// letras. Un prompt que se contradice a sí mismo es cómo el modelo acaba preguntando de más.
+check("y NO pide preguntar lo que el segmento ya responde",
+  !/Falta por saber[^\n]*depende de su ingreso/.test(rPuede));
+// Y no se le atribuye a ella lo que vino de la base.
+check("lo de la base NO se presenta como algo que ella contó",
+  !/Te lo contó ella[^\n]*depende de su ingreso/.test(rPuede));
+
+const rAsesora = resumenEvidencia(
+  "Soy Carolina Ramírez López\nQuiero el Seguro de Vida", CAROLINA, { puedePreguntar: false }
+) ?? "";
+check("en ASESORANDO el bloque SIGUE llegando", rAsesora.includes("Verificado por Colsubsidio"));
+check("y ahí frena, en vez de invitar a preguntar",
+  /NO abras preguntas de perfilamiento/.test(rAsesora) && !/Pregunta solo lo de mayor valor/.test(rAsesora));
+
+/*
+ * La edad exacta es OTRO dato que el rango: la base da el rango, la prima necesita el número. Se
+ * pide una sola vez y solo al cotizar (decisión tomada); si ya la dijo, no se vuelve a pedir.
+ */
+check("con rango verificado, se pide la edad exacta SOLO al cotizar",
+  /únicamente cuando vayas a cotizar/.test(rPuede));
+const rConEdad = resumenEvidencia("Soy Carolina\ntengo 39 años", CAROLINA, { puedePreguntar: false }) ?? "";
+check("si ya dijo su edad, se le dice al modelo que ya la tiene",
+  /Edad exacta: 39/.test(rConEdad) && !/únicamente cuando vayas a cotizar/.test(rConEdad));
+/*
+ * En una conversación de seguros se habla de plata todo el rato, así que un número detrás de
+ * "tengo" es tan probablemente dinero como edad. El primero devolvía 40 años antes de revisarlo.
+ */
+for (const t of ["tengo 40 mil pesos ahorrados", "tengo 27 mil de prima", "gano 39 mil pesos al mes", "tengo 15 anos de casado"]) {
+  check(`"${t}" no se lee como una edad`, edadDicha(t) === null);
+}
+check("y las formas normales de decirla sí se leen",
+  edadDicha("tengo 28") === 28 && edadDicha("voy a cumplir 45 anos") === 45);
+
+// Andrés no tiene nada verificado: el bloque no debe inventarle una sección vacía.
+const rAndres = resumenEvidencia("Soy Andrés Gómez Ruiz\ntengo una moto", undefined, { puedePreguntar: true }) ?? "";
+check("sin nada de la base, no aparece la sección de verificado",
+  !rAndres.includes("Verificado por Colsubsidio"));
+check("y sí lo que él contó", /Te lo contó ella: vehículo = moto/.test(rAndres));
+check("y sigue faltando lo que de verdad falta",
+  /Falta por saber[^\n]*depende de su ingreso/.test(rAndres));
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);
