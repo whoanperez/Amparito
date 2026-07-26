@@ -20,6 +20,7 @@
  */
 import { AVISO_SIMULACION, contradiceElSello, inventaTiempos, copyCierre, PASOS_EXPEDICION } from "../lib/expedicion";
 import { SCENES, MARCA_PRODUCCION, marcaDeEscena } from "../components/FlowVideo";
+import { DEMO_SCRIPTS } from "../lib/demo/scripts";
 
 let ok = true;
 const check = (label: string, cond: boolean, detalle?: string) => {
@@ -57,6 +58,18 @@ const SUPERFICIES: Array<{ donde: string; texto: string }> = [
     donde: `video · escena ${i} "${sc.t.slice(0, 34)}"`,
     texto: [sc.t, sc.s, sc.chip ?? "", marcaDeEscena(sc) ?? ""].join(" "),
   })),
+  /*
+   * Los guiones del demo offline son una superficie más, y la que más fácil se olvida: es el
+   * paracaídas, así que solo se ve el día que falla la red — cuando ya nadie va a revisarlo.
+   * Estaban fuera del sello: Andrés y Jaime cerraban afirmando protección sin decir que es una
+   * simulación, y Carolina llevaba el aviso escrito a mano (una cuarta copia, y además
+   * incompleta: no decía lo del correo).
+   */
+  ...Object.entries(DEMO_SCRIPTS).flatMap(([quien, beats]) =>
+    beats
+      .map((b, i) => ({ donde: `guion ${quien} · beat ${i}`, texto: b.say ?? "" }))
+      .filter((x) => x.texto)
+  ),
 ];
 
 for (const s of SUPERFICIES) {
@@ -68,6 +81,23 @@ check("los SLA siguen sin acordarse (si esto cambia, el gate de abajo se relaja 
   PASOS_EXPEDICION.every((p) => p.sla === null));
 for (const s of SUPERFICIES) {
   check(`${s.donde} no afirma un plazo`, !inventaTiempos(s.texto));
+}
+
+/*
+ * 2b · El cierre del demo offline lleva el sello, como lo lleva el de verdad.
+ *
+ * En vivo el cierre lo escribe `copyCierre`, que siempre lo carga. En offline lo escribe un guion
+ * a mano, y un paracaídas que cuenta una historia más optimista que el producto real es peor que
+ * no tenerlo: se despliega justo cuando nadie puede corregirlo.
+ */
+console.log("\n===== El paracaídas cuenta la misma historia =====");
+for (const [quien, beats] of Object.entries(DEMO_SCRIPTS)) {
+  const i = beats.findIndex((b) => b.tool?.name === "issue_policy");
+  check(`${quien}: el guion llega a la emisión`, i >= 0);
+  const cierre = beats.slice(i).map((b) => b.say ?? "").join(" ");
+  check(`${quien}: y el cierre dice que es una simulación`,
+    cierre.includes(AVISO_SIMULACION),
+    `→ "…${cierre.slice(-52)}"`);
 }
 
 /*

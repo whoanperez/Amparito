@@ -7,6 +7,7 @@
  * la emisión automáticamente. Contactos sintéticos (cero PII).
  */
 import { PERSONAS } from "../engine/fixtures";
+import { AVISO_SIMULACION } from "../expedicion";
 
 export interface DemoBeat {
   role: "user" | "assistant";
@@ -34,7 +35,7 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
     { role: "assistant", say: "¿Avanzamos y te dejo asegurado?" },
     { role: "user", say: "Sí, quiero." },
     { role: "assistant", say: "Perfecto, con esto queda listo.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Andrés Gómez Ruiz", "15/03/1998") } } },
-    { role: "assistant", say: "¡Listo, Andrés! Protegido para lo tuyo, sin pagar de más." },
+    { role: "assistant", say: `¡Listo, Andrés! Protegido para lo tuyo, sin pagar de más. ${AVISO_SIMULACION}` },
   ],
 
   // B · Carolina — el corazón: sostén monoparental → Vida.
@@ -50,7 +51,7 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
     { role: "assistant", say: "¿Te gustaría quedar asegurada?" },
     { role: "user", say: "Sí, quiero." },
     { role: "assistant", say: "Perfecto. Con estos datos queda listo al instante.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Carolina Ramírez López", "22/07/1987") } } },
-    { role: "assistant", say: "¡Listo, Carolina! Tu solicitud queda completa. Ojo: esto es una simulación del proceso — no se emitió ninguna póliza." },
+    { role: "assistant", say: `¡Listo, Carolina! Tu solicitud queda completa. ${AVISO_SIMULACION}` },
   ],
 
   // C · Jaime — anti-venta 2: ya tiene Exequial; se le ofrece Vida (incapacidad).
@@ -63,6 +64,6 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
     { role: "assistant", say: "¿Avanzamos?" },
     { role: "user", say: "Sí." },
     { role: "assistant", say: "Perfecto, Jaime.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Jaime Ortiz Vega", "10/05/1968") } } },
-    { role: "assistant", say: "Listo, Jaime. Quedaste con el respaldo que te faltaba." },
+    { role: "assistant", say: `Listo, Jaime. Quedaste con el respaldo que te faltaba. ${AVISO_SIMULACION}` },
   ],
 };

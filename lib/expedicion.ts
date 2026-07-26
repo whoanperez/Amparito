@@ -57,7 +57,13 @@ const LLEVA_SELLO = /simulaci[óo]n|simulad|no se emiti[óo]|ning[úu]n correo/i
  * pasa. El sello viaja con la promesa o la promesa no va.
  */
 export function contradiceElSello(texto: string): boolean {
-  return PROMETE_ENTREGA.test(texto) && !LLEVA_SELLO.test(texto);
+  if (LLEVA_SELLO.test(texto)) return false;
+  // Una PREGUNTA no promete nada. "¿Te gustaría quedar asegurada?" es una oferta, y tratarla como
+  // promesa incumplida obligaría a escribir peor para complacer al predicado. Apareció al correr
+  // esto sobre los guiones del demo, que sí conversan; el copy estático no tenía preguntas.
+  return texto
+    .split(/(?<=[.?!\n])\s+|\s+(?=[¿¡])/)
+    .some((o) => !/[¿?]/.test(o) && PROMETE_ENTREGA.test(o));
 }
 
 /**
