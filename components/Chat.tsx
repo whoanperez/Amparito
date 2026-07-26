@@ -4,6 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DetrasDeCamaras } from "./FlowVideo";
 import { AVISO_SIMULACION } from "@/lib/expedicion";
 import { UMBRAL_PASOS, esperaRestante, indicadorDeEspera } from "@/lib/ui/espera";
+import {
+  ETIQUETA_ORIGEN,
+  ETIQUETA_RESULTADO,
+  etiquetaDeCampo,
+  explicaGate,
+  sumaDelPuntaje,
+  valorLegible,
+} from "@/lib/ui/traza";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 import { SALUDO_INICIAL } from "@/lib/estado/vista";
@@ -825,22 +833,25 @@ interface TrazaData {
     nombre: string;
     score: number;
     resultado: string;
+    /** Por qué NO entró, cuando el motor tiene un motivo escrito. */
+    motivo?: string;
     senales: Array<{ feature: string; razon: string; peso: number }>;
   }>;
 }
 
-const RESULTADO_ETIQUETA: Record<string, string> = {
-  recomendado: "recomendado",
-  obligatorio: "obligatorio por ley",
-  ya_cubierto: "ya lo tienes",
-  descartado: "descartado",
-  fuera_del_top: "no entró al top",
-};
-
+/*
+ * La traza dejó de leer la estructura interna del motor (#28). Todo lo que aquí se pinta pasa por
+ * `lib/ui/traza.ts`, que es puro y tiene gate: un campo nuevo del motor sale legible sin que nadie
+ * tenga que acordarse de traducirlo, y `(vacío)` ya no puede llegar a la pantalla.
+ */
 function TrazaDecision({ traza }: { traza: TrazaData }) {
   const origen = (traza.perfil?._origen ?? {}) as Record<string, string>;
   const campos = Object.entries(traza.perfil ?? {}).filter(([k]) => k !== "_origen" && k !== "enriquecido");
   const enr = Object.entries((traza.perfil?.enriquecido ?? {}) as Record<string, unknown>);
+  const filas: Array<[string, unknown]> = [
+    ...campos,
+    ...enr.map(([k, v]) => [`enriquecido.${k}`, v] as [string, unknown]),
+  ];
 
   return (
     <details className="tz">
@@ -848,19 +859,22 @@ function TrazaDecision({ traza }: { traza: TrazaData }) {
 
       <div className="tz-lbl">Lo que supe de ti, y de dónde lo supe</div>
       <ul className="tz-perfil">
-        {[...campos, ...enr.map(([k, v]) => [`enriquecido.${k}`, v] as [string, unknown])].map(([k, v]) => (
-          <li key={k}>
-            <code>{k}</code> = {Array.isArray(v) ? v.join(", ") : String(v)}
-            <span className={`tz-org ${origen[k] ?? origen[`enriquecido.${k}`] ?? ""}`}>
-              {origen[k] ?? origen[`enriquecido.${k}`] ?? "—"}
-            </span>
-          </li>
-        ))}
-        {campos.length === 0 && enr.length === 0 && <li>No tenía ningún dato tuyo.</li>}
+        {filas.map(([k, v]) => {
+          const org = origen[k] ?? "";
+          return (
+            <li key={k}>
+              <span className="tz-campo">{etiquetaDeCampo(k)}</span>
+              <span className="tz-valor">{valorLegible(v)}</span>
+              <span className={`tz-org ${org}`}>{ETIQUETA_ORIGEN[org] ?? "sin procedencia"}</span>
+            </li>
+          );
+        })}
+        {filas.length === 0 && <li>No tenía ningún dato tuyo.</li>}
       </ul>
       <p className="tz-nota">
-        <b>base</b> = vino de Colsubsidio · <b>declarado</b> = lo dijiste y se verificó ·{" "}
-        <b>inferido</b> = se dedujo, y por eso no habilita afirmaciones sobre la base.
+        Lo que vino <b>de la base</b> o <b>lo dijiste tú</b> está verificado. Lo que{" "}
+        <b>se dedujo</b> puede mover el orden, pero no habilita ninguna afirmación sobre la base de
+        afiliados — por eso la prueba social exige los cuatro ejes verificados.
       </p>
 
       <div className="tz-lbl">Las reglas que aplicaron, y cuánto pesó cada una</div>
@@ -869,29 +883,38 @@ function TrazaDecision({ traza }: { traza: TrazaData }) {
           <div className="tz-prod" key={p.id}>
             <div className="tz-prod-top">
               <b>{p.nombre}</b>
-              <span className="tz-score">{p.score}</span>
-              <span className={`tz-res ${p.resultado}`}>{RESULTADO_ETIQUETA[p.resultado] ?? p.resultado}</span>
+              <span className="tz-score" title={sumaDelPuntaje(p) ?? undefined}>{p.score}</span>
+              <span className={`tz-res ${p.resultado}`}>{ETIQUETA_RESULTADO[p.resultado] ?? p.resultado}</span>
             </div>
             <ul>
               {p.senales.map((s, i) => (
                 <li key={i}>
                   <span className="tz-peso">{s.peso > 0 ? `+${s.peso}` : s.peso}</span>
-                  <code>{s.feature}</code> {s.razon}
+                  <span className="tz-razon">{s.razon}</span>
+                  <span className="tz-campo-min">{etiquetaDeCampo(s.feature)}</span>
                 </li>
               ))}
             </ul>
+            {/* El puntaje deja de ser un número mágico: es la suma de lo que está arriba, y se
+                puede verificar a ojo. Solo se afirma cuando de verdad cuadra. */}
+            {sumaDelPuntaje(p) && <div className="tz-suma">{sumaDelPuntaje(p)}</div>}
+            {p.motivo && <div className="tz-motivo">{p.motivo}</div>}
           </div>
         ))}
       </div>
 
       <div className="tz-lbl">Decisiones del motor</div>
       <ul className="tz-meta">
+        <li>{explicaGate(traza.gate_asequibilidad)}</li>
         <li>
-          Gate de asequibilidad · categoría <code>{traza.gate_asequibilidad.categoria}</code> →{" "}
-          {traza.gate_asequibilidad.prioriza_prima_baja ? "prioriza prima baja" : "sin prioridad de prima"}
+          {traza.jerarquia_aplicada
+            ? "Primero lo que reemplaza tu ingreso, aunque otro producto puntúe más alto."
+            : "El orden es el del puntaje: no hizo falta moverlo."}
         </li>
-        <li>Jerarquía de protección · {traza.jerarquia_aplicada ? "aplicada (movió el orden)" : "no hizo falta"}</li>
-        <li>Prueba social · {traza.peer.afirmada ? "afirmada" : "NO afirmada"}: {traza.peer.motivo}</li>
+        <li>
+          {traza.peer.afirmada ? "Prueba social afirmada" : "Prueba social NO afirmada"}:{" "}
+          {traza.peer.motivo}
+        </li>
         <li>Versión del scorecard · <code>{traza.version_reglas}</code></li>
       </ul>
     </details>

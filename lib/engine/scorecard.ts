@@ -263,6 +263,9 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
   const peerResult = lookupPeer(perfil);
 
   // RNF-6 · traza auditable. Se arma AQUÍ porque solo ahora se sabe dónde terminó cada producto.
+  // El motivo del descarte YA estaba escrito; lo que faltaba era que llegara a la traza. Se indexa
+  // por id para no volver a calcularlo: una sola fuente, la misma que ve la persona en el chat.
+  const motivoPorId = new Map(descartados.map((d) => [d.id, d.motivo]));
   const descIds = new Set(descartados.map((d) => d.id));
   const cubiertoIds = new Set(scored.filter((x) => x.yaCubierto).map((x) => x.id));
   const traza: TrazaDecision = {
@@ -284,6 +287,7 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
         nombre: getProduct(x.id)?.nombre ?? x.id,
         score: x.score,
         senales: x.reasons,
+        motivo: motivoPorId.get(x.id) ?? x.yaCubierto?.razon,
         resultado: (obligIds.has(x.id)
           ? "obligatorio"
           : cubiertoIds.has(x.id)

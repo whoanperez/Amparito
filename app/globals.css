@@ -572,5 +572,14 @@ a { text-decoration: none; color: inherit; }
 .tz-prod ul { list-style: none; margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
 .tz-prod li { font-size: 12px; line-height: 1.45; color: var(--gris); display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
 .tz-peso { font-family: ui-monospace, monospace; font-weight: 700; color: var(--tinta); min-width: 30px; }
+/* La traza pasó de volcado a lectura (#28): el nombre del campo se lee, el valor se destaca y el
+   identificador interno del motor ya no sale a pantalla. */
+.tz-campo { font-weight: 600; color: var(--gris); }
+.tz-valor { font-weight: 700; color: var(--tinta); }
+.tz-razon { flex: 1 1 60%; color: var(--tinta); }
+.tz-campo-min { font-size: 10.5px; color: var(--gris); background: #fff; border: 1px solid var(--borde); padding: 0 5px; border-radius: 4px; }
+/* La aritmética del puntaje, visible: deja de ser un número que hay que creer. */
+.tz-suma { margin-top: 7px; font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--gris); border-top: 1px dashed var(--borde); padding-top: 6px; }
+.tz-motivo { margin-top: 5px; font-size: 12px; line-height: 1.45; color: #7a5a00; }
 .tz-meta { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .tz-meta li { font-size: 12.5px; line-height: 1.5; color: var(--gris); }
