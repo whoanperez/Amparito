@@ -22,6 +22,7 @@ import { contextoDeEstado } from "@/lib/estado/contexto";
 import {
   afirmacionesSinRespaldo,
   coberturasContradichas,
+  describePantallaQueNoExiste,
   instruccionDeCorreccion,
   quitarFrases,
   type Clausulado,
@@ -434,9 +435,20 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
    * Se contrasta contra el clausulado que las tools devolvieron EN ESTE TURNO. Sin clausulado no se
    * mira nada: adivinar sería peor.
    */
+  /*
+   * Y la guarda de "describir una pantalla que no existe": las tarjetas de recomendación llevan
+   * nombre y razón, no precio.
+   *
+   * Mira el TURNO y el ESTADO. La primera versión solo miraba los eventos de este turno, y eso
+   * habría marcado como falsa una frase correcta: una cotización de un turno anterior sigue en
+   * pantalla, así que "aquí arriba tienes el precio" es cierto. Una guarda que poda texto tiene
+   * que fallar hacia no marcar.
+   */
+  const hayCotizacion = events.some((ev) => ev.type === "quote") || !!estado.quoteId;
   let sinRespaldo = [
     ...afirmacionesSinRespaldo(reply, estado),
     ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+    ...describePantallaQueNoExiste(reply, hayCotizacion),
   ];
   if (sinRespaldo.length) {
     try {
@@ -458,6 +470,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
         sinRespaldo = [
           ...afirmacionesSinRespaldo(reply, estado),
           ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+          ...describePantallaQueNoExiste(reply, hayCotizacion),
         ];
       }
     } catch {

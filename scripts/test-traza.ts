@@ -158,5 +158,28 @@ for (const [k, v] of Object.entries(ETIQUETA_RESULTADO)) {
 check("el gate sin categoría dice qué consecuencia tuvo",
   /prima más baja/.test(explicaGate({ categoria: "(vacío)", prioriza_prima_baja: true })));
 
+/*
+ * ── Tres cosas que la traza decía y no eran ciertas (B15 · 5) ──────────────
+ *
+ * Salieron de un flujo real, y las tres duelen más aquí que en cualquier otra pantalla: esta es la
+ * superficie que existe para que la persona pueda comprobar lo que se le dijo.
+ */
+console.log("\n===== La traza no afirma lo que no sabe =====");
+
+// 1 · "no estás identificada" — a un hombre. Concordancia de género escrita a mano.
+for (const g of [
+  explicaGate({ categoria: "(vacío)", prioriza_prima_baja: true }),
+  explicaGate({ categoria: "A", prioriza_prima_baja: false }),
+]) {
+  check(`"${g.slice(0, 46)}…" no presupone el género`, !/\b(identificad|afiliad|segur)[ao]\b/.test(g));
+}
+
+// 2 · "no entró, y te dije por qué" — la etiqueta no puede saber si se lo dijo. En el flujo real
+//     el motivo estaba en la traza y en la conversación no se mencionó nunca.
+check("la etiqueta del descarte no afirma lo que pasó en la conversación",
+  !/te dije/i.test(ETIQUETA_RESULTADO.descartado), `→ "${ETIQUETA_RESULTADO.descartado}"`);
+check("  …pero sigue diciendo dónde está el motivo",
+  /motivo/i.test(ETIQUETA_RESULTADO.descartado));
+
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

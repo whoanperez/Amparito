@@ -21,6 +21,16 @@ export interface PerfilEnriquecido {
   mascota_veterinario_frecuente?: boolean;
   /** No tiene ingresos hoy (desempleo, informalidad sin entrada). Dispara el "hoy no te vendo". */
   sin_ingresos?: boolean;
+  /**
+   * ARRIENDA una propiedad suya, es decir: es el arrendador.
+   *
+   * Es un campo distinto de `vivienda: "arriendo"`, que significa lo contrario —vivir de
+   * inquilino—. Hasta ahora el Seguro de Arrendamiento disparaba con ese, así que le ofrecía al
+   * INQUILINO un producto que protege al DUEÑO contra impagos, con una razón que decía
+   * literalmente "si arriendas tu propiedad". Es la misma inversión de dirección que ya apareció
+   * en los dependientes y en el ingreso, esta vez dentro de las reglas del motor.
+   */
+  arrienda_propiedad?: boolean;
 }
 
 /**

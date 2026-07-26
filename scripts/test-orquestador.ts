@@ -168,6 +168,23 @@ async function main() {
     check("tras confirmar, el contexto verificado sí entra", juntoV.includes("## SEGMENTO VERIFICADO"));
   }
 
+  titulo("No se promete un precio que no está en pantalla (B15 · 4)");
+  {
+    /*
+     * En un flujo real: "Las tarjetas que ves abajo te muestran ambos, CON LOS PRECIOS EXACTOS".
+     * Las tarjetas de recomendación llevan nombre y razón; no llevan precio. La persona baja la
+     * vista a buscar un número que no está.
+     */
+    const { d } = deps([
+      dice("Las tarjetas que ves abajo te muestran ambos, con los precios exactos."),
+      dice("Ahí abajo tienes las dos opciones. ¿Cuál te cotizo?"),
+    ]);
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "qué me recomiendas" }] }, d);
+    const t = textoDe(r);
+    check("la promesa del precio inexistente no llega a pantalla", !/precios exactos/i.test(t), `→ "${t.slice(0, 52)}"`);
+    check("y el turno no se queda mudo", t.trim().length > 0);
+  }
+
   titulo("El turno atrapa una cobertura que el clausulado excluye (5h)");
   {
     /*

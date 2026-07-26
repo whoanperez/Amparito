@@ -100,6 +100,26 @@ const SIN_INGRESOS: RegExp[] = [
 const TERMINOS_MASCOTA = MASCOTAS;
 
 /**
+ * Ser ARRENDADOR, que en español coloquial se dice casi igual que ser inquilino.
+ *
+ * "Arriendo un apartamento" lo dice igual quien lo alquila para vivir que quien lo alquila a
+ * otros. Por eso se exige una marca de POSESIÓN o de inquilinos: sin ella no se asume nada, y el
+ * producto simplemente no se recomienda — que es lo correcto cuando no se sabe.
+ */
+const ARRIENDA_PROPIEDAD: RegExp[] = [
+  /\b(lo|la|los|las)\s+tengo\s+arrendad/,
+  /\barriendo\s+(un|una|mi|mis)\s+\w+\s+(que\s+)?(tengo|es\s+m[ií]o|m[ií]o)/,
+  /\bmis?\s+(inquilin|arrendatari)/,
+  /\btengo\s+(un|una|dos|tres)?\s*\w*\s*(apartamento|casa|local|inmueble|finca)s?\s+(arrendad|en\s+arriendo|para\s+arrendar)/,
+  /\bvivo\s+de\s+(los\s+)?arriendos?\b/,
+  /\b(soy|somos)\s+(el\s+|la\s+)?(due[nñ]|propietari|arrendador)/,
+];
+
+export function arriendaUnaPropiedad(textoNormalizado: string): boolean {
+  return ARRIENDA_PROPIEDAD.some((re) => re.test(textoNormalizado));
+}
+
+/**
  * ¿La persona declaró que HOY no tiene ingreso?
  *
  * Se exporta porque la garantía del anti-venta necesita vivir donde se puede hacer cumplir. Hasta
@@ -405,9 +425,46 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
     const v = enrBruto[k];
     if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 20) {
       enr[k] = Math.floor(v);
-      origen[`enriquecido.${k}`] = "inferido";
+      /*
+       * La procedencia deja de ser "inferido" a ciegas. En un flujo real la persona respondió
+       * "Solo yo" y la traza mostró "0 · se dedujo": la pantalla que existe para que la
+       * procedencia sea de fiar decía que se había supuesto algo que ella acababa de decir.
+       *
+       * Se mira la misma evidencia que ya se usa para no repreguntar. Si habló del tema, lo dijo.
+       */
+      /*
+       * La lista es DELIBERADAMENTE más corta que la de "no lo vuelvas a preguntar". Mencionar a
+       * la familia —"mi mamá vive en Cali"— basta para no repreguntar, pero NO es decir cuántas
+       * personas dependen de tu ingreso. Marcar eso como "lo dijiste tú" sería atribuirle a la
+       * persona un número que puso el modelo, en la pantalla que existe para que la procedencia
+       * sea de fiar.
+       *
+       * Aquí solo entran las respuestas que contestan la pregunta de verdad. Todo lo demás se
+       * queda en "se dedujo", que es el lado correcto en el que fallar.
+       */
+      origen[`enriquecido.${k}`] = menciona([
+        "depend*", "a cargo", "solo yo", "nadie", "ninguno", "sostengo", "mantengo", "respondo por",
+      ])
+        ? "declarado"
+        : "inferido";
     }
   }
+  /*
+   * `arrienda_propiedad` habilita un producto entero, así que exige evidencia como `vivienda` —y
+   * al revés que los BOOL de abajo, que solo mueven el score—. Y se ORIGINA en el servidor cuando
+   * la evidencia está, por la misma razón que `sin_ingresos`: si el modelo no lo transcribe, el
+   * producto correcto no se ofrece nunca.
+   */
+  if (arriendaUnaPropiedad(texto)) {
+    enr.arrienda_propiedad = true;
+    origen["enriquecido.arrienda_propiedad"] = "declarado";
+  } else if (enrBruto.arrienda_propiedad === true) {
+    descartes.push(
+      "enriquecido.arrienda_propiedad: la persona no dijo que arriende una propiedad suya. " +
+        "Ojo: vivir EN arriendo es lo contrario, y ese producto protege al dueño, no al inquilino."
+    );
+  }
+
   const BOOL = ["necesidad_salud", "viaja", "tiene_credito", "mascota_veterinario_frecuente"] as const;
   for (const k of BOOL) {
     if (typeof enrBruto[k] === "boolean") {

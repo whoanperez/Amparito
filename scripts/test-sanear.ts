@@ -11,6 +11,11 @@ import { sanearPerfil, resumenEvidencia, edadDicha } from "../lib/engine/sanear"
 import { calcularPropension } from "../lib/engine/scorecard";
 
 let ok = true;
+const checkEqStr = (label: string, real: unknown, esperado: unknown) => {
+  const c = real === esperado;
+  console.log(`   ${c ? "✅" : "❌"} ${label}${c ? "" : `  → ${String(real)}`}`);
+  if (!c) ok = false;
+};
 const check = (label: string, cond: boolean, detalle?: string) => {
   console.log(`   ${cond ? "✅" : "❌"} ${label}${detalle ? `  ${detalle}` : ""}`);
   if (!cond) ok = false;
@@ -427,6 +432,84 @@ check("sin nada de la base, no aparece la sección de verificado",
 check("y sí lo que él contó", /Te lo contó ella: vehículo = moto/.test(rAndres));
 check("y sigue faltando lo que de verdad falta",
   /Falta por saber[^\n]*depende de su ingreso/.test(rAndres));
+
+/* ── 9 · arrendador ≠ inquilino (B15 · 1) ─────────────────────────────────── */
+/*
+ * POR QUÉ. El Seguro de Arrendamiento disparaba con `vivienda: "arriendo"` —que significa vivir de
+ * INQUILINO— y le mostraba a esa persona la razón "Respaldo ante impagos si arriendas tu
+ * propiedad", que es del DUEÑO. Salió en un flujo real: alguien dijo "arriendo" y el motor le
+ * ofreció un producto que no le aplica, encabezando la traza.
+ *
+ * Tercera vez en el proyecto que la dirección importa —dependientes, ingreso, y ahora esto—, y la
+ * primera dentro de las reglas del motor.
+ */
+console.log("\n===== Arrendador no es lo mismo que inquilino =====");
+
+const NO_ES_ARRENDADOR = [
+  "vivo en arriendo",
+  "la casa donde vivo es arrendada",
+  "pago arriendo todos los meses",
+  // El ambiguo de verdad: en Colombia esto lo dice igual el inquilino que el dueño. No se asume.
+  "arriendo un apartamento en el centro",
+];
+for (const t of NO_ES_ARRENDADOR) {
+  const s2 = sanearPerfil({ enriquecido: { vivienda: "arriendo" } }, { textoUsuario: t });
+  check(`"${t}" → NO es arrendador`, s2.perfil.enriquecido?.arrienda_propiedad !== true);
+  check(`  …y no se le ofrece el producto del dueño`,
+    !calcularPropension(s2.perfil).traza?.productos.some(
+      (p) => /Arrendamiento/i.test(p.nombre) && p.score > 0
+    ));
+}
+
+const SI_ES_ARRENDADOR = [
+  "tengo un apartamento arrendado",
+  "lo tengo arrendado desde hace dos años",
+  "mis inquilinos a veces se atrasan",
+  "vivo de los arriendos",
+  "soy el dueño y lo arriendo",
+];
+for (const t of SI_ES_ARRENDADOR) {
+  const s2 = sanearPerfil({}, { textoUsuario: t });
+  // Lo ORIGINA el servidor: si esperara a que el modelo lo transcriba, el producto correcto no se
+  // ofrecería nunca. Misma razón que `sin_ingresos`.
+  check(`"${t}" → sí, y lo detecta el servidor solo`, s2.perfil.enriquecido?.arrienda_propiedad === true);
+}
+
+// Y el modelo no puede inventarlo, igual que con todo lo que habilita un producto.
+const arrendadorInventado = sanearPerfil(
+  { enriquecido: { arrienda_propiedad: true } },
+  { textoUsuario: "vivo en arriendo con mi pareja" }
+);
+check("si el modelo lo manda sin evidencia, se cae",
+  arrendadorInventado.perfil.enriquecido?.arrienda_propiedad !== true);
+check("y el descarte explica la inversión, para que no lo repita",
+  arrendadorInventado.descartes.some((d) => /lo contrario|protege al due/i.test(d)));
+
+/* ── 10 · la procedencia no dice "se dedujo" sobre algo que dijo ──────────── */
+/*
+ * En un flujo real la persona respondió "Solo yo" y la traza mostró "Personas que dependen de ti ·
+ * 0 · SE DEDUJO". La pantalla que existe para que la procedencia sea de fiar decía que se había
+ * supuesto algo que ella acababa de decir.
+ */
+console.log("\n===== La procedencia dice la verdad =====");
+/*
+ * La lista de "lo dijo ella" es más corta que la de "no lo vuelvas a preguntar", y a propósito:
+ * mencionar a la familia basta para no repreguntar, pero NO es decir cuántas personas dependen de
+ * tu ingreso. Los dos últimos casos son los que evitan que la traza atribuya a la persona un
+ * número que puso el modelo.
+ */
+for (const [texto, esperado] of [
+  ["solo yo", "declarado"],
+  ["tengo dos hijos que dependen de mí", "declarado"],
+  ["nadie depende de mí", "declarado"],
+  ["mantengo a mi mamá", "declarado"],
+  ["mi mamá vive en Cali", "inferido"],
+  ["tengo dos hijos", "inferido"],
+  ["quiero un seguro para mi moto", "inferido"],
+] as Array<[string, string]>) {
+  const s3 = sanearPerfil({ enriquecido: { dependientes: 1 } }, { textoUsuario: texto });
+  checkEqStr(`"${texto}" → ${esperado}`, s3.perfil._origen?.["enriquecido.dependientes"], esperado);
+}
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

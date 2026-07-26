@@ -49,6 +49,7 @@ function ambiguo(e: EstadoConversacion): string {
   const { n, comun } = e.identidad.ambiguo ?? { n: 0 };
   return (
     `## IDENTIFICACIÓN AMBIGUA\n` +
+      `${YA_SE_BUSCO}\n` +
     `Hay ${n} personas registradas con ese nombre y su situación es distinta, así que no se ` +
     `puede saber cuál es. Pídele SOLO la ciudad, con calidez y UNA sola vez, por ejemplo: ` +
     `"Mucho gusto, [primer nombre]. Hay varios [nombre] en Colsubsidio 😅 ¿En qué ciudad estás y te ubico bien?"\n` +
@@ -123,6 +124,22 @@ export function contextoDeEstado(e: EstadoConversacion): string | null {
 export const AVISO_VERIFICACION =
   "Esta validación es simulada para la demostración: no se contrasta contra los sistemas de Colsubsidio.";
 
+/**
+ * Lo que TODO bloque de identidad tiene que dejar claro.
+ *
+ * En un flujo real Amparito escribió: "Déjame verificar si estás en la base de Colsubsidio.
+ * Mientras tanto, cuéntame…". La búsqueda YA se había hecho antes de que el modelo escribiera esa
+ * frase, y su resultado estaba en este mismo prompt. Anunció un trámite que ya había ocurrido, no
+ * volvió a mencionarlo nunca, y la persona se quedó esperando una respuesta que no iba a llegar.
+ *
+ * No es un descuido de redacción: es afirmar algo sobre lo que el sistema está haciendo. Misma
+ * familia que inventar cuántos homónimos hay.
+ */
+const YA_SE_BUSCO =
+  "La búsqueda contra la base YA se hizo y su resultado es el de arriba. NUNCA digas que vas a " +
+  "verificar, ni «déjame mirar», ni «ya te confirmo»: no hay nada pendiente que consultar y dejarías " +
+  "a la persona esperando una respuesta que no va a llegar.";
+
 function identidad(e: EstadoConversacion): string | null {
   const id = e.identidad;
 
@@ -143,6 +160,7 @@ function identidad(e: EstadoConversacion): string | null {
       if (id.intentosVerificacion >= MAX_VERIFICACION) {
         return (
           `## VERIFICACIÓN NO COMPLETADA — SIGUE SIN ARRANQUE CALIENTE\n` +
+      `${YA_SE_BUSCO}\n` +
           `Aparece en la base, pero no pudo confirmar que es ella, así que NO tienes sus datos y no ` +
           `los vas a tener. No vuelvas a mencionar el tema: atiéndela completa como a cualquiera, ` +
           `preguntándole lo mínimo. No le hagas sentir que falló.`
@@ -153,6 +171,7 @@ function identidad(e: EstadoConversacion): string | null {
         `Hay coincidencia en la base para "${id.nombre}". NO tienes su segmento y no lo vas a tener ` +
         `hasta que confirme que es ella: no inventes ni insinúes su edad, su categoría, su ciudad ni ` +
         `su composición familiar.\n` +
+        `${YA_SE_BUSCO}\n` +
         `Salúdala por su primer nombre (${primerNombre}), di en una línea que lo que Colsubsidio ` +
         `tiene de ella no se lo enseñas a nadie más, y pídele la fecha de expedición de su documento. ` +
         `Una sola pregunta.\n` +
@@ -172,6 +191,7 @@ function identidad(e: EstadoConversacion): string | null {
     // decirle que no aparece en la base, porque no es cierto: aparece varias veces.
     return (
       `## IDENTIFICACIÓN AMBIGUA, YA PREGUNTADA\n` +
+      `${YA_SE_BUSCO}\n` +
       `Ya le pediste la ciudad una vez y no se pudo ubicar. NO se la vuelvas a pedir y no menciones ` +
       `más el tema de la identificación: atiéndela completa igual.`
     );
@@ -181,6 +201,7 @@ function identidad(e: EstadoConversacion): string | null {
     if (id.esperando === "nombre_completo") {
       return (
         `## NO SE ENCONTRÓ (nombre corto)\n` +
+      `${YA_SE_BUSCO}\n` +
         `No hay coincidencia con "${id.nombre}". Antes de descartarlo, pídele el nombre completo una ` +
         `sola vez: "Mucho gusto, [nombre] 😊 ¿Me das tu nombre completo, como aparece en tu documento? ` +
         `Con eso te ubico bien y arrancamos." Si tampoco aparece, sigue con normalidad y no vuelvas a insistir.`
@@ -190,6 +211,7 @@ function identidad(e: EstadoConversacion): string | null {
     if (id.avisadoEnTurno === e.turno) {
       return (
         `## NO SE ENCONTRÓ EN LA BASE\n` +
+      `${YA_SE_BUSCO}\n` +
         `Dilo claro y sigue atendiendo, en el MISMO mensaje que hace la siguiente pregunta útil: ` +
         `"No apareces en la base de afiliados de Colsubsidio. Te atiendo completo igual, solo te hago ` +
         `un par de preguntas más." NUNCA digas "no eres afiliado": puede estar registrada con el nombre ` +
@@ -198,6 +220,7 @@ function identidad(e: EstadoConversacion): string | null {
     }
     return (
       `## IDENTIFICACIÓN YA RESUELTA (no apareció)\n` +
+      `${YA_SE_BUSCO}\n` +
       `Ya le dijiste que no aparece en la base y ella siguió. NO vuelvas a mencionar el tema de la ` +
       `identificación ni le pidas el nombre otra vez: atiéndela completa igual.`
     );
@@ -207,6 +230,7 @@ function identidad(e: EstadoConversacion): string | null {
     // Antes este estado no producía contexto: el prompt no se enteraba de que se había cortado.
     return (
       `## BÚSQUEDAS AGOTADAS\n` +
+      `${YA_SE_BUSCO}\n` +
       `Ya se buscó varias veces y no se pudo ubicar. No le pidas el nombre de nuevo ni menciones ` +
       `el tema: atiéndela completa igual.`
     );
