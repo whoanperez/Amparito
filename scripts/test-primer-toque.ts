@@ -14,7 +14,7 @@
  * llega al reconocimiento en vivo y al "hoy no te vendo nada".
  */
 import { detectarNombre } from "../lib/afiliados/deteccion";
-import { resolverIdentidad } from "../lib/afiliados/resolver";
+import { identidadDe } from "./_identidad";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
@@ -27,33 +27,53 @@ const check = (label: string, cond: boolean, detalle?: string) => {
 // Se IMPORTAN de la pantalla, no se copian. Con dos listas sincronizadas a mano volvería a pasar
 // lo de B5: alguien cambia el `msg`, el gate sigue verde probando un string que ya nadie usa, y el
 // jurado toca un botón que no reconoce a nadie.
-import { CHIPS_ENTRADA, PERSONAS_DEMO } from "../components/Chat";
+import { CHIPS_ENTRADA, PERSONAS_DEMO, chipDeOpcion, INVITACION_EJEMPLO } from "../components/Chat";
 
 const PASTILLAS = PERSONAS_DEMO.map((p) => p.msg);
-const CHIP_SIN_TRABAJO = CHIPS_ENTRADA.find((c) => /sin trabajo/i.test(c))!;
+const CHIP_SIN_TRABAJO = CHIPS_ENTRADA.find((c) => /sin trabajo/i.test(c.texto))!;
+
+// #26 · la regla de las afordancias, verificada: cuatro familias de botón tenían la misma pinta y
+// dos comportamientos distintos, así que no se podía predecir qué hacía ninguno.
+check("el chip de arranque anti-venta es una respuesta ENTERA (envía)", CHIP_SIN_TRABAJO.completa);
+const chipNombre = CHIPS_ENTRADA.find((c) => /^Soy/.test(c.texto))!;
+check("el chip del nombre está INCOMPLETO (prellena)", !chipNombre.completa);
+check("y su etiqueta lo dice, en vez de mostrar una palabra suelta",
+  chipNombre.etiqueta.endsWith("…") && chipNombre.etiqueta !== chipNombre.texto,
+  `→ "${chipNombre.etiqueta}"`);
+check("una opción del modelo abierta se marca como incompleta", !chipDeOpcion("Vivo en ").completa);
+check("y una respuesta entera, como completa", chipDeOpcion("Sí, avancemos").completa);
+
+/*
+ * #27 · La invitación de las pastillas no puede confesar que esto es un demo. Y las pastillas
+ * TIENEN que existir: son el único camino de un toque al arranque caliente para alguien que llega
+ * solo con un enlace. Si teclea su propio nombre no está en el padrón, ve el camino genérico, y
+ * nunca llega al diferencial — que es justo lo que este gate existe para proteger.
+ */
+check("hay un camino de un toque al reconocimiento", PERSONAS_DEMO.length > 0);
+check("y la invitación no confiesa el demo",
+  !/demo|de la base|prueba con|ficticio|ejemplo de prueba/i.test(INVITACION_EJEMPLO),
+  `→ "${INVITACION_EJEMPLO}"`);
 
 async function main() {
   /* ── 1 · un toque en una pastilla → reconocimiento ─────────────────────── */
   console.log("===== Un toque → reconocimiento en vivo =====");
   for (const msg of PASTILLAS) {
     const nombre = detectarNombre(msg, true);
-    const id = await resolverIdentidad([{ role: "user", content: msg }]);
+    const id = await identidadDe(msg);
     check(
       `"${msg}" → reconocido`,
-      nombre !== null && id.estado === "reconocido",
+      nombre !== null && id.hallazgo.estado === "reconocido",
       `(detectó: ${nombre ?? "nada"})`
     );
   }
 
   // Y el momento completo: segmento verificado → motor → prueba social, sin una sola pregunta.
-  const id0 = await resolverIdentidad([{ role: "user", content: PASTILLAS[0] }]);
-  const seg = id0.segmento!;
+  const id0 = await identidadDe(PASTILLAS[0]);
+  // El segmento ya viene con la forma que consume el motor: la conversión vive en el resolver,
+  // en un solo sitio, en vez de repetida en cada llamador.
   const { perfil } = sanearPerfil({}, {
     textoUsuario: PASTILLAS[0],
-    segmentoBase: {
-      GENERO: seg.genero, RANGO_EDAD: seg.rango_edad, CATEGORIA: seg.categoria,
-      SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar, SEGMENTO_POBLACIONAL: seg.poblacional,
-    },
+    segmentoBase: id0.estado.identidad.segmento,
   });
   const r = calcularPropension(perfil);
   check("recomienda con CERO preguntas", r.recomendaciones.length > 0,
@@ -64,7 +84,7 @@ async function main() {
 
   /* ── 2 · un toque en el chip → el anti-venta ───────────────────────────── */
   console.log("\n===== Un toque → \"hoy no te vendo nada\" =====");
-  const s = sanearPerfil({}, { textoUsuario: CHIP_SIN_TRABAJO });
+  const s = sanearPerfil({}, { textoUsuario: CHIP_SIN_TRABAJO.texto });
   check("el servidor detecta la falta de ingreso SIN que el modelo mande el flag",
     s.perfil.enriquecido?.sin_ingresos === true);
   check("y la marca como declarada, no inferida",

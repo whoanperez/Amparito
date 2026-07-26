@@ -14,8 +14,8 @@ import { sanearPerfil } from "../lib/engine/sanear";
 import { SYSTEM_PROMPT, buildSystemPrompt, type Estado } from "../lib/prompts";
 
 let ok = true;
-const check = (label: string, cond: boolean) => {
-  console.log(`   ${cond ? "✅" : "❌"} ${label}`);
+const check = (label: string, cond: boolean, detalle?: string) => {
+  console.log(`   ${cond ? "✅" : "❌"} ${label}${detalle ? `  ${detalle}` : ""}`);
   if (!cond) ok = false;
 };
 
@@ -33,6 +33,10 @@ if (r.no_venta) {
   console.log(`     alternativa: ${r.no_venta.alternativa}`);
 }
 
+// El ANCLA de toda esta sección: sin esto, las dos listas vacías de abajo pasarían igual si el
+// motor se hubiera roto entero. `no_venta` presente es lo que distingue "decidió no vender" de
+// "no decidió nada".
+check("el motor se pronunció: hay un no_venta", !!r.no_venta, `→ ${r.no_venta?.motivo ?? "—"}`);
 check("CERO productos de pago recomendados", r.recomendaciones.length === 0);
 check("nada en descartados (no hay ranking que mostrar)", r.descartados.length === 0);
 // La obligación legal SÍ sobrevive al "no te vendo nada", y es criterio, no inconsistencia: no

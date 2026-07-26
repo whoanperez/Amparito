@@ -47,7 +47,47 @@ async function main() {
   const policy = eventos.find((e) => e.type === "policy")?.data as Record<string, any> | undefined;
   check("la póliza se rotula como simulada", String(policy?.certificado ?? "").includes("SIMULACIÓN"));
 
-  console.log(ok ? "\n✅ OFFLINE OK — flujo completo local, con prueba social y cierre rotulado" : "\n❌ OFFLINE FALLÓ");
+  /*
+   * Las OTRAS DOS personas, que son las que traen el anti-venta.
+   *
+   * Esta suite reproducía solo a Carolina, y eso dejó sin cubrir justo lo que el demo va a mostrar
+   * como diferencial: que a Andrés NO se le vende Vida y que a Jaime NO se le vuelve a vender el
+   * Exequial. Se vio al añadir la compuerta de `ya_cubierto`: si hubiera roto a Jaime, este gate
+   * habría seguido en verde y el paracaídas habría fallado en el salón.
+   */
+  console.log("\n===== Las otras dos personas, sin red =====");
+  for (const quien of ["Andres", "Jaime"] as const) {
+    const ev: EventoDemo[] = [];
+    const rc: string[] = [];
+    await playDemo(DEMO_SCRIPTS[quien], {
+      addMsg: () => {},
+      addEvent: (e) => ev.push(e),
+      addRecommend: (r) => rc.push(...r.map((x) => x.nombre)),
+      sleep: async () => {},
+      cancelled: () => false,
+    });
+    const p = ev.find((e) => e.type === "propension")?.data as Record<string, any> | undefined;
+    check(`${quien}: el flujo llega a la póliza`, ev.some((e) => e.type === "policy"));
+
+    if (quien === "Andres") {
+      // Aserción de PRESENCIA: no basta con que Vida no salga —una lista vacía también lo
+      // cumpliría—, tiene que salir OTRA cosa en su lugar.
+      const nombres = (p?.recomendaciones ?? []).map((r: any) => r.nombre);
+      check("Andrés: se le recomienda algo", nombres.length > 0);
+      check("Andrés: y NO es Vida (nadie depende de su ingreso)",
+        !nombres.some((n: string) => /Seguro de Vida$/.test(n)));
+      console.log(`      → ${nombres.join(", ")}`);
+    } else {
+      const cubierto = (p?.ledger?.ya_cubierto ?? []).map((x: any) => x.producto);
+      check("Jaime: el Exequial aparece como YA CUBIERTO (anti-venta 2)",
+        cubierto.some((n: string) => /Exequial/i.test(n)));
+      check("Jaime: y aun así se le recomienda lo que sí le falta",
+        (p?.recomendaciones ?? []).length > 0);
+      console.log(`      → ya cubierto: ${cubierto.join(", ") || "nada"}`);
+    }
+  }
+
+  console.log(ok ? "\n✅ OFFLINE OK — las 3 personas, con prueba social, anti-venta y cierre rotulado" : "\n❌ OFFLINE FALLÓ");
   process.exit(ok ? 0 : 1);
 }
 

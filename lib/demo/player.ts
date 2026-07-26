@@ -5,12 +5,10 @@
  */
 import { executeTool } from "../tools";
 import { DemoBeat } from "./scripts";
+import { recsDeEvento } from "../estado/vista";
+import type { Rec } from "../estado/tipos";
 
-export interface Rec {
-  nombre: string;
-  recomendado: boolean;
-  razon: string;
-}
+export type { Rec };
 
 export interface PlayerCallbacks {
   addMsg: (role: "user" | "assistant", text: string) => void;
@@ -78,14 +76,12 @@ export async function playDemo(beats: DemoBeat[], cb: PlayerCallbacks): Promise<
   }
 }
 
-function extractRecs(result: unknown): Rec[] {
-  const recomendaciones = (result as { recomendaciones?: Array<{ nombre: string; reason_codes?: string[] }> })?.recomendaciones ?? [];
-  return recomendaciones.map((r, i) => ({
-    nombre: r.nombre,
-    recomendado: i === 0,
-    razon: r.reason_codes?.[0] ?? "",
-  }));
-}
+/**
+ * El demo offline pinta las MISMAS tarjetas que el vivo, con la misma función. Aquí había una
+ * copia: mientras las dos coincidan nadie se entera, y el día que el criterio de "recomendado"
+ * cambie en una, el guion offline —el que se usa si falla la red del salón— pinta otra cosa.
+ */
+const extractRecs = (result: unknown): Rec[] => recsDeEvento((result ?? {}) as Record<string, unknown>);
 
 function readQuoteId(result: unknown, event?: { data: Record<string, unknown> }): string | undefined {
   const fromResult = (result as { quoteId?: string })?.quoteId;

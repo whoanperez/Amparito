@@ -10,13 +10,20 @@
  * v4: el SERVIDOR decide el estado y ensambla BASE + solo el bloque de ese estado. Cada regla
  * vive donde aplica, así que dejan de pelearse.
  *
- * Nota: /api/chat es stateless (solo recibe `messages` y `afiliado`), así que el estado se
- * deriva de lo que sí es observable — el historial y los marcadores de protocolo que Amparito
- * ya escribe en el texto ("RECOMENDACION:"). Por eso son 4 estados y no 6: "cotizado" y
- * "confirmado" son eventos, no texto, y no se pueden detectar de forma confiable hoy.
+ * La fase ya NO se deriva del historial ni de marcadores de protocolo en el texto: la lleva el
+ * estado de la conversación (`lib/estado/reducir.ts`), que sí puede depender del veredicto real
+ * del motor. Este módulo solo ensambla el bloque que corresponde a la fase que le dan.
  */
+import type { Fase } from "./estado/tipos";
+import { MASCOTAS, VEHICULOS, VIVIENDA, aplanar, menciona } from "./vocabulario";
 
-export type Estado = "SALUDO" | "RECONOCIDO" | "DESCUBRIENDO" | "ASESORANDO";
+/**
+ * Es la `Fase` del estado, no un tipo aparte. Se declaraba con los mismos cuatro valores en dos
+ * sitios: mientras coincidan TypeScript no dice nada, y el día que uno gane un valor el otro lo
+ * acepta igual por estructura. Se mantiene el nombre `Estado` porque es como lo llaman el prompt
+ * y sus tests.
+ */
+export type Estado = Fase;
 
 /* ─────────────────────────────────────────────────────────────────────────────
    BASE — viaja en TODOS los turnos. Solo lo que aplica siempre.
@@ -83,13 +90,11 @@ En toda conversación debe aparecer al menos un NO honesto. Tienes cuatro:
 
 ## QUICK-REPLIES (botones de respuesta rápida)
 
-Cuando hagas una pregunta con opciones claras y cortas, termina tu mensaje con una línea aparte EXACTA con este formato:
-OPCIONES: primera opción | segunda opción | tercera opción
-(Máximo 4 opciones, muy cortas. El sistema las convierte en botones.)
+Cuando hagas una pregunta con respuestas claras y cortas, llama a la tool ofrecer_opciones con 2 a 4 respuestas. NO las escribas en el texto: el sistema las convierte en botones.
 Reglas de las opciones:
 - Son RESPUESTAS que la persona daría, en primera persona o como etiqueta corta (ejemplos: "Para trabajo", "Sí, avancemos", "Tengo un presupuesto de"). NUNCA una pregunta.
 - Al hacer clic, la opción PRE-LLENA la casilla de texto para que la persona la complete y edite. Por eso, cuando la respuesta necesita un dato (un monto, una ciudad, una cantidad), deja la opción abierta para completar, por ejemplo "Tengo un presupuesto de" o "Vivo en".
-- Úsalo en preguntas de elección; no lo pongas cuando esperas un texto largo y libre.
+- Úsalo en preguntas de elección; no lo llames cuando esperas un texto largo y libre.
 
 ## 2b. TONO POR GENERACIÓN (adáptate sin preguntar la edad)
 
@@ -110,6 +115,7 @@ Ajusta el registro según señales de la conversación (nunca preguntes "¿cuán
 - quote_product(productId, perfil): precio y coberturas (muestra una tarjeta). Siempre antes de dar un precio.
 - collect_customer_data(productId): abre el formulario para que la persona llene sus datos y autorice.
 - escalate_to_human(motivo): deriva a un asesor.
+- ofrecer_opciones(opciones): convierte 2 a 4 respuestas cortas en botones que la persona puede tocar. Llámala en el MISMO turno que la pregunta, y no escribas las opciones en el texto.
 
 Si una tool falla, reinténtala 1 vez; si vuelve a fallar, ofrece un asesor. Nunca estimes ni recuerdes precios.
 Si una tool te dice que un producto no tiene precio (porque depende de datos del vehículo o requiere asesoría), NO des ninguna cifra: explica de qué depende y ofrece confirmarla. Si te preguntan de cuánto es la póliza y la tool no trae valor asegurado, di la verdad: lo define la aseguradora según el plan y lo confirma un asesor.
@@ -127,7 +133,7 @@ Llama escalate_to_human cuando el producto requiera asesoría (la tool lo marca)
 - Menor de edad: "Para contratar un seguro necesitas ser mayor de edad. Pídele a un adulto que me escriba y con gusto lo ayudo." No sigas.
 - "Solo estoy mirando": cero presión, recomienda sin compromiso y deja la puerta abierta.
 - Comparaciones con otras empresas: no hables de terceros; céntrate en lo tuyo.
-- Respuesta confusa: reformula una vez más simple; si sigue, ofrece OPCIONES.
+- Respuesta confusa: reformula una vez más simple; si sigue, llama ofrecer_opciones.
 - Quejas o siniestros de pólizas existentes: escala a un asesor.
 - SIN INGRESO HOY (desempleo, informalidad sin entrada, deuda que ahoga): cuando la persona diga que
   no tiene ingresos, pásalo en el perfil como enriquecido.sin_ingresos = true. El motor devolverá
@@ -192,14 +198,14 @@ ${COMO_RECOMENDAR}
 
 Detecta el gatillo de vida y pregunta lo MÍNIMO. Tienes un PRESUPUESTO DE DOS PREGUNTAS antes de mostrar la primera recomendación. Nunca más de dos.
 Haz solo las de mayor valor para decidir: qué tiene o acaba de adquirir (vehículo, vivienda, mascota) y quién depende de su ingreso. Todo lo demás se afina DESPUÉS de que la tarjeta esté en pantalla: es mucho mejor mostrar algo útil y ajustarlo que retener la recomendación hasta tener el perfil perfecto.
-Una sola pregunta por turno. Usa OPCIONES cuando aplique. Nunca repitas algo que ya te respondieron.
+Una sola pregunta por turno. Llama ofrecer_opciones cuando aplique. Nunca repitas algo que ya te respondieron.
 
 GATILLOS (generaliza): compró carro/moto/bici o viaja -> movilidad; se mudó, compró o arrendó vivienda -> hogar, arrendamiento; nació un hijo, se casó, cuida a sus padres -> vida, salud, accidentes; llegó una mascota -> mascotas; planea un viaje -> asistencia de viajes; quedó sin empleo o sacó un crédito -> seguros para créditos, vida (con empatía primero); le preocupa un accidente o la salud -> accidentes, salud; piensa en exequias -> exequial (con tacto). Si nada aplica, dilo con honestidad.
 
 Ejemplo de apertura:
 Persona: "Tengo una moto nueva."
-Amparito: "¡Felicitaciones por esa moto! Para recomendarte bien, cuéntame: ¿la usas para el diario, para trabajar, o de vez en cuando?
-OPCIONES: Para el diario | Para trabajar | De vez en cuando"
+Amparito: "¡Felicitaciones por esa moto! Para recomendarte bien, cuéntame: ¿la usas para el diario, para trabajar, o de vez en cuando?"
+(y en el mismo turno llama ofrecer_opciones con ["Para el diario", "Para trabajar", "De vez en cuando"])
 
 Cuando ya tengas lo mínimo (o al llegar a las dos preguntas), RECOMIENDA:
 
@@ -211,15 +217,15 @@ ${COMO_RECOMENDAR}
 
 Ahora la persona pregunta y tú respondes como un asesor de verdad. Tu trabajo es que entienda lo que va a contratar, no empujarla.
 
-COTIZAR: cuando quiera saber el precio, llama quote_product. Aparece una tarjeta con el precio y, desplegable justo debajo, el detalle real de qué cubre y qué NO cubre (con su fuente). Di algo corto y humano que enmarque el precio como protección, no como gasto. Pregunta si está claro y quiere avanzar. OPCIONES: Sí, avancemos | Ver otra opción
+COTIZAR: cuando quiera saber el precio, llama quote_product. Aparece una tarjeta con el precio y, desplegable justo debajo, el detalle real de qué cubre y qué NO cubre (con su fuente). Di algo corto y humano que enmarque el precio como protección, no como gasto. Pregunta si está claro y quiere avanzar, y llama ofrecer_opciones con ["Sí, avancemos", "Ver otra opción"].
 
 RESPONDER POR EL PRODUCTO: si pregunta qué cubre, llama get_product_details y contéstale en cristiano. OFRÉCELE las exclusiones antes de que las pida ("¿te digo qué no cubre? prefiero que lo sepas antes y no después"). Usa la munición real del clausulado: si el Seguro de Vida cubre por cualquier causa e incluye homicidio y suicidio sin periodos de carencia, dilo — casi ningún seguro lo dice tan claro. Y cuando alguien trabaja en su vehículo, la cobertura de incapacidad pesa más que la de fallecimiento, porque es el riesgo más probable.
 
-CONFIRMAR: el detalle de coberturas y exclusiones YA está visible bajo la cotización (cumple la Ley 1328, Art. 9), así que NO muestres otra tarjeta ni lo repitas en texto. Antes de pasar a los datos, haz un resumen en UNA frase que cierre en caliente (por ejemplo "Entonces, por lo que pagas al mes dejas protegido a [quién] de [qué]. ¿Lo activamos?"). OPCIONES: Sí, continuar | Tengo una duda
+CONFIRMAR: el detalle de coberturas y exclusiones YA está visible bajo la cotización (cumple la Ley 1328, Art. 9), así que NO muestres otra tarjeta ni lo repitas en texto. Antes de pasar a los datos, haz un resumen en UNA frase que cierre en caliente (por ejemplo "Entonces, por lo que pagas al mes dejas protegido a [quién] de [qué]. ¿Lo activamos?") y llama ofrecer_opciones con ["Sí, continuar", "Tengo una duda"].
 
 DATOS POR FORMULARIO: cuando quiera continuar, enmarca el paso como confirmar su protección, no como un trámite, e inmediatamente llama collect_customer_data(productId). NO pidas nombre, documento ni nada por chat: de eso se encarga el formulario (que también incluye la autorización de datos de la Ley 1581).
 
-IMPACTO DE INGRESO: si le recomendaste un Seguro de Vida a alguien que sostiene su hogar y tiene dependientes, puedes ayudarle a SENTIR el porqué con calcular_impacto_ingreso. Nunca lo condiciones a ver el precio (primero el precio, después esto), nunca pidas la cifra exacta (usa rangos con OPCIONES), y si la persona declina o dijo que no tiene ingresos, no insistas y no corras la calculadora.
+IMPACTO DE INGRESO: si le recomendaste un Seguro de Vida a alguien que sostiene su hogar y tiene dependientes, puedes ayudarle a SENTIR el porqué con calcular_impacto_ingreso. Nunca lo condiciones a ver el precio (primero el precio, después esto), nunca pidas la cifra exacta (usa rangos con ofrecer_opciones), y si la persona declina o dijo que no tiene ingresos, no insistas y no corras la calculadora.
 
 Si cambia de idea y quiere ver otras opciones, vuelve a llamar calcular_propension: el sistema repinta las tarjetas solo.
 `.trim(),
@@ -233,26 +239,16 @@ Recuerda: primero la compuerta (A, B o C), UNA sola pregunta por turno, texto pl
    API
    ────────────────────────────────────────────────────────────────────────── */
 
-/** Respaldo: si el cliente no manda la señal, se busca el marcador que el modelo pudo escribir. */
-const MARCADOR_RECOMENDACION = "RECOMENDACION:";
-
-/**
- * Deriva el estado. La señal principal es `yaRecomendo`, que la manda el CLIENTE porque él sabe qué
- * pintó — el route es stateless. Antes esto se leía de que el modelo escribiera "RECOMENDACION:" con
- * formato exacto: una tilde en "RECOMENDACIÓN:" y la conversación no salía nunca de DESCUBRIENDO.
+/*
+ * `detectarEstado` vivía aquí. Derivaba la fase de `messages.length` y de dos booleanos que
+ * mandaba el NAVEGADOR —entrada no autenticada, que se perdía con un F5— y de que el modelo
+ * escribiera "RECOMENDACION:" con formato exacto: una tilde y la conversación no salía nunca de
+ * DESCUBRIENDO.
+ *
+ * Ahora la fase la lleva el estado (`lib/estado/reducir.ts` · `siguienteFase`), donde puede
+ * depender del veredicto real del motor en vez de un artefacto de la UI. Con eso muere también el
+ * último rastro del protocolo de texto como portador de estado.
  */
-export function detectarEstado(
-  messages: { role: "user" | "assistant"; content: string }[],
-  opts: { afiliadoReconocido?: boolean; yaRecomendo?: boolean } = {}
-): Estado {
-  const yaRecomendo =
-    opts.yaRecomendo ||
-    messages.some((m) => m.role === "assistant" && m.content.includes(MARCADOR_RECOMENDACION));
-  if (yaRecomendo) return "ASESORANDO";
-  if (opts.afiliadoReconocido) return "RECONOCIDO";
-  const turnosUsuario = messages.filter((m) => m.role === "user").length;
-  return turnosUsuario <= 1 ? "SALUDO" : "DESCUBRIENDO";
-}
 
 /**
  * Familias de tema. Una pregunta que toca DOS familias distintas es de doble cañón, aunque lleve
@@ -263,11 +259,14 @@ export function detectarEstado(
  * Se cuentan SUSTANTIVOS de tema, no cualquier "o": así "¿la usas para el diario, para trabajar,
  * o de vez en cuando?" sigue siendo una sola pregunta con tres opciones, que es válida y deseable.
  */
-const TEMAS: Record<string, string[]> = {
-  vehiculo: ["vehiculo", "carro", "moto", "bici", "patineta", "camioneta", "automovil"],
-  vivienda: ["vivienda", "casa", "apartamento", "apto", "arriendo", "inmueble"],
+const TEMAS: Record<string, readonly string[]> = {
+  // Vehículo, vivienda y mascota se TOMAN del vocabulario compartido en vez de copiarse (#43).
+  // Eran tres listas del mismo dominio y ya habían divergido: "scooter" estaba en una, "camioneta"
+  // en otra, "monopatín" en ninguna de las que decidían.
+  vehiculo: aplanar(VEHICULOS),
+  vivienda: VIVIENDA,
   familia: ["hijo", "hijos", "esposa", "esposo", "pareja", "familia", "dependen", "depende"],
-  mascota: ["mascota", "perro", "gato"],
+  mascota: aplanar(MASCOTAS),
   // "ingreso" NO va aquí: "¿alguien depende de tu ingreso?" es UNA pregunta (familia + ingreso van
   // juntos en este dominio), y es justo la de mayor valor informativo. Solo términos de monto.
   dinero: ["sueldo", "salario", "presupuesto", "cuanto ganas"],
@@ -275,7 +274,14 @@ const TEMAS: Record<string, string[]> = {
   viaje: ["viaje", "viajas", "viajar"],
 };
 
-/** ¿La respuesta encadena dos temas distintos en una sola pregunta? */
+/**
+ * ¿La respuesta encadena dos temas distintos en una sola pregunta?
+ *
+ * El filtro de líneas `OPCIONES:` es RESIDUO DEFENSIVO: ese protocolo ya no existe —las
+ * quick-replies llegan por la tool `ofrecer_opciones`— pero un modelo puede escribirlo por
+ * costumbre durante un tiempo, y una opción como "¿De vez en cuando?" contada como pregunta
+ * dispararía un reintento inútil. Se conserva a propósito; no es que el protocolo siga vivo.
+ */
 export function esDobleCanon(texto: string): boolean {
   const sinOpciones = texto
     .split("\n")
@@ -287,15 +293,15 @@ export function esDobleCanon(texto: string): boolean {
     .filter((s) => s.includes("?"));
 
   return preguntas.some((p) => {
-    const tocados = Object.values(TEMAS).filter((terminos) => terminos.some((t) => p.includes(t)));
+    const tocados = Object.values(TEMAS).filter((terminos) => menciona(p, terminos));
     return tocados.length >= 2;
   });
 }
 
 /**
  * Cuenta las preguntas de una respuesta. Protege la regla "una sola pregunta por turno", que el
- * prompt ya pide pero que se violó tres veces en una sola conversación real. La línea OPCIONES no
- * cuenta: son respuestas que la persona daría, no preguntas.
+ * prompt ya pide pero que se violó tres veces en una sola conversación real. El filtro de
+ * `OPCIONES:` es el mismo residuo defensivo que en `esDobleCanon`.
  */
 export function contarPreguntas(texto: string): number {
   return (
@@ -307,9 +313,79 @@ export function contarPreguntas(texto: string): number {
   );
 }
 
-/** Ensambla el prompt del turno: base + un solo bloque de estado (+ contexto del servidor). */
+/**
+ * El prompt del turno como lo LEE el modelo, en un string.
+ *
+ * Ya no lo llama nadie en producción —`ejecutarTurno` manda bloques—, y por eso está DERIVADO de
+ * `bloquesDeSystem` en vez de componer por su cuenta. Si tuviera su propia copia de la
+ * composición sería lo mismo que acabo de borrar de `deteccion.ts`: código que nadie ejecuta con
+ * un test verde encima, haciendo creer que ese camino está cubierto.
+ *
+ * Derivado sí tiene un trabajo: es la vista sobre la que los gates y `medir-tokens` afirman cosas
+ * del texto sin tener que recomponerlo cada uno a su manera.
+ */
 export function buildSystemPrompt(estado: Estado, contexto?: string): string {
-  return [BASE, ESTADOS[estado], contexto?.trim(), CIERRE].filter(Boolean).join("\n\n");
+  return bloquesDeSystem(estado, contexto)
+    .map((b) => b.text)
+    .join("\n\n");
+}
+
+/**
+ * El mismo prompt, partido en dos bloques para que el prefijo se pueda cachear (#39).
+ *
+ * ── QUÉ HABÍA QUE ENTENDER ANTES DE TOCAR NADA ────────────────────────────
+ *
+ * El caching de Anthropic exige un prefijo mínimo por modelo —4.096 tokens en haiku-4-5— y por
+ * debajo de ese mínimo `cache_control` NO FALLA: no hace nada, en silencio. Yo había supuesto en
+ * el diagnóstico que no llegábamos. La medición dice lo contrario, y la diferencia está en algo
+ * que la suposición no contaba: las `tools` son ~7.000 caracteres de esquema JSON, y van ANTES del
+ * system en el orden canónico del prefijo. Con ellas, el prefijo invariable ronda los 20.000
+ * caracteres — cómodamente por encima. Medir sale barato; suponer salió mal.
+ *
+ * ── POR QUÉ HACÍA FALTA PARTIRLO ──────────────────────────────────────────
+ *
+ * El tamaño no era el único problema: `contexto` —identidad, veredicto— cambia CADA TURNO y va
+ * dentro del mismo string. Un prefijo que cambia cada turno no se cachea nunca, por grande que
+ * sea. Así que aunque el mínimo se cumpliera, hoy el ahorro habría sido exactamente cero.
+ *
+ * ── LO QUE NO CAMBIA ──────────────────────────────────────────────────────
+ *
+ * El texto que le llega al modelo es IDÉNTICO, carácter por carácter: el corte cae justo donde
+ * empieza `contexto`, así que los dos bloques concatenados dan el mismo string de siempre. No es
+ * una reescritura del prompt disfrazada de optimización — y `scripts/test-prompt-estados.ts` lo
+ * comprueba en vez de confiar en esta frase.
+ */
+export interface BloqueSystem {
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+}
+
+/**
+ * Interruptor de emergencia. El SDK instalado (0.32.x) trae `cache_control` solo en sus tipos beta,
+ * así que el campo viaja al endpoint estable sin que el compilador lo respalde. No pude verificarlo
+ * contra la API —la key local está vacía— y si la API lo rechazara, se caería CADA turno.
+ *
+ * Con esto, arreglarlo no necesita un deploy de código: `AMPARITO_SIN_CACHE=1` y listo. Es la
+ * diferencia entre un riesgo que se apaga en treinta segundos y uno que hay que compilar.
+ */
+const cacheApagada = process.env.AMPARITO_SIN_CACHE === "1";
+
+export const PIEZAS = { BASE, ESTADOS, CIERRE } as const;
+
+export function bloquesDeSystem(estado: Estado, contexto?: string): BloqueSystem[] {
+  const invariable = [BASE, ESTADOS[estado]].join("\n\n");
+  const delTurno = [contexto?.trim(), CIERRE].filter(Boolean).join("\n\n");
+  return [
+    // El punto de corte. Cachea todo lo anterior en el orden canónico del prefijo: `tools` primero
+    // y este bloque después. Hay cuatro variantes (una por fase), no una sola entrada de caché.
+    {
+      type: "text",
+      text: invariable,
+      ...(cacheApagada ? {} : { cache_control: { type: "ephemeral" as const } }),
+    },
+    { type: "text", text: delTurno },
+  ];
 }
 
 /**

@@ -1,134 +1,92 @@
 /**
- * Resolución de identidad del afiliado — la cascada.
+ * Ejecución de la consulta de identidad contra la base.
  *
  *   1 · nombre exacto → 1 resultado                → RECONOCIDO (99,55% de los casos)
  *       nombre exacto → varios, mismo segmento     → RECONOCIDO igual (da lo mismo cuál sea)
- *       nombre exacto → varios, segmentos distintos→ pedir CIUDAD, una sola vez
- *       nombre exacto → 0 resultados               → pedir NOMBRE COMPLETO, y si nada, copy A
+ *       nombre exacto → varios, segmentos distintos→ AMBIGUO
+ *       nombre exacto → 0 resultados               → NO ENCONTRADO
  *
  * Todo por índice (~100 ms). Nada de búsquedas por tokens: `LIKE '% x %'` no usa índice, escanea
  * 1,5M de filas y se pasó de 5 minutos en pruebas. El 92% de fallo por nombre corto se resuelve
  * PREGUNTANDO, no escaneando.
+ *
+ * QUÉ DEJÓ DE HACER ESTE MÓDULO, y por qué. Antes husmeaba el historial y decidía por su cuenta:
+ * leía el nombre ya persistido, llamaba a `detectarCiudad` cuando le parecía y contaba los
+ * intentos sobre todos los mensajes. Eso era tener tres dueños del mismo estado — y producía el
+ * bucle sin salida al corregir el nombre (el persistido ganaba sobre el nuevo) y la ciudad
+ * detectada en mensajes donde nadie había preguntado por ninguna ciudad.
+ *
+ * Ahora EJECUTA la consulta que ya decidió el reducer, y clasifica el resultado. Nada más. La
+ * prosa para el prompt se fue a `lib/estado/contexto.ts`, que la genera desde el estado y por eso
+ * sobrevive al turno.
  */
 import { getAffiliateGateway } from "./index";
 import type { AfiliadoSegmento } from "./gateway";
-import { detectarCiudad, detectarNombre } from "./deteccion";
+import { detectarNombre } from "./deteccion";
+import type { ConsultaIdentidad } from "../estado/tipos";
+import type { HallazgoIdentidad } from "../estado/reducir";
+import type { SegmentoBase } from "../engine/sanear";
 
-/** Tope de búsquedas por conversación. Bloqueo real de enumeración, en código y no en prompt. */
-export const MAX_BUSQUEDAS = 3;
-
-export type EstadoIdentidad =
-  | "sin_intento"
-  | "reconocido"
-  | "ambiguo"
-  | "no_encontrado"
-  | "tope_alcanzado";
-
-export interface Identidad {
-  estado: EstadoIdentidad;
-  segmento?: AfiliadoSegmento;
-  /** Bloque de contexto para el prompt del turno. */
-  contexto?: string;
-  /** Lo que el cliente debe recordar para los siguientes turnos. */
-  persistir?: { nombre: string; ciudad: string };
+/** Los 5 ejes que consume el motor, desde la fila de la base. */
+export function aSegmentoBase(s: AfiliadoSegmento): SegmentoBase {
+  return {
+    GENERO: s.genero,
+    RANGO_EDAD: s.rango_edad,
+    CATEGORIA: s.categoria,
+    SEGMENTO_GRUPO_FAMILIAR: s.grupo_familiar,
+    SEGMENTO_POBLACIONAL: s.poblacional,
+  };
 }
 
-interface Msg {
-  role: "user" | "assistant";
-  content: string;
-}
+export async function ejecutarConsulta(consulta: ConsultaIdentidad): Promise<HallazgoIdentidad> {
+  let nombre: string;
+  let ciudad: string | undefined;
 
-export async function resolverIdentidad(
-  messages: Msg[],
-  afiliado?: { nombre?: string; ciudad?: string }
-): Promise<Identidad> {
-  const delUsuario = messages.filter((m) => m.role === "user");
-  const ultimo = delUsuario[delUsuario.length - 1]?.content ?? "";
+  switch (consulta.modo) {
+    case "ninguna":
+      return { estado: "sin_intento" };
 
-  // Nombre a buscar: el ya persistido manda; si no, se detecta en el último mensaje.
-  const yaPersistido = afiliado?.nombre?.trim();
-  const detectado = yaPersistido ? null : detectarNombre(ultimo, delUsuario.length <= 1);
-  const nombre = yaPersistido || detectado;
-  if (!nombre) return { estado: "sin_intento" };
+    case "detectar": {
+      // La heurística solo se usa aquí: cuando NADIE preguntó nada y hay que pescar un nombre
+      // dentro de una frase cualquiera. Si el sistema sí preguntó, el mensaje entero es la
+      // respuesta y eso lo resuelve el reducer, que es quien sabe qué preguntó.
+      const detectado = detectarNombre(consulta.texto, consulta.primerMensaje);
+      if (!detectado) return { estado: "sin_intento" };
+      nombre = detectado;
+      break;
+    }
 
-  // Tope de enumeración: cuenta cuántos mensajes distintos trajeron un nombre.
-  const intentos = delUsuario.filter((m) => detectarNombre(m.content, false)).length;
-  if (!yaPersistido && intentos > MAX_BUSQUEDAS) {
-    return { estado: "tope_alcanzado" };
+    case "nombre":
+      nombre = consulta.nombre;
+      break;
+
+    case "ciudad":
+      nombre = consulta.nombre;
+      ciudad = consulta.ciudad;
+      break;
   }
-
-  // La ciudad puede venir persistida o venir en el mensaje de este turno (respuesta a "¿en qué
-  // ciudad estás?"). Solo se usa como dato adicional; nunca es obligatoria.
-  const ciudad = afiliado?.ciudad?.trim() || (yaPersistido ? detectarCiudad(ultimo) ?? undefined : undefined);
 
   const h = await getAffiliateGateway().buscar(nombre, ciudad);
 
   if (h.estado === "unico") {
     return {
       estado: "reconocido",
-      segmento: h.segmento,
-      contexto: contextoReconocido(h.segmento),
-      persistir: { nombre, ciudad: ciudad ?? "" },
+      // El nombre CANÓNICO de la base, no el que se tecleó: es el que se guarda en el estado y
+      // con el que se saluda.
+      nombre: h.segmento.nombre,
+      ciudad: h.segmento.ciudad ?? ciudad,
+      segmento: aSegmentoBase(h.segmento),
     };
   }
 
   if (h.estado === "ambiguo") {
     return {
       estado: "ambiguo",
-      contexto:
-        `## IDENTIFICACIÓN AMBIGUA\n` +
-        `Hay ${h.n} personas registradas con ese nombre y su situación es distinta, así que no se ` +
-        `puede saber cuál es. Pídele SOLO la ciudad, con calidez y UNA sola vez, por ejemplo: ` +
-        `"Mucho gusto, [primer nombre]. Hay varios [nombre] en Colsubsidio 😅 ¿En qué ciudad estás y te ubico bien?" ` +
-        `y añade una línea OPCIONES: Vivo en\n` +
-        `NUNCA le ofrezcas ciudades para escoger: que ella la escriba. No listes personas ni datos de nadie.\n` +
-        (h.comun
-          ? `Lo único cierto sin importar cuál sea: ${describirComun(h.comun)}. Puedes usar esos campos y nada más.`
-          : `No hay ningún dato común entre esas personas, así que no asumas nada de su segmento.`),
-      // Se persiste el nombre para poder combinarlo con la ciudad en el siguiente turno.
-      persistir: { nombre, ciudad: ciudad ?? "" },
+      nombre,
+      n: h.n,
+      comun: h.comun ? aSegmentoBase(h.comun) : undefined,
     };
   }
 
-  // No encontrado. Si el nombre era corto, primero se pide el completo; si ya dio uno largo, copy A.
-  const tokens = nombre.split(" ").length;
-  return {
-    estado: "no_encontrado",
-    contexto:
-      tokens <= 2
-        ? `## NO SE ENCONTRÓ (nombre corto)\n` +
-          `No hay coincidencia con "${nombre}". Antes de descartarlo, pídele el nombre completo una ` +
-          `sola vez: "Mucho gusto, [nombre] 😊 ¿Me das tu nombre completo, como aparece en tu documento? ` +
-          `Con eso te ubico bien y arrancamos." Si tampoco aparece, sigue con normalidad y no vuelvas a insistir.`
-        : `## NO SE ENCONTRÓ EN LA BASE\n` +
-          `Dilo claro y sigue atendiendo, en el MISMO mensaje que hace la siguiente pregunta útil: ` +
-          `"No apareces en la base de afiliados de Colsubsidio. Te atiendo completo igual, solo te hago ` +
-          `un par de preguntas más." NUNCA digas "no eres afiliado": puede estar registrada con el nombre ` +
-          `escrito distinto. No vuelvas a mencionar el tema de la identificación en el resto de la conversación.`,
-  };
-}
-
-function describirComun(s: AfiliadoSegmento): string {
-  const partes = [
-    s.genero === "F" ? "es mujer" : s.genero === "M" ? "es hombre" : null,
-    s.rango_edad ? `está en el rango ${s.rango_edad}` : null,
-    s.categoria ? `es categoría ${s.categoria}` : null,
-    s.grupo_familiar ? `su grupo familiar es ${s.grupo_familiar}` : null,
-  ].filter(Boolean);
-  return partes.join(", ");
-}
-
-function contextoReconocido(seg: AfiliadoSegmento): string {
-  const primerNombre = seg.nombre.split(" ")[0];
-  const saludo = seg.genero === "F" ? "Bienvenida" : seg.genero === "M" ? "Bienvenido" : "Bienvenido(a)";
-  return (
-    `## SEGMENTO VERIFICADO DE ESTE AFILIADO (viene de la base de Colsubsidio, no lo preguntes)\n` +
-    `Primer nombre: ${primerNombre}. Saluda con "${saludo}, ${primerNombre}".\n` +
-    // Los 4 ejes del peer-group van COMPLETOS: `lookupPeer` los exige para ubicar la celda.
-    `Género = ${seg.genero ?? "?"}; grupo familiar = ${seg.grupo_familiar ?? "?"}; ` +
-    `rango de edad = ${seg.rango_edad ?? "?"}; categoría = ${seg.categoria ?? "?"}; ` +
-    `segmento poblacional = ${seg.poblacional ?? "?"}; ciudad = ${seg.ciudad ?? "?"}.\n` +
-    `El servidor ya le pasa este segmento al motor: NO lo repitas en la llamada a la tool y no lo ` +
-    `preguntes de nuevo. Si la persona te corrige, mandan sus palabras.`
-  );
+  return { estado: "no_encontrado", nombre };
 }

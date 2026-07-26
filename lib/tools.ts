@@ -4,7 +4,7 @@ import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
-import { sanearPerfil, type SegmentoBase } from "./engine/sanear";
+import { sanearPerfil, type SanearCtx } from "./engine/sanear";
 import { registrar } from "./auditoria";
 import { Perfil } from "./engine/types";
 
@@ -187,42 +187,71 @@ export const toolDefinitions: Anthropic.Tool[] = [
       required: ["motivo"],
     },
   },
+  {
+    name: "ofrecer_opciones",
+    description:
+      "Ofrece de 2 a 4 respuestas rápidas que la persona puede tocar en vez de escribir. " +
+      "Úsala junto a una pregunta cuyas respuestas típicas sean pocas, cortas y claras. " +
+      "Son RESPUESTAS que la persona daría, nunca preguntas. Al tocarlas se pre-llena la casilla " +
+      "de texto, así que cuando la respuesta necesita un dato (un monto, una ciudad, una cantidad) " +
+      "deja la opción abierta para completar: \"Vivo en\", \"Tengo un presupuesto de\". " +
+      "No la uses cuando esperas un texto largo y libre.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        opciones: {
+          type: "array",
+          items: { type: "string" },
+          description: "De 2 a 4 respuestas muy cortas, en las palabras de la persona.",
+        },
+      },
+      required: ["opciones"],
+    },
+  },
 ];
 
-/** Evento estructurado que la UI renderiza como tarjeta. */
-export interface UiEvent {
-  /**
-   * "afiliado" no pinta tarjeta: es el hallazgo de identidad que el cliente debe RECORDAR y
-   * reenviar en los siguientes turnos. Sin él, Amparito identifica a la persona en el turno 1 y
-   * no sabe quién es en el turno 3 (el historial se reconstruye solo con los textos).
-   */
-  type: "quote" | "policy" | "escalation" | "compliance" | "form" | "propension" | "impacto" | "afiliado" | "feedback";
-  data: Record<string, unknown>;
-}
+/**
+ * Evento estructurado que la UI renderiza como tarjeta.
+ *
+ * La definición vive en `lib/estado/tipos.ts` y aquí solo se reexporta: es un contrato de
+ * presentación que comparten servidor y navegador, y este módulo importa el SDK de Anthropic,
+ * que el cliente no puede arrastrar. Declararlo en los dos sitios es cómo dos tipos que deben
+ * ser el mismo empiezan a divergir sin que nadie lo note.
+ */
+export type { UiEvent } from "./estado/tipos";
+import type { UiEvent } from "./estado/tipos";
 
 /** Ejecuta una tool y devuelve {result, event?}. Compuertas de cumplimiento EN SERVIDOR. */
 /**
  * Contexto que el servidor le da a las tools. Lo necesita `sanearPerfil` para verificar que un
  * campo del perfil venga de la base o de algo que la persona escribió de verdad.
  */
-export interface ToolCtx {
-  /** Todo lo que la PERSONA escribió, concatenado (no lo que escribió Amparito). */
-  textoUsuario?: string;
-  /** Segmento verificado del afiliado. Manda sobre lo que proponga el modelo. */
-  segmentoBase?: SegmentoBase;
-}
+/**
+ * Es exactamente el contexto de la compuerta: `executeTool` se lo pasa tal cual a `sanearPerfil`.
+ * Se declaraba aparte con los mismos dos campos, que es cómo dos tipos que deben ser el mismo
+ * empiezan a divergir — uno gana `perfilPrevio` y el otro no, y el turno deja de acumular sin
+ * que nada se queje.
+ */
+export interface ToolCtx extends SanearCtx {}
 
 /**
  * Punto ÚNICO por donde pasan las 9 tools. Aquí se registra la decisión (RNF-6): no en nueve
  * sitios distintos, que es como se pierde la mitad de la traza.
  */
+/**
+ * Tools que NO son decisiones, sino afordancias de pantalla. El historial de auditoría es la
+ * evidencia del RNF-6, tiene cupo (200) y es global al proceso: llenarlo de filas de botones
+ * desplaza decisiones reales del registro. Ofrecer un botón no es una decisión que auditar.
+ */
+const NO_SE_AUDITAN = new Set(["ofrecer_opciones"]);
+
 export async function executeTool(
   name: string,
   input: Record<string, unknown>,
   ctx: ToolCtx = {}
 ): Promise<{ result: unknown; event?: UiEvent }> {
   const salida = await ejecutar(name, input, ctx);
-  registrar(name, input, salida.result);
+  if (!NO_SE_AUDITAN.has(name)) registrar(name, input, salida.result);
   return salida;
 }
 
@@ -289,6 +318,23 @@ async function ejecutar(
               "como ella hay en Colsubsidio.",
         },
         event: { type: "propension", data: prop as unknown as Record<string, unknown> },
+      };
+    }
+
+    case "ofrecer_opciones": {
+      // Reemplaza al protocolo `OPCIONES: a | b | c` que el modelo escribía en el texto y el
+      // cliente sacaba con una regex — el mismo transporte frágil que `RECOMENDACION:`, que ya se
+      // había eliminado por eso mismo. El modelo sigue ELIGIENDO las opciones, que es donde
+      // aporta; lo que deja de ser prosa es el transporte.
+      const crudas = Array.isArray(input.opciones) ? (input.opciones as unknown[]) : [];
+      const opciones = crudas.map(String).map((s) => s.trim()).filter(Boolean).slice(0, 4);
+      return {
+        result: opciones.length
+          ? { ok: true, opciones }
+          : { ok: false, nota: "No se ofreció ninguna opción válida: haz la pregunta en texto." },
+        // Sin opciones válidas no hay evento: un evento vacío pintaría una fila de botones
+        // fantasma.
+        event: opciones.length ? { type: "opciones", data: { opciones } } : undefined,
       };
     }
 

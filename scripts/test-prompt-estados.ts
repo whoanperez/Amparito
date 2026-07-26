@@ -7,7 +7,10 @@
  * que cada turno reciba SOLO su bloque, y en particular que un turno RECONOCIDO no lleve encima
  * las instrucciones de descubrimiento.
  */
-import { buildSystemPrompt, detectarEstado, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
+import { buildSystemPrompt, bloquesDeSystem, PIEZAS, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
+import { toolDefinitions } from "../lib/tools";
+import { estadoInicial, type EstadoConversacion } from "../lib/estado/tipos";
+import { siguienteFase } from "../lib/estado/reducir";
 
 let ok = true;
 const check = (label: string, cond: boolean) => {
@@ -15,25 +18,38 @@ const check = (label: string, cond: boolean) => {
   if (!cond) ok = false;
 };
 
-type Msg = { role: "user" | "assistant"; content: string };
-const u = (content: string): Msg => ({ role: "user", content });
-const a = (content: string): Msg => ({ role: "assistant", content });
+/* ── 1 · la fase sale del ESTADO, no del historial ────────────────────────
+   `detectarEstado` derivaba la fase de `messages.length` y de dos booleanos del navegador. Ahora
+   la lleva el reducer, donde puede depender del veredicto real del motor. Los mismos casos,
+   expresados sobre lo que de verdad los determina. */
+console.log("===== La fase sale del estado =====");
 
-/* ── 1 · detección de estado ─────────────────────────────────────────────── */
-console.log("===== Detección de estado =====");
-const casos: Array<[string, Estado, Msg[], boolean]> = [
-  ["primer mensaje, sin identificar", "SALUDO", [u("hola")], false],
-  ["primer mensaje, afiliado reconocido", "RECONOCIDO", [u("soy Carolina Ramírez")], true],
-  ["varios turnos, sin identificar", "DESCUBRIENDO", [u("hola"), a("¿qué te trae?"), u("compré una moto")], false],
-  ["afiliado reconocido en turno 3", "RECONOCIDO", [u("hola"), a("¿y tú?"), u("soy Carolina")], true],
+const conEstado = (parcial: {
+  turno?: number;
+  reconocido?: boolean;
+  veredicto?: boolean;
+}): EstadoConversacion => {
+  const e = estadoInicial();
+  e.turno = parcial.turno ?? 1;
+  if (parcial.reconocido) e.identidad.resultado = "reconocido";
+  if (parcial.veredicto) {
+    e.veredicto = { entregado: true, tipo: "recomendacion", recomendaciones: [], obligatorios: [], peer: null };
+  }
+  return e;
+};
+
+const casos: Array<[string, Estado, Parameters<typeof conEstado>[0]]> = [
+  ["primer turno, sin identificar", "SALUDO", { turno: 1 }],
+  ["primer turno, afiliado reconocido", "RECONOCIDO", { turno: 1, reconocido: true }],
+  ["varios turnos, sin identificar", "DESCUBRIENDO", { turno: 2 }],
+  ["afiliado reconocido en el turno 3", "RECONOCIDO", { turno: 3, reconocido: true }],
+  // Una vez el motor se pronunció manda ASESORANDO, aunque sea afiliado. Y da igual si hubo
+  // tarjetas: decir que no también es pronunciarse.
+  ["tras recomendar, siendo afiliado", "ASESORANDO", { turno: 3, reconocido: true, veredicto: true }],
 ];
-for (const [label, esperado, msgs, afil] of casos) {
-  const got = detectarEstado(msgs, { afiliadoReconocido: afil });
-  check(`${label} → ${esperado}`, got === esperado);
+for (const [label, esperado, parcial] of casos) {
+  check(`${label} → ${esperado}`, siguienteFase(conEstado(parcial)) === esperado);
 }
-// Una vez recomendó, manda ASESORANDO aunque sea afiliado
-const trasReco = [u("hola"), a("RECOMENDACION: Seguro de Vida | recomendado | eres el sostén"), u("¿cuánto cuesta?")];
-check("tras recomendar → ASESORANDO (incluso siendo afiliado)", detectarEstado(trasReco, { afiliadoReconocido: true }) === "ASESORANDO");
 
 /* ── 2 · aislamiento entre estados (el criterio de aceptación) ───────────── */
 console.log("\n===== Aislamiento de bloques =====");
@@ -92,6 +108,39 @@ for (const e of ESTADOS_TODOS) {
 }
 console.log(`   ${"completo (voz)".padEnd(14)} ${String(full).padStart(6)} chars`);
 check("todos los estados pesan menos que el prompt completo", ESTADOS_TODOS.every((e) => p(e).length < full));
+
+/* ── 6 · el prefijo cacheable (#39) ──────────────────────────────────────── */
+/*
+ * Partir el system en bloques es una optimización, y una optimización que cambia lo que el modelo
+ * lee no es una optimización: es un cambio de producto disfrazado. Se afirma lo contrario —que el
+ * texto es IDÉNTICO— comparándolo, no prometiéndolo en un comentario.
+ *
+ * Y se afirma la propiedad que hace que el caching sirva de algo: el bloque marcado no puede
+ * contener nada del turno. Un prefijo que cambia cada turno no se cachea nunca, por grande que sea,
+ * y `cache_control` no avisa: devuelve cache_creation_input_tokens = 0 y se queda callado.
+ */
+console.log("\n===== El prefijo cacheable =====");
+const CTX = "## SEGMENTO VERIFICADO\nGénero = F; categoría = A.";
+for (const e of ESTADOS_TODOS) {
+  const bloques = bloquesDeSystem(e, CTX);
+  /*
+   * El ORDEN, no la identidad. Comparar los bloques contra `buildSystemPrompt` sería tautológico
+   * desde que ese string se DERIVA de estos bloques: pasaría siempre, incluso reordenándolo todo.
+   * Lo que hay que poder afirmar es que el modelo lee las piezas en la secuencia de siempre.
+   */
+  const texto = bloques.map((b) => b.text).join("\n\n");
+  const pos = [PIEZAS.BASE, PIEZAS.ESTADOS[e], CTX, PIEZAS.CIERRE].map((x) => texto.indexOf(x.trim()));
+  check(`${e}: el modelo lee las piezas en el orden de siempre (${pos.join(" < ")})`,
+    pos.every((x) => x >= 0) && pos.every((x, i) => i === 0 || x > pos[i - 1]));
+  const cacheado = bloques.filter((b) => b.cache_control);
+  check(`${e}: hay exactamente un punto de corte`, cacheado.length === 1);
+  check(`${e}: lo cacheado NO trae nada del turno`, !cacheado[0]?.text.includes("SEGMENTO VERIFICADO"));
+  // El mínimo de haiku-4-5 son 4.096 tokens. A 4 caracteres por token —el extremo conservador para
+  // español— hacen falta ~16.400 caracteres SUMANDO las tools, que van antes en el prefijo.
+  const chars = cacheado[0]!.text.length + JSON.stringify(toolDefinitions).length;
+  check(`${e}: el prefijo supera el mínimo (${chars} chars ≈ ${Math.round(chars / 4)}–${Math.round(chars / 3)} tokens)`,
+    chars >= 16_400);
+}
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

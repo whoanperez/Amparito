@@ -14,9 +14,11 @@
  *
  * LO QUE NO PRUEBA. La redacción del modelo. Eso solo se ve en vivo, y queda anotado abajo.
  */
-import { buildSystemPrompt, contarPreguntas, detectarEstado, esDobleCanon } from "../lib/prompts";
-import { resolverIdentidad } from "../lib/afiliados/resolver";
-import { getAffiliateGateway } from "../lib/afiliados";
+import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "../lib/prompts";
+import { estadoInicial } from "../lib/estado/tipos";
+import { siguienteFase } from "../lib/estado/reducir";
+import "./_env";
+import { identidadDe, nombreDePrueba } from "./_identidad";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { executeTool } from "../lib/tools";
@@ -43,36 +45,29 @@ async function main() {
 
   /* ═══ 1 · Afiliado reconocido: valor antes que preguntas ═══════════════════ */
   titulo("1 · Nombre reconocido → tarjeta sin interrogatorio");
-  const nombreReal = process.env.TURSO_DATABASE_URL
-    ? await (async () => {
-        for (const c of ["maria fernanda amaya mora", "gerardo galvis penaloza"]) {
-          if ((await getAffiliateGateway().buscar(c)).estado === "unico") return c;
-        }
-        return null;
-      })()
-    : "carolina ramirez lopez";
+  // El nombre lo elige la BASE, no el código. Aquí había dos nombres reales hardcodeados.
+  const nombreReal = await nombreDePrueba();
 
   if (!nombreReal) {
     check("hay un afiliado real para la prueba", false);
   } else {
     const msgs = [u(`soy ${nombreReal}`)];
-    const id = await resolverIdentidad(msgs);
-    check("se reconoce en el primer mensaje", id.estado === "reconocido");
-    check("el estado del prompt es RECONOCIDO", detectarEstado(msgs, { afiliadoReconocido: true }) === "RECONOCIDO");
+    const id = await identidadDe(`soy ${nombreReal}`);
+    check("se reconoce en el primer mensaje", id.hallazgo.estado === "reconocido");
+    // Se lee del ESTADO que produjo la búsqueda real. Antes se le pasaba `afiliadoReconocido:
+    // true` a mano a `detectarEstado`, así que la aserción no comprobaba que reconocer a alguien
+    // llevara a RECONOCIDO: comprobaba que la función respetara un booleano inventado por el test.
+    check("la fase que produce el reconocimiento es RECONOCIDO", id.estado.fase === "RECONOCIDO");
 
-    const prompt = buildSystemPrompt("RECONOCIDO", id.contexto);
+    const prompt = buildSystemPrompt(id.estado.fase, id.contexto);
     check("el prompt PROHÍBE perfilar", prompt.includes("PROHIBIDO hacerle preguntas de perfilamiento"));
     check("NO trae el presupuesto de preguntas de descubrimiento", !prompt.includes("PRESUPUESTO DE DOS PREGUNTAS"));
     check("el segmento verificado va en el contexto", prompt.includes("SEGMENTO VERIFICADO"));
 
     // El motor con SOLO el segmento de la base ya debe recomendar: eso es "tarjeta en el mensaje 2".
-    const seg = id.segmento!;
     const { perfil } = sanearPerfil({}, {
       textoUsuario: texto(msgs),
-      segmentoBase: {
-        GENERO: seg.genero, RANGO_EDAD: seg.rango_edad, CATEGORIA: seg.categoria,
-        SEGMENTO_GRUPO_FAMILIAR: seg.grupo_familiar, SEGMENTO_POBLACIONAL: seg.poblacional,
-      },
+      segmentoBase: id.estado.identidad.segmento,
     });
     const r = calcularPropension(perfil);
     check("recomienda con CERO preguntas", r.recomendaciones.length > 0,
@@ -83,16 +78,19 @@ async function main() {
 
   /* ═══ 2 · Nombre que no está: se dice claro y se sigue ═════════════════════ */
   titulo("2 · Nombre inventado → copy A y la conversación continúa");
-  const inv = await resolverIdentidad([u("soy Zulema Trastamara Quispe Vergara")]);
-  check("no encontrado", inv.estado === "no_encontrado");
-  check("usa el copy A", (inv.contexto ?? "").includes("No apareces en la base de afiliados"));
-  check('NUNCA dice "no eres afiliado"', (inv.contexto ?? "").includes('NUNCA digas "no eres afiliado"'));
-  check("no se bloquea el flujo (no hay error ni corte)", inv.segmento === undefined && !!inv.contexto);
+  const inv = await identidadDe("soy Zulema Trastamara Quispe Vergara");
+  check("no encontrado", inv.hallazgo.estado === "no_encontrado");
+  check("usa el copy A", inv.contexto.includes("No apareces en la base de afiliados"));
+  check('NUNCA dice "no eres afiliado"', inv.contexto.includes('NUNCA digas "no eres afiliado"'));
+  check("no se bloquea el flujo (no hay error ni corte)",
+    inv.estado.identidad.segmento === undefined && !!inv.contexto);
 
   /* ═══ 3 · Anónimo: presupuesto de dos preguntas ════════════════════════════ */
   titulo("3 · Anónimo → máximo 2 preguntas antes de la tarjeta");
   const anon = [u("hola"), a("¿qué te trae por aquí?"), u("compré una moto")];
-  check("el estado es DESCUBRIENDO", detectarEstado(anon) === "DESCUBRIENDO");
+  const anonimo = estadoInicial();
+  anonimo.turno = anon.filter((m) => m.role === "user").length;
+  check("el estado es DESCUBRIENDO", siguienteFase(anonimo) === "DESCUBRIENDO");
   const pDesc = buildSystemPrompt("DESCUBRIENDO");
   check("el prompt fija el presupuesto en dos", pDesc.includes("PRESUPUESTO DE DOS PREGUNTAS"));
   check("y prohíbe encadenar temas con 'o'", pDesc.includes('PROHIBIDO encadenar dos temas con "o"'));
@@ -151,7 +149,13 @@ async function main() {
   check("GENERO descartado", adv.perfil.GENERO === undefined);
   check("vivienda fabricada descartada", adv.perfil.enriquecido?.vivienda === undefined);
   check("marca.* rechazada (es dato de la base)", adv.perfil.marca === undefined);
+  // ANCLAS del grupo de arriba. Cinco aserciones de "descartado" seguidas pasarían todas si
+  // `sanearPerfil` devolviera un perfil VACÍO: hay que afirmar también lo que sí debe sobrevivir,
+  // o el bloque entero mide la nada.
   check("el carro sí se acepta (lo dijo)", adv.perfil.enriquecido?.tiene_vehiculo?.includes("carro") === true);
+  check("y el grupo familiar sí, como inferido ('mi esposa')",
+    adv.perfil.SEGMENTO_GRUPO_FAMILIAR === "Pareja conyugal" &&
+    adv.perfil._origen?.SEGMENTO_GRUPO_FAMILIAR === "inferido");
   const advR = calcularPropension(adv.perfil);
   // Ojo: esta conversación real incluye "no tengo trabajo" y "no tengo ingresos". Con la detección
   // determinista (B12) el servidor lo reconoce y el motor se NIEGA a vender — que es la conducta
@@ -167,11 +171,41 @@ async function main() {
   titulo("6b · Traza auditable: se puede ver por qué");
   const tz = advR.traza!;
   check("la recomendación deja traza", !!tz);
+  check("hay productos en la traza que auditar", tz.productos.length > 0, `→ ${tz.productos.length}`);
   check("los pesos suman el score", tz.productos.every((p) => p.senales.reduce((a, s) => a + s.peso, 0) === p.score));
   check("incluso la decisión de NO vender deja traza", !!tz.version_reglas);
-  check("cada campo del perfil dice de dónde vino", !!tz.perfil._origen);
-  check("dice por qué NO se afirmó la prueba social", tz.peer.afirmada === false && !!tz.peer.motivo,
+  /*
+   * Aquí había `!!tz.perfil._origen`. `sanearPerfil` asigna `_origen` SIEMPRE, inicializado como
+   * `{}`, y `!!{}` es true: un perfil sin la procedencia de ningún campo pasaba el check. La
+   * propiedad que sí importa es que la procedencia y el perfil CUADREN.
+   */
+  const origen = tz.perfil._origen ?? {};
+  check("la traza registra de dónde vino cada campo que entró", Object.keys(origen).length > 0,
+    `→ ${Object.keys(origen).join(", ")}`);
+  check(
+    "y no hay procedencia de campos que no llegaron al motor",
+    Object.keys(origen).every((k) => {
+      const [raiz, hijo] = k.split(".");
+      const p = tz.perfil as unknown as Record<string, Record<string, unknown> | unknown>;
+      return hijo ? (p[raiz] as Record<string, unknown>)?.[hijo] !== undefined : p[raiz] !== undefined;
+    })
+  );
+
+  /*
+   * Y la prueba social se mira en SUS DOS RAMAS. Afirmar solo `afirmada === false` sobre el
+   * camino de no_venta era afirmar un literal de `scorecard.ts`: ahí está hardcodeado. Un test
+   * que solo ve una rama de un booleano no está probando el booleano.
+   */
+  check("cuando no hay peer, la traza dice por qué", tz.peer.afirmada === false && !!tz.peer.motivo,
     `→ ${tz.peer.motivo}`);
+  const conEjes = calcularPropension(
+    sanearPerfil({}, {
+      textoUsuario: "hola",
+      segmentoBase: { GENERO: "F", RANGO_EDAD: "36 a 45 años", CATEGORIA: "A", SEGMENTO_GRUPO_FAMILIAR: "Monoparental", SEGMENTO_POBLACIONAL: "Medio" },
+    }).perfil
+  );
+  check("y cuando sí hay, la traza lo afirma", conEjes.traza!.peer.afirmada === true,
+    `→ ${conEjes.peer ? `${conEjes.peer.n} personas` : "sin celda"}`);
   check("y con qué versión de reglas se decidió", tz.version_reglas !== "?", `→ v${tz.version_reglas}`);
 
   /* ═══ 7 · Guarda de la pregunta de doble cañón ═════════════════════════════ */
@@ -227,13 +261,14 @@ async function main() {
   /* ═══ Resumen ═════════════════════════════════════════════════════════════ */
   console.log(`\n${"═".repeat(66)}`);
   console.log(`${total - fallos}/${total} aserciones OK`);
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log(
-      "\n⚠️  Sin ANTHROPIC_API_KEY no se evalúa la REDACCIÓN del modelo (que respete el copy, que no\n" +
-        "   invente coberturas, que suene humano). Eso solo se ve en vivo: correr una vez con la key\n" +
-        "   puesta antes del demo, con las 3 personas y con un nombre real de la base."
-    );
-  }
+  /*
+   * Aquí había un aviso condicionado a que faltara ANTHROPIC_API_KEY, sobre que la redacción del
+   * modelo no se evalúa. Dos problemas: iba enterrado entre cientos de ✅ como penúltima línea
+   * del log más largo, y estaba condicionado a la key — como si CON la key sí se evaluara algo,
+   * cuando este eval es determinista y no llama al modelo en ningún caso.
+   *
+   * El hueco es real y ahora se declara SIEMPRE, en el resumen del runner, donde se lee.
+   */
   console.log(fallos === 0 ? "\n✅ EVAL OK" : `\n❌ EVAL FALLÓ (${fallos})`);
   process.exit(fallos === 0 ? 0 : 1);
 }

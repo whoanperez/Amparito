@@ -19,6 +19,7 @@
  * el mensaje de Amparito, no en el del usuario — así que el chequeo lo rechaza correctamente.
  */
 import type { Perfil } from "./types";
+import { MASCOTAS, VEHICULOS, VIVIENDA, menciona as mencionaTermino } from "../vocabulario";
 
 export type Origen = "base" | "declarado" | "inferido";
 
@@ -35,6 +36,17 @@ export interface SanearCtx {
   textoUsuario?: string;
   /** Segmento que vino verificado de la base de afiliados. Manda sobre lo que proponga el LLM. */
   segmentoBase?: SegmentoBase;
+  /**
+   * Lo que ya se sabía al empezar el turno. Es un PISO, no un reemplazo: el modelo sigue
+   * proponiendo y esta compuerta sigue verificando contra el texto de la persona.
+   *
+   * Sin esto, el perfil lo re-inferí­a el LLM en CADA turno y `_origen` —del que depende la
+   * prueba social— nacía y moría dentro del mismo request. El motor, que es la pieza
+   * determinista y auditable del sistema, recibía cada turno un input retecleado por el
+   * componente menos determinista. Lo único que cambia es que lo ya ganado no se pierde porque
+   * el modelo olvidó retranscribirlo.
+   */
+  perfilPrevio?: Perfil;
 }
 
 export interface Saneado {
@@ -43,8 +55,9 @@ export interface Saneado {
   descartes: string[];
 }
 
-/* Mismos valores que el esquema de la tool: cualquier cosa fuera de aquí se cae. */
-const ENUM: Record<string, readonly string[]> = {
+/* Mismos valores que el esquema de la tool: cualquier cosa fuera de aquí se cae.
+ * Se EXPORTA para que los gates comprueben el contrato real en vez de una copia suya. */
+export const ENUM: Record<string, readonly string[]> = {
   GENERO: ["F", "M"],
   RANGO_EDAD: ["Menor de 19 años", "20 a 35 años", "36 a 45 años", "46 a 55 años", "Mayor de 55 años"],
   CATEGORIA: ["A", "B", "C"],
@@ -58,16 +71,14 @@ const ENUM: Record<string, readonly string[]> = {
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/** Términos que prueban que la persona habló de su VIVIENDA (no de otra cosa "propia"). */
-const TERMINOS_VIVIENDA = ["casa", "apartamento", "apto", "vivienda", "arriend", "inmueble", "finca", "propiedad", "vivo en"];
-
-/** Cada tipo de vehículo se acepta solo si la persona nombró ESE tipo. */
-const TERMINOS_VEHICULO: Record<string, string[]> = {
-  carro: ["carro", "automovil", "auto", "camioneta", "vehiculo"],
-  moto: ["moto", "motocicleta", "scooter"],
-  bici: ["bici", "bicicleta"],
-  patineta: ["patineta", "monopatin", "scooter electric"],
-};
+/*
+ * El vocabulario ya no vive aquí: `lib/vocabulario.ts` lo comparte con `prompts.ts` (temas de
+ * pregunta) y `deteccion.ts` (palabras que no son un nombre). Eran tres listas que ya habían
+ * divergido — y las tres comparaban con `includes` a secas, así que "sí, autorizo" probaba que la
+ * persona tiene carro. Ver el encabezado de ese archivo.
+ */
+const TERMINOS_VIVIENDA = VIVIENDA;
+const TERMINOS_VEHICULO = VEHICULOS;
 
 /**
  * Falta de ingreso HOY. Van con negación explícita a propósito: "trabajo en una empresa" y
@@ -86,20 +97,81 @@ const SIN_INGRESOS: RegExp[] = [
   /\bme sacaron del trabajo\b/,
 ];
 
-const TERMINOS_MASCOTA: Record<string, string[]> = {
-  perro: ["perro", "perra", "perrito", "cachorro", "mascota"],
-  gato: ["gato", "gata", "gatico", "michi", "mascota"],
+const TERMINOS_MASCOTA = MASCOTAS;
+
+/**
+ * ── `ya_cubierto`: la compuerta que faltaba ────────────────────────────────
+ *
+ * Era el ÚNICO campo del perfil que se aceptaba sin verificar contra el texto de la persona y sin
+ * registrar procedencia. Y es el de más consecuencia: el scorecard le resta 100 puntos al producto
+ * marcado, así que un modelo que escriba `ya_cubierto: ["vida"]` por su cuenta SUPRIME una
+ * recomendación — en silencio, sin que la persona vea nunca el producto que se le quitó. Es la
+ * imagen espejo del defecto que ya se cerró con `sin_ingresos`, donde el modelo podía inventar una
+ * no-venta; aquí puede inventar una supresión.
+ *
+ * EL RIESGO DE LA COMPUERTA INGENUA. Buscar la palabra "vida" en el texto sería peor que no tener
+ * compuerta: "quiero un seguro de vida" contiene "vida", y aceptarlo apagaría el producto que la
+ * persona acaba de pedir. Por eso se exige POSESIÓN y se descarta la INTENCIÓN, en la misma
+ * oración — la intención de comprar y el hecho de tener se escriben con las mismas palabras y solo
+ * las separa el verbo.
+ *
+ * DE QUÉ LADO FALLA. Si la compuerta no reconoce una forma de decirlo, Amparito recomienda algo que
+ * la persona ya tiene: incómodo, visible y corregible en la conversación siguiente. Al revés —lo de
+ * hoy— se le quita un producto sin que nadie se entere. Se prefiere el error que se ve.
+ */
+const COBERTURAS = ["exequial", "vida", "soat", "hogar", "accidentes", "mascota"];
+
+/** Tener, en las formas en que la gente lo dice. */
+const POSEE =
+  /\b(ya\s+)?(tengo|tenemos|tiene|cuento con|contamos con|contrat[eo]|adquiri|maneja|pago|estoy (asegurad|cubiert)|estamos (asegurad|cubiert)|me cubre|nos cubre|cubierto por|viene con|me lo da|me lo dio)\b/;
+
+/**
+ * Querer, buscar o NO tener. Manda sobre `POSEE` dentro de la misma oración: "no tengo exequial" y
+ * "quiero tener un seguro de vida" contienen ambos un verbo de posesión.
+ */
+const NO_POSEE =
+  /\b(no|quiero|queria|quisiera|necesito|busco|buscando|me interesa|me gustaria|cotizar|cotiza|averiguar|pensando en|deberia|deber[ií]a|me falta|sin)\b/;
+
+/** Cómo se nombra cada cobertura. Solo términos que no se confunden con otra cosa. */
+const TERMINOS_COBERTURA: Record<string, string[]> = {
+  exequial: ["exequial", "exequias", "funerario", "funeraria", "plan funerario"],
+  vida: ["seguro de vida", "poliza de vida", "de vida", "vida"],
+  soat: ["soat"],
+  hogar: ["seguro de hogar", "poliza de hogar", "hogar asegurad", "seguro para la casa", "asegurada la casa", "asegurado el apartamento", "contenidos"],
+  accidentes: ["accidentes personales", "accidentes"],
+  mascota: ["seguro de mascota", "seguro para el perro", "seguro para el gato", "poliza de mascota", "prepagada de mascota", "prepagada para el perro", "mascota asegurad"],
 };
+
+/** Trocea por oración: la posesión y la intención tienen que competir en el mismo tramo. */
+const oraciones = (t: string) => t.split(/[.?!;,\n]+/).map((s) => s.trim()).filter(Boolean);
+
+/**
+ * ¿La persona DIJO que ya tiene esta cobertura?
+ *
+ * Exige, en una misma oración: un término de la cobertura + un verbo de posesión + ninguna marca de
+ * intención o negación.
+ */
+export function declaroQueTiene(textoNormalizado: string, cobertura: string): boolean {
+  const terminos = TERMINOS_COBERTURA[cobertura];
+  if (!terminos) return false;
+  return oraciones(textoNormalizado).some(
+    (o) => terminos.some((t) => o.includes(t)) && POSEE.test(o) && !NO_POSEE.test(o)
+  );
+}
 
 export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   const src = (bruto ?? {}) as Record<string, unknown>;
   const texto = norm(ctx.textoUsuario ?? "");
   const base = ctx.segmentoBase ?? {};
   const descartes: string[] = [];
-  const origen: Record<string, Origen> = {};
-  const perfil: Record<string, unknown> = {};
 
-  const menciona = (terminos: string[]) => terminos.some((t) => texto.includes(t));
+  // El PISO: lo ya ganado en turnos anteriores entra con su procedencia intacta. `_origen` se
+  // reescribe al final, y `enriquecido` se copia aparte porque es el único campo anidado.
+  const { _origen: origenPrevio, enriquecido: enrPrevio, ...restoPrevio } = ctx.perfilPrevio ?? {};
+  const origen: Record<string, Origen> = { ...(origenPrevio ?? {}) };
+  const perfil: Record<string, unknown> = { ...restoPrevio };
+
+  const menciona = (terminos: readonly string[]) => mencionaTermino(texto, terminos);
   const enEnum = (campo: string, v: unknown) =>
     typeof v === "string" && ENUM[campo].includes(v);
 
@@ -180,7 +252,7 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   /* ── enriquecido ───────────────────────────────────────────────────────── */
 
   const enrBruto = (src.enriquecido ?? {}) as Record<string, unknown>;
-  const enr: Record<string, unknown> = {};
+  const enr: Record<string, unknown> = { ...(enrPrevio ?? {}) };
 
   // Campos con GATE de posesión: habilitan un producto entero, así que exigen que la persona
   // haya hablado de eso. Aquí es donde se colaba `vivienda:"propia"`.
@@ -196,13 +268,24 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
     }
   }
 
+  /**
+   * Los campos de LISTA se unen con lo ya ganado, no lo reemplazan.
+   *
+   * Asignar directamente parecía inofensivo mientras el perfil se re-inferí­a entero cada turno,
+   * porque no había nada que perder. Con el piso sí lo hay: si en el turno 2 mencionó la moto y
+   * en el 5 el modelo manda solo ["carro"], una asignación borraba la moto — justo lo contrario
+   * de lo que el piso promete.
+   */
+  const unir = (previas: string[] | undefined, nuevas: string[]) =>
+    Array.from(new Set([...(previas ?? []), ...nuevas]));
+
   if (Array.isArray(enrBruto.tiene_vehiculo)) {
     const validos = (enrBruto.tiene_vehiculo as unknown[])
       .map(String)
       .filter((t) => TERMINOS_VEHICULO[t] && menciona(TERMINOS_VEHICULO[t]));
     const rechazados = (enrBruto.tiene_vehiculo as unknown[]).map(String).filter((t) => !validos.includes(t));
     if (validos.length) {
-      enr.tiene_vehiculo = validos;
+      enr.tiene_vehiculo = unir(enrPrevio?.tiene_vehiculo, validos);
       origen["enriquecido.tiene_vehiculo"] = "declarado";
     }
     if (rechazados.length) {
@@ -215,7 +298,7 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
       .map(String)
       .filter((t) => TERMINOS_MASCOTA[t] && menciona(TERMINOS_MASCOTA[t]));
     if (validos.length) {
-      enr.tiene_mascota = validos;
+      enr.tiene_mascota = unir(enrPrevio?.tiene_mascota, validos);
       origen["enriquecido.tiene_mascota"] = "declarado";
     } else if ((enrBruto.tiene_mascota as unknown[]).length) {
       descartes.push("enriquecido.tiene_mascota: la persona no mencionó mascotas, descartado");
@@ -269,10 +352,25 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
 
   /* ── ya_cubierto y marca ───────────────────────────────────────────────── */
 
-  const COBERTURAS = ["exequial", "vida", "soat", "hogar", "accidentes", "mascota"];
   if (Array.isArray(src.ya_cubierto)) {
-    const vals = (src.ya_cubierto as unknown[]).map(String).filter((v) => COBERTURAS.includes(v));
-    if (vals.length) perfil.ya_cubierto = vals;
+    const vals = (src.ya_cubierto as unknown[])
+      .map(String)
+      .filter((v) => COBERTURAS.includes(v));
+    const conEvidencia: string[] = [];
+    for (const v of vals) {
+      // Ya venía de antes: la evidencia se dio en su momento y no se vuelve a pedir.
+      if (restoPrevio.ya_cubierto?.includes(v)) { conEvidencia.push(v); continue; }
+      if (declaroQueTiene(texto, v)) conEvidencia.push(v);
+      else descartes.push(`ya_cubierto.${v}: la persona no dijo que ya lo tiene, descartado`);
+    }
+    // También se une: `ya_cubierto` dispara el anti-venta ("eso ya lo tienes"), así que perder
+    // una cobertura mencionada tres turnos atrás es venderle algo que ya tiene.
+    if (conEvidencia.length) {
+      perfil.ya_cubierto = unir(restoPrevio.ya_cubierto, conEvidencia);
+      // El único campo del perfil que se aceptaba SIN registrar de dónde salió. La traza lo
+      // mostraba como "sin procedencia", que era literalmente cierto.
+      origen.ya_cubierto = origen.ya_cubierto ?? "declarado";
+    }
   }
   // `marca.*` son datos de consumo de la base: el LLM no los puede conocer.
   if (src.marca && !ctx.segmentoBase) {
@@ -293,23 +391,36 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
  * Es determinista y no necesita estado en el cliente: usa las mismas listas de términos con las
  * que `sanearPerfil` verifica la evidencia.
  */
-export function resumenEvidencia(textoUsuario: string): string | null {
+export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): string | null {
   const texto = norm(textoUsuario);
-  if (!texto.trim()) return null;
-  const menciona = (t: string[]) => t.some((x) => texto.includes(x));
+  const enr = perfilPrevio?.enriquecido ?? {};
+  const tienePerfil = Object.keys(enr).length > 0;
+  if (!texto.trim() && !tienePerfil) return null;
+  const menciona = (t: readonly string[]) => mencionaTermino(texto, t);
 
-  const vehiculos = Object.entries(TERMINOS_VEHICULO)
-    .filter(([, t]) => menciona(t))
-    .map(([k]) => k);
-  const mascotas = Object.entries(TERMINOS_MASCOTA)
-    .filter(([, t]) => menciona(t))
-    .map(([k]) => k);
-  const hablóDeVivienda = menciona(TERMINOS_VIVIENDA);
-  const hablóDeDependientes = menciona([
-    "hijo", "hija", "hijos", "esposa", "esposo", "pareja", "mama", "papa", "madre", "padre",
-    "depende", "dependen", "a cargo", "solo yo", "nadie",
-  ]);
-  const hablóDeIngreso = menciona(["ingreso", "gano", "sueldo", "salario", "trabajo", "empleo", "desemplead"]);
+  // El TEXTO manda para decidir qué no volver a preguntar: recoge lo que la persona mencionó,
+  // aunque el modelo no lo haya capturado en el perfil. El PERFIL suma lo que además ya está
+  // confirmado y sobrevivió la compuerta. Quedarse solo con el perfil haría repreguntar cosas
+  // que la persona sí dijo pero el modelo no transcribió.
+  const vehiculos = Array.from(new Set([
+    ...Object.entries(TERMINOS_VEHICULO).filter(([, t]) => menciona(t)).map(([k]) => k),
+    ...(enr.tiene_vehiculo ?? []),
+  ]));
+  const mascotas = Array.from(new Set([
+    ...Object.entries(TERMINOS_MASCOTA).filter(([, t]) => menciona(t)).map(([k]) => k),
+    ...(enr.tiene_mascota ?? []),
+  ]));
+  const hablóDeVivienda = menciona(TERMINOS_VIVIENDA) || enr.vivienda !== undefined;
+  const hablóDeDependientes =
+    // Los términos siguen la convención de lib/vocabulario.ts: `*` = prefijo, sin `*` = palabra
+    // exacta. Antes eran `includes` a secas, con el mismo riesgo que hundió a "auto"/"autorizo".
+    menciona([
+      "hijo*", "hija*", "esposa*", "esposo*", "pareja*", "mama", "papa", "madre", "padre",
+      "depend*", "a cargo", "solo yo", "nadie",
+    ]) || enr.dependientes !== undefined;
+  const hablóDeIngreso =
+    menciona(["ingreso*", "gano", "sueldo*", "salario*", "trabaj*", "emple*", "desemplead*"]) ||
+    enr.sin_ingresos !== undefined;
 
   const sabe: string[] = [];
   const falta: string[] = [];

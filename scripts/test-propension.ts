@@ -13,10 +13,30 @@ import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
 
 let ok = true;
-const check = (label: string, cond: boolean) => {
-  console.log(`   ${cond ? "✅" : "❌"} ${label}`);
+const check = (label: string, cond: boolean, detalle?: string) => {
+  console.log(`   ${cond ? "✅" : "❌"} ${label}${detalle ? `  ${detalle}` : ""}`);
   if (!cond) ok = false;
 };
+
+type Resultado = ReturnType<typeof calcularPropension>;
+type Contexto = { tieneVida: boolean; oblig: Set<string> };
+
+/** Qué debe cumplir cada persona del fixture. Fuera del bucle para que no se pueda saltar. */
+const EXPECTATIVAS: Record<string, (r: Resultado, c: Contexto) => void> = {
+  Andres: (r, c) => {
+    check("Andrés · Vida NO recomendada", !c.tieneVida);
+    check("Andrés · SOAT en obligatorios (tiene moto y no lo declara cubierto)", c.oblig.has("soat_mundial"));
+  },
+  Carolina: (r) => {
+    check("Carolina · Vida es #1", r.recomendaciones[0]?.nombre === "Seguro de Vida");
+    check("Carolina · peer real presente", !!r.peer && r.peer.n > 0);
+  },
+  Jaime: (r, c) => {
+    check("Jaime · Exequial en ya_cubierto", r.ledger.ya_cubierto.some((x) => /exequial/i.test(x.producto)));
+    check("Jaime · Vida recomendada", c.tieneVida);
+  },
+};
+const ejercitadas = new Set<string>();
 
 for (const [nombre, perfil] of Object.entries(PERSONAS)) {
   const r = calcularPropension(perfil);
@@ -49,19 +69,27 @@ for (const [nombre, perfil] of Object.entries(PERSONAS)) {
     !r.descartados.some((d) => oblig.has(d.id)) && !r.recomendaciones.some((x) => oblig.has(x.id))
   );
 
-  if (nombre === "Andres") {
-    check("Vida NO recomendada", !tieneVida);
-    check("SOAT en obligatorios (tiene moto y no lo declara cubierto)", oblig.has("soat_mundial"));
-  }
-  if (nombre === "Carolina") {
-    check("Vida es #1", r.recomendaciones[0]?.nombre === "Seguro de Vida");
-    check("Peer real presente", !!r.peer && r.peer.n > 0);
-  }
-  if (nombre === "Jaime") {
-    check("Exequial en ya_cubierto", r.ledger.ya_cubierto.some((x) => /exequial/i.test(x.producto)));
-    check("Vida recomendada", tieneVida);
+  /*
+   * Las expectativas de cada persona estaban dentro de `if (nombre === "Andres")`. Renombrar una
+   * clave del fixture —o borrarla— saltaba el bloque entero en SILENCIO y el gate salía verde sin
+   * haber comprobado nada de esa persona. Si `PERSONAS` quedara vacío, el bucle no ejecutaba ni
+   * una aserción.
+   *
+   * Ahora las expectativas son una tabla, y abajo se verifica que las TRES se hayan ejercitado.
+   */
+  const esperado = EXPECTATIVAS[nombre];
+  check(`hay expectativas definidas para ${nombre}`, !!esperado);
+  if (esperado) {
+    esperado(r, { tieneVida, oblig });
+    ejercitadas.add(nombre);
   }
 }
+
+check(
+  `se ejercitaron las ${Object.keys(EXPECTATIVAS).length} personas del fixture`,
+  ejercitadas.size === Object.keys(EXPECTATIVAS).length,
+  `→ ${Array.from(ejercitadas).join(", ") || "ninguna"}`
+);
 
 // Jerarquía de protección: quien sostiene a otros no puede recibir un seguro de mascotas por
 // encima del de vida, aunque el score de Mascotas sea mayor. Y a quien NO sostiene a nadie, la

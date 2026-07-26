@@ -183,6 +183,13 @@ export interface TrazaProducto {
   senales: SenalAplicada[];
   /** Dónde terminó, para poder explicar también lo que NO se recomendó. */
   resultado: "recomendado" | "obligatorio" | "descartado" | "ya_cubierto" | "fuera_del_top";
+  /**
+   * Por qué NO entró, cuando el motor tiene un motivo escrito. Sin esto la traza mostraba
+   * "Accidentes Personales · 55 · descartado" y dejaba sin respuesta la pregunta obvia de
+   * cualquiera que audite: si puntuó 55, ¿por qué lo descartaste? El motivo ya existía en
+   * `descartados`; simplemente no llegaba a la pantalla.
+   */
+  motivo?: string;
 }
 
 export interface TrazaDecision {

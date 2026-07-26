@@ -7,12 +7,12 @@
  * pregunta de doble cañón) y eso decidió la venta. Y mandó `CATEGORIA:"B"` para alguien que
  * acababa de decir que no tiene ingresos, apagando `prioriza_prima_baja`.
  */
-import { sanearPerfil } from "../lib/engine/sanear";
+import { sanearPerfil, resumenEvidencia } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
 let ok = true;
-const check = (label: string, cond: boolean) => {
-  console.log(`   ${cond ? "✅" : "❌"} ${label}`);
+const check = (label: string, cond: boolean, detalle?: string) => {
+  console.log(`   ${cond ? "✅" : "❌"} ${label}${detalle ? `  ${detalle}` : ""}`);
   if (!cond) ok = false;
 };
 
@@ -56,8 +56,33 @@ check("origen del grupo familiar = inferido", perfil._origen?.SEGMENTO_GRUPO_FAM
 
 const r = calcularPropension(perfil);
 console.log("   recomendaciones:", r.recomendaciones.map((x) => `${x.nombre} (${x.score})`).join("  ·  ") || "—");
-check("el top-1 ya NO es Hogar (era la venta decidida por el dato falso)", r.recomendaciones[0]?.nombre !== "Seguro de Hogar y Contenidos");
+/*
+ * Aquí había `r.recomendaciones[0]?.nombre !== "Seguro de Hogar y Contenidos"`. Con este perfil
+ * el texto contiene "no tengo ingresos", así que el motor devuelve `no_venta` y la lista viene
+ * VACÍA: `undefined !== "Hogar"` es siempre cierto. Pasaba igual si el motor se hubiera roto
+ * entero, y afirmar la AUSENCIA de algo sobre una lista vacía no prueba nada.
+ */
+check("el motor se pronuncia: hoy no se vende", !!r.no_venta);
+check("y por tanto no hay recomendaciones de pago", r.recomendaciones.length === 0);
 check("prueba social AUSENTE (los 4 ejes no están verificados)", r.peer === null);
+
+/*
+ * Lo que de verdad prueba que la compuerta CAMBIA el resultado es un diferencial: el mismo perfil
+ * del modelo, con y sin saneamiento, sobre un texto donde la persona sí tiene ingresos (para que
+ * el `no_venta` no tape el efecto). Sin compuerta, el `vivienda:"propia"` inventado mete Hogar en
+ * el ranking — que es la venta que se decidió en la conversación real por un dato falso.
+ */
+const textoConIngresos = textoUsuario
+  .replace("tengo familia, y no tengo trabajo\n", "tengo familia\n")
+  .replace("no tengo ingresos\n", "");
+const conCompuerta = calcularPropension(sanearPerfil(loQueMandoElModelo, { textoUsuario: textoConIngresos }).perfil);
+const sinCompuerta = calcularPropension(loQueMandoElModelo as Parameters<typeof calcularPropension>[0]);
+const hayHogar = (x: { recomendaciones: { nombre: string }[] }) =>
+  x.recomendaciones.some((p) => /Hogar/i.test(p.nombre));
+check("SIN compuerta, el dato falso mete Hogar en el ranking", hayHogar(sinCompuerta),
+  `→ ${sinCompuerta.recomendaciones.map((x) => x.nombre).join(", ") || "—"}`);
+check("CON compuerta, Hogar desaparece", !hayHogar(conCompuerta),
+  `→ ${conCompuerta.recomendaciones.map((x) => x.nombre).join(", ") || "—"}`);
 
 /* ── 2 · afiliado reconocido: el segmento de la base SÍ manda ────────────── */
 console.log("\n===== Afiliado reconocido (segmento de la base) =====");
@@ -102,6 +127,136 @@ check(
   "marca.* no se acepta desde la conversación",
   sanearPerfil({ marca: { VIVIENDA: "SI" } }, { textoUsuario: "hola" }).perfil.marca === undefined
 );
+
+/* ── 4 · el perfil acumulado es un PISO, no un reemplazo ─────────────────────
+   El hallazgo más profundo del sistema: el perfil lo re-inferí­a el LLM en cada turno y `_origen`
+   —del que depende la prueba social— nacía y moría dentro del mismo request. El motor, la pieza
+   determinista y auditable, recibía cada turno un input retecleado por el componente menos
+   determinista.
+
+   El piso es de fiar porque el perfil previo llega dentro del estado SELLADO: ya pasó por esta
+   misma compuerta en su turno, y el HMAC impide que el navegador lo edite por el camino. */
+console.log("\n===== El perfil acumulado (piso, no reemplazo) =====");
+
+const turno1 = sanearPerfil(
+  { enriquecido: { tiene_vehiculo: ["moto"] } },
+  { textoUsuario: "tengo una moto y la uso para trabajar" }
+);
+check("turno 1 · la compuerta acepta la moto", turno1.perfil.enriquecido?.tiene_vehiculo?.join() === "moto");
+check("turno 1 · con su procedencia", turno1.perfil._origen?.["enriquecido.tiene_vehiculo"] === "declarado");
+
+// Turno 2: el modelo NO retranscribe nada. Antes, aquí se perdía todo.
+const turno2 = sanearPerfil(
+  {},
+  { textoUsuario: "tengo una moto y la uso para trabajar\n¿y eso qué cubre?", perfilPrevio: turno1.perfil }
+);
+check("turno 2 · la moto sigue ahí aunque el modelo no la mande",
+  turno2.perfil.enriquecido?.tiene_vehiculo?.join() === "moto");
+check("turno 2 · y su procedencia también", turno2.perfil._origen?.["enriquecido.tiene_vehiculo"] === "declarado");
+
+// Y el caso que de verdad importa: el modelo manda algo DISTINTO, no nada. Con una asignación
+// en vez de una unión, la moto desaparecía — justo lo contrario de lo que el piso promete. El
+// test anterior no lo distinguía porque solo probaba el caso fácil (el modelo no manda nada).
+const turno2b = sanearPerfil(
+  { enriquecido: { tiene_vehiculo: ["carro"] } },
+  { textoUsuario: "tengo una moto y también un carro", perfilPrevio: turno1.perfil }
+);
+check("un vehículo nuevo se SUMA al ya conocido",
+  (turno2b.perfil.enriquecido?.tiene_vehiculo ?? []).slice().sort().join() === "carro,moto");
+
+const yaCubierto1 = sanearPerfil({ ya_cubierto: ["exequial"] }, { textoUsuario: "tengo exequial" });
+const yaCubierto2 = sanearPerfil(
+  { ya_cubierto: ["vida"] },
+  { textoUsuario: "tengo exequial y vida", perfilPrevio: yaCubierto1.perfil }
+);
+check("una cobertura nueva se SUMA a la ya conocida",
+  (yaCubierto2.perfil.ya_cubierto ?? []).slice().sort().join() === "exequial,vida");
+
+// El piso no relaja la compuerta: lo que el modelo propone AHORA sigue verificándose.
+const turno3 = sanearPerfil(
+  { enriquecido: { vivienda: "propia" } },
+  { textoUsuario: "tengo una moto y la uso para trabajar", perfilPrevio: turno2.perfil }
+);
+check("el piso NO relaja la compuerta: vivienda sin evidencia se sigue cayendo",
+  turno3.perfil.enriquecido?.vivienda === undefined);
+check("y se explica por qué", turno3.descartes.some((d) => d.includes("vivienda")));
+check("mientras lo ya ganado se conserva", turno3.perfil.enriquecido?.tiene_vehiculo?.join() === "moto");
+
+// El segmento de la base sigue mandando por encima del piso.
+const conBaseNueva = sanearPerfil(
+  {},
+  { textoUsuario: "hola", perfilPrevio: { CATEGORIA: "C", _origen: { CATEGORIA: "base" } }, segmentoBase: { CATEGORIA: "A" } }
+);
+check("la base manda sobre el piso", conBaseNueva.perfil.CATEGORIA === "A");
+
+/* ── 5 · el resumen de evidencia usa texto Y perfil ────────────────────────── */
+console.log("\n===== Lo que ya te contó =====");
+const soloTexto = resumenEvidencia("tengo una moto") ?? "";
+check("el texto solo ya reconoce la moto", soloTexto.includes("moto"));
+// Un campo confirmado en un turno anterior cuenta como sabido aunque el texto de ESTE turno no
+// lo mencione: es lo que impide repreguntar lo mismo tres turnos después.
+const conPerfil = resumenEvidencia("¿y eso qué cubre?", turno2.perfil) ?? "";
+check("un campo ya confirmado cuenta como sabido", conPerfil.includes("moto"));
+check("y por tanto no aparece como pendiente", !/Falta por saber:[^\n]*vehículo/.test(conPerfil));
+
+/* ── 6 · `ya_cubierto`: el campo que se aceptaba sin evidencia ─────────────── */
+/*
+ * POR QUÉ. Era el único campo del perfil que entraba sin verificarse contra el texto y sin
+ * registrar procedencia — y es el que más pesa: el scorecard le resta 100 puntos al producto
+ * marcado. Un modelo que escriba `ya_cubierto: ["vida"]` por su cuenta SUPRIME una recomendación
+ * sin que la persona vea nunca lo que se le quitó. Espejo exacto del defecto de `sin_ingresos`.
+ *
+ * El caso peligroso es el tercero: "quiero un seguro de vida" contiene la palabra "vida", así que
+ * una compuerta que solo busque el término apagaría justo el producto que la persona acaba de
+ * pedir. Se exige posesión y se descarta intención, en la misma oración.
+ */
+console.log("\n===== ya_cubierto exige que lo hayas dicho =====");
+
+const ACEPTA: Array<[string, string]> = [
+  ["vida", "ya tengo un seguro de vida con Colsubsidio"],
+  ["soat", "tengo el SOAT al día"],
+  ["exequial", "ya tengo exequial, mi mamá lo pagó"],
+  ["hogar", "tengo asegurada la casa"],
+  ["accidentes", "mi empresa me cubre con accidentes personales"],
+  ["mascota", "cuento con un seguro de mascota para mi perro"],
+];
+for (const [cob, texto] of ACEPTA) {
+  const s = sanearPerfil({ ya_cubierto: [cob] }, { textoUsuario: texto });
+  check(`"${texto}" → ${cob} entra`, (s.perfil.ya_cubierto ?? []).includes(cob));
+  check(`  …y queda registrado como declarado`, s.perfil._origen?.ya_cubierto === "declarado");
+}
+
+const RECHAZA: Array<[string, string]> = [
+  ["vida", "quiero un seguro de vida"],
+  ["vida", "no tengo seguro de vida"],
+  ["vida", "estoy buscando algo de vida para mi familia"],
+  ["exequial", "estoy pensando en un plan funerario"],
+  ["accidentes", "me interesa cotizar accidentes personales"],
+  ["soat", "necesito sacar el SOAT"],
+  ["hogar", "quiero proteger mi hogar"],
+];
+for (const [cob, texto] of RECHAZA) {
+  const s = sanearPerfil({ ya_cubierto: [cob] }, { textoUsuario: texto });
+  check(`"${texto}" → ${cob} NO entra`, !(s.perfil.ya_cubierto ?? []).includes(cob));
+  check(`  …y queda el descarte`, s.descartes.some((d) => d.includes(`ya_cubierto.${cob}`)));
+}
+
+// La consecuencia real, de punta a punta: sin la compuerta, el producto pedido desaparece.
+const inventado = sanearPerfil({ ya_cubierto: ["vida"] }, { textoUsuario: "quiero un seguro de vida para mi familia" });
+const rInventado = calcularPropension({ ...inventado.perfil, SEGMENTO_GRUPO_FAMILIAR: "Nuclear integral" });
+check("el modelo no puede apagar el producto que la persona acaba de pedir",
+  rInventado.recomendaciones.some((r) => /Vida/i.test(r.nombre)),
+  `→ ${rInventado.recomendaciones.map((r) => r.nombre).join(", ") || "ninguna"}`);
+
+// Lo ganado no se vuelve a pedir: la evidencia se dio en el turno en que se dio.
+const t1 = sanearPerfil({ ya_cubierto: ["exequial"] }, { textoUsuario: "ya tengo exequial" });
+const t2 = sanearPerfil(
+  { ya_cubierto: ["exequial"] },
+  { textoUsuario: "¿y eso qué cubre?", perfilPrevio: t1.perfil }
+);
+check("una cobertura ya aceptada sobrevive aunque este turno no la mencione",
+  (t2.perfil.ya_cubierto ?? []).includes("exequial"));
+check("y conserva su procedencia", t2.perfil._origen?.ya_cubierto === "declarado");
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

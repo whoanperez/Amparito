@@ -1,3 +1,5 @@
+import { MASCOTAS, VEHICULOS, VIVIENDA, aplanar, menciona } from "../vocabulario";
+
 /**
  * Detección del nombre en lenguaje natural, EN CÓDIGO.
  *
@@ -44,7 +46,15 @@ const limpio = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const esTokenDeNombre = (t: string) => t.length >= 2 && !STOP.has(t);
+/*
+ * Las palabras del dominio tampoco son parte de un nombre, y se TOMAN del vocabulario compartido
+ * (#43) en vez de repetirse aquí. STOP tenía "moto", "carro" y "bici" pero no "camioneta",
+ * "scooter" ni "motocicleta": la tercera lista del mismo dominio, divergida de las otras dos.
+ */
+const DOMINIO = [...aplanar(VEHICULOS), ...aplanar(MASCOTAS), ...VIVIENDA].filter((t) => !t.includes(" "));
+
+const esTokenDeNombre = (t: string) =>
+  t.length >= 2 && !STOP.has(t) && !menciona(t, DOMINIO);
 
 /**
  * Extrae un nombre candidato del mensaje. Devuelve `null` si no parece haber uno.
@@ -89,21 +99,19 @@ export function detectarNombre(texto: string, primerMensaje = false): string | n
   return null;
 }
 
-/** Prefijos con los que la gente responde una ciudad ("vivo en Bogotá", "en Cali", "de Soacha"). */
-const PREF_CIUDAD = ["vivo en", "estoy en", "soy de", "en", "de", "ciudad"];
-
-/** Extrae la ciudad de una respuesta corta. Devuelve `null` si no parece una ciudad. */
-export function detectarCiudad(texto: string): string | null {
-  const t = limpio(texto);
-  if (!t) return null;
-  for (const p of PREF_CIUDAD) {
-    if (t.startsWith(p + " ")) {
-      const resto = t.slice(p.length + 1).trim();
-      if (resto && resto.split(" ").length <= 4) return resto;
-    }
-  }
-  // Respuesta pelada: "Bogotá", "Bogotá D.C.", "Santa Marta".
-  const toks = t.split(" ").filter((x) => !STOP.has(x));
-  if (toks.length >= 1 && toks.length <= 4) return toks.join(" ");
-  return null;
-}
+/*
+ * Aquí vivía `detectarCiudad`, y lo que la mató es la razón por la que existe el bloque 1.
+ *
+ * Su fallback aceptaba CUALQUIER mensaje de 1 a 4 tokens que no fueran todos stopwords como si
+ * fuera una ciudad — un "para trabajar" o un "avancemos" entraban al filtro de desambiguación—, y
+ * corría sin que nadie hubiera preguntado por ninguna ciudad. La respuesta no era afinar el
+ * detector: era que el sistema supiera qué está esperando.
+ *
+ * Con `identidad.esperando === "ciudad"` en el estado, el reducer solo lee una ciudad en el turno
+ * siguiente a haberla pedido, y `soloCiudad` (lib/estado/reducir.ts) se limita a quitar el prefijo.
+ * La normalización la hace el gateway, que es quien compara.
+ *
+ * Se borra en vez de dejarse: llevaba dos aserciones verdes en `test-identidad` sobre código que
+ * ya no ejecutaba nadie, y un test verde sobre código muerto es peor que no tenerlo — hace creer
+ * que ese camino está cubierto.
+ */
