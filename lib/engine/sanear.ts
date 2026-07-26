@@ -100,6 +100,86 @@ const SIN_INGRESOS: RegExp[] = [
 const TERMINOS_MASCOTA = MASCOTAS;
 
 /**
+ * ¿La persona declaró que HOY no tiene ingreso?
+ *
+ * Se exporta porque la garantía del anti-venta necesita vivir donde se puede hacer cumplir. Hasta
+ * ahora esto solo lo sabía `sanearPerfil`, y lo único que impedía cotizarle a alguien sin ingreso
+ * era una frase del prompt — es decir, una petición probabilística sobre la decisión más delicada
+ * del producto.
+ */
+const SIN_INGRESOS_DE_UN_TERCERO =
+  /\b(mi|su)\s+(hij|espos|herman|mam|pap|madre|padre|pareja|nieto|sobrin|amig|vecin|cunad|suegr|yern|nuer)|\bpara\s+(mi|su)\s+\w+|\b(ella|el|ellos|ellas)\s+(esta|estan|se\s+qued|qued)/;
+
+export function declaroSinIngresos(textoNormalizado: string): boolean {
+  /*
+   * ── También aquí el SUJETO importa ────────────────────────────────────────
+   *
+   * Encontrado al revisar la compuerta de precio de 5c. `/\bsin (trabajo|empleo)\b/` no mira de
+   * QUIÉN se habla, así que estas tres disparaban el anti-venta:
+   *
+   *     "mi hijo se quedó sin trabajo y quiero ayudarlo"
+   *     "mi hermana está sin empleo, yo la mantengo"
+   *     "quiero un seguro para mi esposa que está desempleada"
+   *
+   * Son personas que SÍ tienen con qué pagar y vienen a proteger a alguien. Decirles "hoy no te
+   * vendo nada" es el anti-venta disparándose contra justo la persona a la que debería atender — y
+   * desde 5c, además, les cierra el precio por compuerta.
+   *
+   * Se evalúa por ORACIÓN: "me quedé sin trabajo, mi hijo me ayuda" sigue disparando por la
+   * primera, que es de ella.
+   */
+  return textoNormalizado
+    .split(/[.?!;,\n]+/)
+    .some((o) => SIN_INGRESOS.some((re) => re.test(o)) && !SIN_INGRESOS_DE_UN_TERCERO.test(o));
+}
+
+/** Normaliza igual que la compuerta, para que quien consulte de fuera compare lo mismo. */
+export const normalizar = norm;
+
+/**
+ * ── La dependencia tiene DIRECCIÓN ─────────────────────────────────────────
+ *
+ * "Tengo dos hijos que dependen de mí" y "yo dependo de mi hija" comparten casi todas las
+ * palabras y significan lo contrario. Hasta ahora `dependientes` entraba sin mirar ninguna de las
+ * dos: era un número que el modelo infería y el servidor solo comprobaba que estuviera entre 0 y
+ * 20. Comprobado contra el código:
+ *
+ *     "yo dependo de mi hija, ella me mantiene"  →  dependientes = 1
+ *
+ * No es un matiz. `dependientes` vale +25 hacia el Seguro de Vida y enciende la jerarquía de
+ * protección del ingreso, así que invertirlo hace que el motor recomiende exactamente lo
+ * contrario de lo que la persona necesita: le ofrece proteger un ingreso que no tiene, a alguien
+ * a quien su familia mantiene.
+ *
+ * LA FORMA DEL ARREGLO. No se exige evidencia positiva: que el modelo infiera "dos" de "tengo dos
+ * hijos" está bien y es lo que debe hacer. Lo que se añade es un VETO — si la persona dijo que es
+ * ELLA la sostenida, el campo se cae. Es la asimetría barata: cero falsos negativos en el camino
+ * normal, y atrapa el caso que hace daño.
+ *
+ * El objeto tiene que ser una PERSONA. "Dependo de mi trabajo" y "dependo de mi pensión" hablan de
+ * su ingreso, no de quién lo sostiene, y no pueden vetar nada.
+ *
+ * COSTE ACEPTADO. `textoUsuario` es el join de TODOS los mensajes, así que el veto no caduca: si
+ * alguien dice "dependo de mi hija" en el turno 2 y en el turno 9 cuenta que ahora mantiene a un
+ * nieto, el campo sigue cayéndose. Es el mismo comportamiento que `sin_ingresos`, y falla del lado
+ * correcto — dejar de recomendar Vida es recuperable en la conversación; recomendársela a quien
+ * mantienen sus hijos, no.
+ */
+const DEPENDENCIA_INVERTIDA: RegExp[] = [
+  /\b(yo\s+)?dependo\s+(economicamente\s+)?de\s+(mi|mis|la|el|los|las)?\s*(hij|espos|pareja|mam|pap|madre|padre|famili|herman|nieto|sobrin|suegr|cunad)/,
+  /\b(yo\s+)?dependo\s+de\s+(ella|el|ellos|ellas)\b/,
+  /\bme\s+(mantiene|mantienen|sostiene|sostienen)\b/,
+  /\bme\s+(cubre|cubren)\s+(los\s+|el\s+)?(gasto|todo)/,
+  /\bresponden?\s+por\s+mi\b/,
+  /\bvivo\s+de\s+(lo\s+que\s+)?(me\s+dan?|mi\s+hij)/,
+];
+
+/** ¿La persona dijo que es ELLA quien depende de otros? */
+export function invierteLaDependencia(textoNormalizado: string): boolean {
+  return DEPENDENCIA_INVERTIDA.some((re) => re.test(textoNormalizado));
+}
+
+/**
  * ── `ya_cubierto`: la compuerta que faltaba ────────────────────────────────
  *
  * Era el ÚNICO campo del perfil que se aceptaba sin verificar contra el texto de la persona y sin
@@ -241,6 +321,15 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   // SEGMENTO_GRUPO_FAMILIAR · sí se admite inferido: sale de lo que la persona contó ("mi esposa",
   // "mi hijo"). Alimenta el scoring, pero al quedar marcado como `inferido` NO habilita la prueba
   // social, que exige los 4 ejes verificados.
+  //
+  // CON UNA EXCEPCIÓN, encontrada al revisar el veto de `dependientes`: los valores de este enum no
+  // son etiquetas neutras, IMPLICAN quién sostiene a quién. "Monoparental" hace que el scorecard
+  // diga, literal, "eres el sostén de un hogar monoparental: si te faltas, nadie más cubre el
+  // ingreso" — y vale +35. Vetar solo `dependientes` dejaba el agujero abierto por aquí: Vida
+  // volvía con score 45, recomendado, a quien acababa de decir que la mantienen.
+  //
+  // Lo que vino de la BASE no se toca: es dato verificado y manda. Lo que se veta es que el modelo
+  // lo PROPONGA contradiciendo lo que la persona acaba de declarar.
   if (!origen.SEGMENTO_GRUPO_FAMILIAR) {
     const v = propuesto("SEGMENTO_GRUPO_FAMILIAR");
     if (v) {
@@ -307,6 +396,10 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
 
   // Campos conversacionales sin gate: se aceptan como inferidos (no habilitan productos que la
   // persona no pueda tener, solo mueven el score).
+  //
+  // `dependientes` es la excepción y tiene VETO por dirección: ver `DEPENDENCIA_INVERTIDA`. El
+  // argumento de "solo mueve el score" no le aplica — mueve +25 hacia Vida Y enciende la jerarquía
+  // de protección del ingreso, así que invertido recomienda lo contrario de lo que hace falta.
   const NUM = ["dependientes"] as const;
   for (const k of NUM) {
     const v = enrBruto[k];
@@ -334,7 +427,9 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   // es el que hace daño. Así que el servidor decide, en las dos direcciones:
   //   · si el modelo lo manda sin evidencia → se cae
   //   · si hay evidencia y el modelo no lo mandó → se FIJA
-  const evidenciaSinIngresos = SIN_INGRESOS.some((re) => re.test(texto));
+  // Una sola fuente con la compuerta de precio de `quote_product`: si divergieran, el motor
+  // podría negar la venta y la tool cotizar igual, o al revés.
+  const evidenciaSinIngresos = declaroSinIngresos(texto);
   if (evidenciaSinIngresos) {
     enr.sin_ingresos = true;
     origen["enriquecido.sin_ingresos"] = "declarado";
@@ -346,6 +441,41 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   } else if (enrBruto.sin_ingresos === false) {
     enr.sin_ingresos = false;
     origen["enriquecido.sin_ingresos"] = "inferido";
+  }
+
+  /*
+   * ── La corrección por DIRECCIÓN, en un solo sitio y al final ──────────────
+   *
+   * Va aquí, después de armar el perfil entero, y no como filtro de entrada. La primera versión
+   * de esto vetaba solo lo que el modelo proponía en el turno, y eso dejaba pasar el caso REAL:
+   *
+   *     turno 1  "vivo con mi hija y mi nieto"   → Monoparental, dependientes 2  (razonable)
+   *     turno 2  "…yo dependo de mi hija"        → el piso los conservaba intactos
+   *                                              → y el motor recomendaba Seguro de Vida
+   *
+   * Nadie abre diciendo "yo dependo de mi hija": lo aclara después. Así que la inversión no es un
+   * filtro de entrada, es una CORRECCIÓN DEL EXPEDIENTE — alcanza a lo que ya estaba.
+   *
+   * Lo verificado por la base no se toca: el servidor no sobrescribe a Colsubsidio, solo impide
+   * que el modelo lo contradiga.
+   */
+  if (invierteLaDependencia(texto)) {
+    if (enr.dependientes !== undefined) {
+      delete enr.dependientes;
+      delete origen["enriquecido.dependientes"];
+      descartes.push(
+        "dependientes: la persona dice que ELLA depende de otros, no al revés. No asumas que " +
+          "alguien depende de su ingreso, y no se lo vuelvas a preguntar como si lo fuera."
+      );
+    }
+    if (perfil.SEGMENTO_GRUPO_FAMILIAR !== undefined && origen.SEGMENTO_GRUPO_FAMILIAR !== "base") {
+      delete perfil.SEGMENTO_GRUPO_FAMILIAR;
+      delete origen.SEGMENTO_GRUPO_FAMILIAR;
+      descartes.push(
+        "SEGMENTO_GRUPO_FAMILIAR: implica que la persona sostiene el hogar, y ella dijo que es " +
+          "al revés. Descartado — no le ofrezcas proteger un ingreso que no tiene."
+      );
+    }
   }
 
   if (Object.keys(enr).length) perfil.enriquecido = enr;
@@ -391,10 +521,54 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
  * Es determinista y no necesita estado en el cliente: usa las mismas listas de términos con las
  * que `sanearPerfil` verifica la evidencia.
  */
-export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): string | null {
+export interface OpcionesResumen {
+  /**
+   * El segmento verificado, tal como vive en `estado.identidad`.
+   *
+   * Va aparte de `perfilPrevio` porque son dos momentos distintos: la identidad se resuelve en
+   * cuanto la persona dice su nombre, pero el perfil solo recibe esos ejes DESPUÉS de que el motor
+   * haya corrido. Sin esto, entre el reconocimiento y la primera recomendación el bloque no sabía
+   * nada de ella — y ese es justo el tramo donde antes preguntaba de más.
+   */
+  segmentoBase?: SegmentoBase;
+  /**
+   * ¿La fase actual puede abrir preguntas de perfilamiento? En ASESORANDO no — y ese matiz es la
+   * mitad de este paso: el bloque ahora corre SIEMPRE, así que tiene que saber decir "ya no
+   * preguntes" en vez de "pregunta lo de mayor valor".
+   */
+  puedePreguntar?: boolean;
+}
+
+/**
+ * La edad EXACTA, si la persona llegó a decirla.
+ *
+ * `RANGO_EDAD` viene de la base y sirve para puntuar; la prima necesita un número. Son dos datos
+ * distintos, y confundirlos es lo que hacía que Amparito preguntara la edad a alguien cuyo rango ya
+ * tenía verificado. Se busca con patrón, no con un número suelto: "gano 39 mil" no es una edad.
+ */
+const EDAD_DICHA =
+  // El `(?!…)` es el arreglo de un falso positivo encontrado al revisar: "tengo 40 mil pesos
+  // ahorrados" devolvía 40 años. En una conversación de seguros se habla de plata todo el rato, así
+  // que un número detrás de "tengo" es tan probablemente dinero como edad.
+  /\b(?:tengo|cumplo|cumpli|voy a cumplir)\s+(\d{2})\b(?!\s*(?:mil|millon|lucas|barras|pesos|k\b))|\b(\d{2})\s*anos?\b/;
+
+export function edadDicha(textoNormalizado: string): number | null {
+  const m = textoNormalizado.match(EDAD_DICHA);
+  const n = Number(m?.[1] ?? m?.[2]);
+  return Number.isFinite(n) && n >= 18 && n <= 99 ? n : null;
+}
+
+export function resumenEvidencia(
+  textoUsuario: string,
+  perfilPrevio?: Perfil,
+  opciones: OpcionesResumen = {}
+): string | null {
+  const puedePreguntar = opciones.puedePreguntar !== false;
   const texto = norm(textoUsuario);
   const enr = perfilPrevio?.enriquecido ?? {};
-  const tienePerfil = Object.keys(enr).length > 0;
+  // Antes miraba solo `enriquecido`, así que un afiliado con los cuatro ejes de la base y sin nada
+  // conversacional contaba como "sin perfil".
+  const tienePerfil = Object.keys(perfilPrevio ?? {}).some((k) => k !== "_origen");
   if (!texto.trim() && !tienePerfil) return null;
   const menciona = (t: readonly string[]) => mencionaTermino(texto, t);
 
@@ -411,13 +585,25 @@ export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): s
     ...(enr.tiene_mascota ?? []),
   ]));
   const hablóDeVivienda = menciona(TERMINOS_VIVIENDA) || enr.vivienda !== undefined;
-  const hablóDeDependientes =
-    // Los términos siguen la convención de lib/vocabulario.ts: `*` = prefijo, sin `*` = palabra
-    // exacta. Antes eran `includes` a secas, con el mismo riesgo que hundió a "auto"/"autorizo".
+  // Lo dijo ELLA: va en la lista de lo conversacional.
+  // Los términos siguen la convención de lib/vocabulario.ts: `*` = prefijo, sin `*` = palabra
+  // exacta. Antes eran `includes` a secas, con el mismo riesgo que hundió a "auto"/"autorizo".
+  const contóDependientes =
     menciona([
       "hijo*", "hija*", "esposa*", "esposo*", "pareja*", "mama", "papa", "madre", "padre",
       "depend*", "a cargo", "solo yo", "nadie",
     ]) || enr.dependientes !== undefined;
+
+  /*
+   * Pero el grupo familiar YA responde esta pregunta —incluido "Sin grupo familiar", que responde
+   * que nadie—, así que tampoco falta por saber. Se distingue de lo anterior a propósito: si vino
+   * de la base, decir "te lo contó ella" sería atribuirle a la persona algo que no dijo, y afirmar
+   * de más sobre la base es justo lo que el validador existe para impedir. Ya está listado arriba
+   * como verificado; aquí solo deja de pedirse.
+   */
+  const sabeDependientes =
+    contóDependientes ||
+    (opciones.segmentoBase?.SEGMENTO_GRUPO_FAMILIAR ?? perfilPrevio?.SEGMENTO_GRUPO_FAMILIAR) !== undefined;
   const hablóDeIngreso =
     menciona(["ingreso*", "gano", "sueldo*", "salario*", "trabaj*", "emple*", "desemplead*"]) ||
     enr.sin_ingresos !== undefined;
@@ -425,16 +611,62 @@ export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): s
   const sabe: string[] = [];
   const falta: string[] = [];
   (vehiculos.length ? sabe : falta).push(vehiculos.length ? `vehículo = ${vehiculos.join(", ")}` : "vehículo");
-  (hablóDeDependientes ? sabe : falta).push("quién depende de su ingreso");
+  if (contóDependientes) sabe.push("quién depende de su ingreso");
+  else if (!sabeDependientes) falta.push("quién depende de su ingreso");
   (hablóDeVivienda ? sabe : falta).push("vivienda");
   if (mascotas.length) sabe.push(`mascota = ${mascotas.join(", ")}`);
   if (hablóDeIngreso) sabe.push("su situación de ingreso");
 
-  return (
-    `## LO QUE YA TE CONTÓ (no lo vuelvas a preguntar)\n` +
-    (sabe.length ? `Ya sabes: ${sabe.join("; ")}.\n` : `Todavía no te ha contado nada concreto.\n`) +
-    (falta.length ? `Falta por saber: ${falta.join("; ")}. Pregunta solo lo de mayor valor y una cosa por turno.` : `No necesitas preguntar nada más: recomienda ya.`)
-  );
+  /*
+   * ── Los ejes de la base ───────────────────────────────────────────────────
+   *
+   * Faltaban por completo, y eran la mitad del bug que se veía en producción: Amparito le
+   * preguntaba la edad a alguien cuyo rango vino verificado de Colsubsidio. Se listan APARTE de lo
+   * conversacional a propósito — decir "tú me contaste que tienes 36 a 45" sería falso, y afirmar
+   * de más sobre la base es justo lo que el validador existe para impedir.
+   */
+  const org = perfilPrevio?._origen ?? {};
+  const base = opciones.segmentoBase ?? {};
+  const ETIQUETAS: Array<[keyof Perfil & keyof SegmentoBase, string]> = [
+    ["RANGO_EDAD", "edad"],
+    ["SEGMENTO_GRUPO_FAMILIAR", "grupo familiar"],
+    ["CATEGORIA", "categoría"],
+    ["GENERO", "género"],
+  ];
+  // Vale por las dos vías: el segmento recién resuelto y el perfil que ya pasó por la compuerta.
+  const valorVerificado = (k: keyof Perfil & keyof SegmentoBase) =>
+    base[k] ?? (org[k as string] === "base" ? (perfilPrevio?.[k] as string | undefined) : undefined);
+  const verificado = ETIQUETAS.map(([k, etq]) => [etq, valorVerificado(k)] as const)
+    .filter(([, v]) => !!v)
+    .map(([etq, v]) => `${etq} = ${String(v)}`);
+
+  // La edad exacta es OTRO dato que el rango. Si ya la dijo, no se vuelve a pedir; si no, se pide
+  // en el único momento en que hace falta.
+  const edad = edadDicha(texto);
+  const lineaEdad = edad
+    ? `Edad exacta: ${edad} años, la dijo ella. Ya la tienes: no la vuelvas a pedir.`
+    : (opciones.segmentoBase?.RANGO_EDAD ?? perfilPrevio?.RANGO_EDAD)
+      ? `Para COTIZAR necesitas la edad exacta — la base solo da el rango. Pídela únicamente cuando ` +
+        `vayas a cotizar, y di para qué sirve. Nunca antes.`
+      : null;
+
+  return [
+    `## LO QUE YA SABES DE ESTA PERSONA (no lo vuelvas a preguntar)`,
+    verificado.length ? `Verificado por Colsubsidio: ${verificado.join("; ")}.` : null,
+    sabe.length ? `Te lo contó ella: ${sabe.join("; ")}.` : null,
+    !verificado.length && !sabe.length ? `Todavía no sabes nada concreto de ella.` : null,
+    lineaEdad,
+    falta.length
+      ? puedePreguntar
+        ? `Falta por saber: ${falta.join("; ")}. Pregunta solo lo de mayor valor y una cosa por turno.`
+        : `Falta por saber: ${falta.join("; ")} — pero NO abras preguntas de perfilamiento aquí: ya ` +
+          `hay recomendación en pantalla. Si algo falta de verdad, se afina cuando ella lo mencione.`
+      : puedePreguntar
+        ? `No necesitas preguntar nada más: recomienda ya.`
+        : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** ¿Los 4 ejes del peer-group están verificados (base o declarados)? */

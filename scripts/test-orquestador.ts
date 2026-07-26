@@ -20,6 +20,7 @@ import type { HallazgoIdentidad } from "../lib/estado/reducir";
 import { abrir, sellar } from "../lib/estado/sello";
 import { estadoInicial } from "../lib/estado/tipos";
 import { vistaDeEstado, opcionesDeEventos } from "../lib/estado/vista";
+import { prellenado, ETIQUETA_PRELLENO } from "../components/Chat";
 import { executeTool } from "../lib/tools";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { SALUDO_INICIAL, SIN_RESPUESTA } from "../lib/estado/vista";
@@ -150,7 +151,178 @@ async function main() {
     checkEq("con su segmento verificado", abrir(r.estado)?.identidad.segmento?.CATEGORIA, "B");
     checkEq("y no se pinta como tarjeta", tarjetasDe(r).length, 0);
     const junto = (llamadas[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
-    check("el contexto verificado entra al prompt", junto.includes("## SEGMENTO VERIFICADO"));
+    /*
+     * 5d: encontrarla no es reconocerla. En este turno el prompt NO puede llevar su segmento —
+     * escribir un nombre no basta para llevarse los datos de esa persona— y sí tiene que pedirle
+     * que confirme.
+     */
+    check("el segmento NO viaja antes de verificar", !junto.includes("## SEGMENTO VERIFICADO"));
+    check("y el prompt le pide confirmar quién es", /fecha de expedición/i.test(junto));
+
+    // Y con la verificación resuelta, ahí sí.
+    const yaVerificado = abrir(r.estado)!;
+    yaVerificado.identidad.verificada = true;
+    const { d: dv, llamadas: lv } = deps([dice("Bienvenida, Carolina.")], { resolver });
+    await ejecutarTurno({ messages: [{ role: "user", content: "12/03/2005" }], estado: sellar(yaVerificado) }, dv);
+    const juntoV = (lv[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
+    check("tras confirmar, el contexto verificado sí entra", juntoV.includes("## SEGMENTO VERIFICADO"));
+  }
+
+  titulo("El turno atrapa una cobertura que el clausulado excluye (5h)");
+  {
+    /*
+     * De punta a punta: el modelo pide el detalle del producto, y en el mismo turno afirma algo que
+     * el clausulado EXCLUYE. Antes salía a pantalla tal cual — los precios estaban atados a una
+     * tool, las coberturas no tenían nada, y es el terreno del Art. 9 de la Ley 1328.
+     */
+    const { d } = deps(
+      [
+        usaTool("get_product_details", { productId: "vida_panamerican" }),
+        dice("Claro que sí: y también te cubre si hay una guerra civil."),
+        // El reintento, ya corregido.
+        dice("Claro que sí. Eso sí, la guerra queda fuera."),
+      ],
+      { ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "¿qué cubre?" }] }, d);
+    const texto = textoDe(r);
+    check("la afirmación contra el clausulado NO llega a pantalla",
+      !/te cubre si hay una guerra/i.test(texto), `→ "${texto.slice(0, 60)}"`);
+    // De PRESENCIA: no basta con que desaparezca la frase mala, tiene que quedar una respuesta.
+    check("y el turno no se queda mudo por eso", texto.trim().length > 0);
+  }
+
+  titulo("El formulario nace con lo que ya se sabe (5e)");
+  {
+    /*
+     * Nacía vacío por construcción, incluso para alguien a quien Amparito acababa de reconocer y
+     * saludar por su nombre. El pitch dice que "lo acompaña hasta completar el proceso" y ahí le
+     * entregaba una hoja en blanco.
+     */
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "reconocido",
+      nombre: "Carolina Ramírez López",
+      segmento: { GENERO: "F", CATEGORIA: "A" },
+    });
+    const base = abrir((await ejecutarTurno({ messages: [{ role: "user", content: "Soy Carolina Ramírez López" }] },
+      deps([dice("Hola.")], { resolver }).d)).estado)!;
+    base.identidad.verificada = true;
+
+    // Con la tool REAL: el doble por defecto devuelve siempre un evento de propensión, así que
+    // este bloque estaría midiendo el doble y no `collect_customer_data`.
+    const { d } = deps(
+      [usaTool("collect_customer_data", { productId: "vida_panamerican" }), dice("Ahí lo tienes.")],
+      { resolver, ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno(
+      { messages: [{ role: "user", content: "Sí, avancemos" }], estado: sellar(base) },
+      d
+    );
+    // El formulario no es un bloque del hilo: `vistaDeEstado` lo pone en `entrada`, porque
+    // mientras está abierto la casilla de texto se deshabilita.
+    check("el formulario se abre", !!r.ui.entrada.formulario);
+    const conocido = r.ui.entrada.formulario?.conocido as
+      | { nombre?: string; origen?: string }
+      | undefined;
+    check("y llega con el nombre ya escrito", conocido?.nombre === "Carolina Ramírez López");
+    check("  …etiquetado como venido de la base, porque está verificada", conocido?.origen === "base");
+    check("  …y el componente lo pinta en el campo", prellenado(conocido).nombre === "Carolina Ramírez López");
+
+    /*
+     * SOLO el nombre, y hay que decirlo sin adornos: la base tiene nombre, género, rango de edad,
+     * categoría, grupo familiar y ciudad. NO tiene documento, fecha de nacimiento, celular ni
+     * correo. Prellenar esos cuatro sería inventarse una capacidad que Colsubsidio no nos dio.
+     */
+    const campos = Object.keys(prellenado(conocido));
+    check("y NO se inventa lo que la base no tiene", campos.join() === "nombre", `→ ${campos.join(", ") || "nada"}`);
+  }
+
+  titulo("Sin verificar, lo que se escribe es lo que ella dijo (5e)");
+  {
+    // Andrés no aparece en la base: su nombre también se prellena, pero no se le atribuye a
+    // Colsubsidio un dato que puso él.
+    const resolver = async (): Promise<HallazgoIdentidad> => ({ estado: "no_encontrado", nombre: "Andrés Gómez Ruiz" });
+    // Con la tool REAL: el doble por defecto devuelve siempre un evento de propensión, así que
+    // este bloque estaría midiendo el doble y no `collect_customer_data`.
+    const { d } = deps(
+      [usaTool("collect_customer_data", { productId: "vida_panamerican" }), dice("Ahí lo tienes.")],
+      { resolver, ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "Soy Andrés Gómez Ruiz" }] }, d);
+    const conocido = r.ui.entrada.formulario?.conocido as { origen?: string } | undefined;
+    check("el origen dice que lo dijo él, no la base", conocido?.origen === "declarado");
+    check("y la etiqueta que se pinta lo refleja", ETIQUETA_PRELLENO["declarado"] === "lo dijiste tú");
+  }
+
+  titulo("Sin verificar, NO se escribe el nombre de la base (5e · repaso)");
+  {
+    /*
+     * Este es el agujero que 5e abrió en 5d y que encontró la revisión. La primera versión usaba
+     * `identidad.nombre` siempre, etiquetándolo "declarado" mientras no estuviera verificada:
+     *
+     *     ella escribe   "soy carolina ramirez"
+     *     la base tiene  "CAROLINA RAMÍREZ LÓPEZ"
+     *     el formulario  recibía el apellido que nunca tecleó, sin verificar, y encima
+     *                    atribuido a ella
+     *
+     * Dos faltas a la vez: revela un dato de la base antes de tiempo, y le atribuye a la persona
+     * algo que no dijo.
+     */
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "reconocido",
+      nombre: "CAROLINA RAMÍREZ LÓPEZ",
+      segmento: { GENERO: "F" },
+    });
+    const { d } = deps(
+      [usaTool("collect_customer_data", { productId: "vida_panamerican" }), dice("Ahí lo tienes.")],
+      { resolver, ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "soy carolina ramirez" }] }, d);
+    check("encontrada sin verificar: el formulario NO trae nada escrito",
+      !r.ui.entrada.formulario?.conocido);
+    check("y el apellido de la base no aparece por ningún lado",
+      !JSON.stringify(r.ui).includes("LÓPEZ"));
+  }
+
+  titulo("Lo verificado llega también a la fase que cotiza (5b)");
+  {
+    /*
+     * El bug que se veía en producción: a Carolina, reconocida, Amparito le preguntaba la edad, los
+     * dependientes y el ingreso. La causa no era el prompt — era que el bloque de "lo que ya sabes"
+     * se apagaba en ASESORANDO, justo la fase donde cotiza. La regla vivía en una fase y el
+     * conocimiento en el estado.
+     *
+     * Se comprueba de punta a punta: por el turno real, con el estado sellado de vuelta.
+     */
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "reconocido",
+      nombre: "Carolina Ramírez López",
+      segmento: { GENERO: "F", CATEGORIA: "A", RANGO_EDAD: "36 a 45 años", SEGMENTO_GRUPO_FAMILIAR: "Monoparental" },
+    });
+    const { d: d1 } = deps([dice("Bienvenida, Carolina.")], { resolver });
+    const t1 = await ejecutarTurno({ messages: [{ role: "user", content: "Soy Carolina Ramírez López" }] }, d1);
+
+    // Turno 2: ya hay veredicto, así que la fase es ASESORANDO — donde antes no llegaba nada.
+    const conVeredicto = abrir(t1.estado)!;
+    conVeredicto.veredicto = { entregado: true, tipo: "recomendacion", recomendaciones: [], obligatorios: [], peer: null };
+    const { d: d2, llamadas: l2 } = deps([dice("Claro.")], { resolver });
+    const t2 = await ejecutarTurno(
+      {
+        messages: [
+          { role: "user", content: "Soy Carolina Ramírez López" },
+          { role: "assistant", content: "Bienvenida." },
+          { role: "user", content: "Quiero el Seguro de Vida" },
+        ],
+        estado: sellar(conVeredicto),
+      },
+      d2
+    );
+    checkEq("la fase del turno es ASESORANDO", abrir(t2.estado)?.fase, "ASESORANDO");
+    const sys2 = (l2[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
+    check("y el prompt SÍ le dice lo que ya sabe de ella", sys2.includes("LO QUE YA SABES DE ESTA PERSONA"));
+    check("  …incluida la edad verificada", /Verificado por Colsubsidio[^\n]*36 a 45/.test(sys2));
+    check("  …y que la edad exacta se pide solo al cotizar", /únicamente cuando vayas a cotizar/.test(sys2));
+    check("  …y que aquí NO abra preguntas de perfilamiento", /NO abras preguntas de perfilamiento/.test(sys2));
   }
 
   titulo("La guarda del doble cañón");
@@ -311,7 +483,14 @@ async function main() {
     );
     // Dos mensajes de la persona en el historial → este es su turno 2, no el 1.
     checkEq("se recupera el número de turno del historial", abrir(r.estado)?.turno, 2);
-    checkEq("así que NO se vuelve a la fase SALUDO", abrir(r.estado)?.fase, "RECONOCIDO");
+    /*
+     * La aserción es que NO se vuelve al saludo —que es lo que este bloque protege—, no un valor
+     * concreto. Al perderse el sello también se pierde la verificación, así que vuelve a pedirla:
+     * es el lado correcto en el que fallar. Un estado que no se puede autenticar no debería dar por
+     * buena una verificación que nadie puede comprobar que ocurrió.
+     */
+    check("así que NO se vuelve a la fase SALUDO", abrir(r.estado)?.fase !== "SALUDO");
+    checkEq("y la verificación se vuelve a exigir", abrir(r.estado)?.fase, "VERIFICANDO");
     checkEq("y se vuelve a resolver la identidad desde el mensaje", consultas[0]?.modo, "detectar");
   }
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetrasDeCamaras } from "./FlowVideo";
-import { AVISO_SIMULACION } from "@/lib/expedicion";
+import { AVISO_SIMULACION, AVISO_PAGO_SIMULADO } from "@/lib/expedicion";
 import { UMBRAL_PASOS, esperaRestante, indicadorDeEspera } from "@/lib/ui/espera";
 import {
   ETIQUETA_ORIGEN,
@@ -192,6 +192,8 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
   const [activeForm, setActiveForm] = useState<UiEvent["data"] | null>(null);
   const [processing, setProcessing] = useState<null | "emision" | "reco">(null);
   const lastQuote = useRef<string | null>(null);
+  /** El contacto del formulario, para que pagar no vuelva a pedirlo. */
+  const contactoRef = useRef<Contacto | null>(null);
   const started = useRef(false);
   const offlineCancel = useRef(false);
   /**
@@ -360,7 +362,52 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
   }
 
   async function submitForm(contacto: Contacto) {
+    contactoRef.current = contacto;
     setActiveForm(null);
+    // Este paso ya NO emite: solo prepara el pago. Narrar "consultando con la aseguradora" y
+    // "generando tu certificado" aquí sería contar un trabajo que no ocurre — y encima cobrando
+    // tres segundos por contarlo. El teatro se mudó a `pagar`, que es donde sí pasa algo.
+    setBusy(true);
+    let result: { event?: UiEvent; evento?: UiEvent; closing?: string; error?: string; feedback?: UiEvent } = {};
+    try {
+      const res = await fetch("/api/issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteId: lastQuote.current, contacto, consentimiento: true }),
+      });
+      result = await res.json();
+    } catch { result = { error: "No pudimos emitir en este momento." }; }
+    setBusy(false);
+    if (result.evento) {
+      // Primero se paga. Antes esto iba directo a la póliza, así que lo que reemplazaba el
+      // "te contactaremos" era un formulario — y quien lo llena sigue sin saber si quedó.
+      setItems((cur) => [...cur, { kind: "event", event: result.evento! }]);
+    } else if (result.event) {
+      setItems((cur) => [...cur, { kind: "event", event: result.event },
+        { kind: "msg", role: "assistant", text: result.closing ?? `Tu solicitud queda completa. ${AVISO_SIMULACION}` },
+        { kind: "video" },
+        // Medición al cierre (pedido del equipo de seguros): esfuerzo y satisfacción.
+        ...(result.feedback ? [{ kind: "event" as const, event: result.feedback }] : [])]);
+    } else {
+      setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." }]);
+    }
+  }
+
+  /**
+   * Pagar (simulado) y con eso emitir.
+   *
+   * Se guarda el contacto del formulario para no volver a pedirlo: el pago es un paso más de la
+   * misma solicitud, no una solicitud nueva.
+   */
+  async function pagar() {
+    const contacto = contactoRef.current;
+    if (!contacto) {
+      // Puede pasar si se recarga la pantalla con el pago en curso: el hilo se mantiene pero el
+      // contacto vivía en memoria. Un botón que no hace nada es peor que uno que explica.
+      setItems((cur) => [...cur, { kind: "msg", role: "assistant",
+        text: "Se me perdieron tus datos al recargar. Dime que quieres avanzar y te abro el formulario otra vez." }]);
+      return;
+    }
     setProcessing("emision");
     const t0 = Date.now();
     let result: { event?: UiEvent; closing?: string; error?: string; feedback?: UiEvent } = {};
@@ -368,7 +415,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       const res = await fetch("/api/issue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quoteId: lastQuote.current, contacto, consentimiento: true }),
+        body: JSON.stringify({ quoteId: lastQuote.current, contacto, consentimiento: true, pagado: true }),
       });
       result = await res.json();
     } catch { result = { error: "No pudimos emitir en este momento." }; }
@@ -378,7 +425,6 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       setItems((cur) => [...cur, { kind: "event", event: result.event },
         { kind: "msg", role: "assistant", text: result.closing ?? `Tu solicitud queda completa. ${AVISO_SIMULACION}` },
         { kind: "video" },
-        // Medición al cierre (pedido del equipo de seguros): esfuerzo y satisfacción.
         ...(result.feedback ? [{ kind: "event" as const, event: result.feedback }] : [])]);
     } else {
       setItems((cur) => [...cur, { kind: "msg", role: "assistant", text: result.error ?? "No pudimos emitir. Inténtalo de nuevo." }]);
@@ -433,7 +479,11 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
               </div>
             </div>
           ) : (
-            <EventCard key={i} event={item.event!} />
+            /* Sin `onPagar` el botón queda deshabilitado, y eso es lo correcto en dos casos: mientras
+               hay algo en curso —dos clics serían dos pólizas y dos filas en la hoja— y en el demo
+               offline, donde la reproducción es guionizada y no hay a quién cobrarle. */
+            <EventCard key={i} event={item.event!}
+              onPagar={item.event!.type === "pago" && !locked && !offline ? pagar : undefined} />
           )
         )}
 
@@ -457,7 +507,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
             </div>
             {/*
               Estas pastillas son el ÚNICO camino de un toque al arranque caliente para alguien que
-              llega solo con un enlace: si teclea su propio nombre no está en el padrón y solo ve el
+              llega solo con un enlace: si teclea su propio nombre no aparece como afiliado y solo ve el
               camino genérico, así que nunca llega al diferencial. Por eso van visibles siempre.
 
               Lo que sí sobraba era la etiqueta: decía "Prueba con uno de la base:", que le confiesa
@@ -591,8 +641,34 @@ function ProcessingCard({ variant }: { variant: "emision" | "reco" }) {
 }
 
 /* ===== Formulario de datos ===== */
+/**
+ * Qué trae ya escrito el formulario, y de dónde salió.
+ *
+ * Nacía VACÍO por construcción —`useState({ nombre: "", ... })`— incluso para alguien a quien
+ * Amparito acababa de reconocer y saludar por su nombre. El pitch del producto dice que "lo
+ * acompaña hasta completar el proceso" y aquí le entregaba una hoja en blanco.
+ *
+ * SOLO EL NOMBRE, y conviene decirlo sin adornos: la base de afiliados tiene nombre, género, rango
+ * de edad, categoría, grupo familiar y ciudad. NO tiene documento, ni fecha de nacimiento, ni
+ * celular, ni correo. Prellenar esos cuatro sería inventarse una capacidad que Colsubsidio no nos
+ * ha dado — la misma disciplina del sello de simulación.
+ */
+export function prellenado(conocido?: { nombre?: string; origen?: string }): Partial<Contacto> {
+  return conocido?.nombre ? { nombre: conocido.nombre } : {};
+}
+
+/** De dónde salió lo que ya está escrito, para no atribuirle a Colsubsidio lo que dijo la persona. */
+export const ETIQUETA_PRELLENO: Record<string, string> = {
+  base: "de tu afiliación",
+  declarado: "lo dijiste tú",
+};
+
 function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => void }) {
-  const [f, setF] = useState<Contacto>({ nombre: "", tipoDocumento: "CC", numeroDocumento: "", fechaNacimiento: "", celular: "", correo: "" });
+  const conocido = data?.conocido as { nombre?: string; origen?: string } | undefined;
+  const [f, setF] = useState<Contacto>({
+    nombre: "", tipoDocumento: "CC", numeroDocumento: "", fechaNacimiento: "", celular: "", correo: "",
+    ...prellenado(conocido),
+  });
   const [consent, setConsent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   function set<K extends keyof Contacto>(k: K, v: Contacto[K]) { setF((p) => ({ ...p, [k]: v })); }
@@ -623,9 +699,15 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
       <div className="df-head">
         <span className="badge">Últimos datos</span>
         <h4>Completa tus datos para {String(data.producto)}</h4>
-        <p>Es rápido. Con esto emitimos tu póliza al instante.</p>
+        <p>{conocido?.nombre ? "Ya escribí lo que sabía de ti. Falta lo demás." : "Es rápido. Con esto emitimos tu póliza al instante."}</p>
       </div>
-      <label>Nombres y apellidos completos
+      <label>
+        Nombres y apellidos completos
+        {/* Prellenado pero EDITABLE: el nombre de la base puede venir en mayúsculas o con una tilde
+            distinta, y este dato acaba en un documento legal. Se ofrece hecho, no impuesto. */}
+        {conocido?.nombre && (
+          <span className="df-origen">{ETIQUETA_PRELLENO[conocido.origen ?? "declarado"]}</span>
+        )}
         <input value={f.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej: Juan Camilo Pérez Cuervo" />
       </label>
       <div className="df-row">
@@ -1002,7 +1084,7 @@ function FeedbackCard({ data }: { data: Record<string, any> }) {
 }
 
 /* ===== Tarjetas ===== */
-function EventCard({ event }: { event: UiEvent }) {
+function EventCard({ event, onPagar }: { event: UiEvent; onPagar?: () => void }) {
   // El tipo compartido declara `data: Record<string, unknown>`, que es lo correcto en el
   // servidor. Aquí se relaja a propósito y en UN solo punto: estas tarjetas leen el payload
   // crudo de cada tool, y darle un tipo real a cada uno es parte de construir la capa de
@@ -1121,6 +1203,27 @@ function EventCard({ event }: { event: UiEvent }) {
           // video. Estaba escrito aquí a mano y no tenía forma de enterarse si el otro cambiaba.
           <p className="pc-sim-note">{AVISO_SIMULACION}</p>
         )}
+      </div>
+    );
+  }
+
+  if (event.type === "pago") {
+    const prima = typeof d.prima === "number" ? d.prima : null;
+    return (
+      <div className="pagocard">
+        <div className="rotulo-pago">Pago · PSE o tarjeta</div>
+        <div className="pg-linea">
+          <span>{String(d.producto ?? "Tu seguro")} · primer mes</span>
+          {/* Si el adaptador no supo leer la cotización, se muestra el paso SIN importe en vez de
+              inventarlo. Un número equivocado en una pantalla de pago es peor que ningún número. */}
+          <b>{prima !== null ? `$${prima.toLocaleString("es-CO")}` : "—"}</b>
+        </div>
+        {/* El sello va ENCIMA del botón, no debajo: nadie debe poder tocarlo creyendo que se le
+            cobra. Debajo se lee después de haber decidido. */}
+        <p className="pg-sello"><span className="sello-sim">{AVISO_PAGO_SIMULADO}</span></p>
+        <button className="pg-btn" onClick={onPagar} disabled={!onPagar}>
+          {prima !== null ? `Pagar $${prima.toLocaleString("es-CO")} →` : "Continuar →"}
+        </button>
       </div>
     );
   }

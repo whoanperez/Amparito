@@ -11,7 +11,8 @@
  * justo lo que existe para impedir. De los dos errores, el primero se nota en cada conversación
  * y el segundo solo cuando ya hizo daño — así que el listón de "no dispares" tiene que ser alto.
  */
-import { afirmacionesSinRespaldo, quitarFrases } from "../lib/estado/validar";
+import { afirmacionesSinRespaldo, coberturasContradichas, quitarFrases } from "../lib/estado/validar";
+import { executeTool } from "../lib/tools";
 import { estadoInicial, type EstadoConversacion } from "../lib/estado/tipos";
 
 let ok = true;
@@ -121,5 +122,72 @@ titulo("Se quita solo la frase que sobra");
   check("y sobrevive la pregunta", podado.includes("¿En qué ciudad estás"));
 }
 
-console.log(`\n${ok ? "✅" : "❌"} ${total} verificaciones · ${ok ? "todo en verde" : "HAY FALLOS"}`);
-process.exit(ok ? 0 : 1);
+/* ── coberturas afirmadas contra el clausulado (B14 · 5h) ─────────────────── */
+/*
+ * `lib/tools.ts` afirmaba en su cabecera que "el modelo nunca inventa precios, coberturas ni
+ * razones". Los precios sí: salen de una tool y no hay otra vía. Las coberturas NO tenían nada —
+ * el modelo podía decir "y además te cubre X" con una X que el clausulado excluye, y ningún gate
+ * se enteraba. Es el terreno que regula el Art. 9 de la Ley 1328.
+ */
+async function coberturas() {
+  console.log("\n===== Coberturas: no se afirma lo que el clausulado excluye =====");
+  const { result } = await executeTool("get_product_details", { productId: "vida_panamerican" }, {});
+  const d = result as { coberturas: string[]; exclusiones: string[] };
+  const c = { coberturas: d.coberturas, exclusiones: d.exclusiones };
+
+  check("hay clausulado real contra el que contrastar", c.coberturas.length > 0 && c.exclusiones.length > 0);
+
+  for (const t of [
+    "Y también te cubre si hay una guerra civil.",
+    "Incluye contaminación radiactiva.",
+    "Tranquila, la guerra también entra en la cobertura.",
+  ]) {
+    check(`atrapa: "${t}"`, coberturasContradichas(t, c).length > 0);
+  }
+
+  /*
+   * Y lo que NO puede atrapar, que es donde una guarda mal hecha hace más daño que el bug.
+   *
+   * El primero es el importante: el clausulado de Vida SÍ cubre el suicidio sin carencia, y es de
+   * las cosas que más valen decir — casi ningún seguro lo dice tan claro. Una guarda que lo
+   * marcara obligaría a Amparito a callarse su mejor argumento.
+   */
+  for (const t of [
+    "Te cubre fallecimiento por cualquier causa, incluso suicidio, sin periodos de carencia.",
+    "Ojo: NO te cubre guerra ni contaminación radiactiva.",
+    "Este seguro te protege si algo te pasa y tu familia queda respaldada.",
+    "Queda fuera la guerra declarada o no.",
+  ]) {
+    check(`no se pasa de listo: "${t.slice(0, 52)}…"`, coberturasContradichas(t, c).length === 0);
+  }
+
+  check("y sin clausulado no inventa hallazgos",
+    coberturasContradichas("te cubre la guerra", { coberturas: [], exclusiones: [] }).length === 0);
+
+  /*
+   * DOS PRODUCTOS EN UN TURNO ("compárame los dos"). Si el turno se quedara con el último
+   * clausulado, una frase sobre el primero se contrastaría contra las exclusiones del otro: "el de
+   * mascotas incluye responsabilidad civil" se marcaba porque el SOAT excluye la RC. Unir las dos
+   * listas falla hacia NO marcar, que es el lado correcto para una guarda que poda texto.
+   */
+  const soat = (await executeTool("get_product_details", { productId: "soat_mundial" }, {})).result as typeof d;
+  const mascotas = (await executeTool("get_product_details", { productId: "mascotas_seguro_bolivar" }, {})).result as typeof d;
+  const frase = "El de mascotas incluye responsabilidad civil.";
+  check("con un solo clausulado, la comparación entre productos se marcaría mal",
+    coberturasContradichas(frase, { coberturas: soat.coberturas, exclusiones: soat.exclusiones }).length > 0);
+  check("uniendo los dos clausulados del turno, ya no",
+    coberturasContradichas(frase, {
+      coberturas: [...mascotas.coberturas, ...soat.coberturas],
+      exclusiones: [...mascotas.exclusiones, ...soat.exclusiones],
+    }).length === 0);
+
+  const h = coberturasContradichas("Y también te cubre si hay una guerra civil.", c)[0];
+  check("el hallazgo cita la exclusión concreta del clausulado", /EXCLUYE/.test(h?.motivo ?? ""));
+  check("y la frase que hay que quitar",
+    quitarFrases("Hola. Y también te cubre si hay una guerra civil.", [h]) === "Hola.");
+
+  console.log(`\n${ok ? "✅" : "❌"} ${total} verificaciones · ${ok ? "todo en verde" : "HAY FALLOS"}`);
+  process.exit(ok ? 0 : 1);
+}
+
+coberturas();

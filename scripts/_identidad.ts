@@ -56,6 +56,25 @@ export interface ResueltaIdentidad {
   contexto: string;
 }
 
+/**
+ * El camino caliente COMPLETO: encontrarla, y que confirme que es ella.
+ *
+ * Existe desde 5d, cuando reconocer dejó de ser un solo paso. Los gates que quieren probar el
+ * arranque caliente tienen que recorrer los DOS turnos, porque eso es lo que pasa de verdad — si
+ * se quedaran en el primero estarían midiendo un estado intermedio y llamándolo "reconocido".
+ */
+export async function identidadVerificada(
+  texto: string,
+  respuesta = "12/03/2005"
+): Promise<ResueltaIdentidad> {
+  const primera = await identidadDe(texto);
+  if (primera.estado.identidad.resultado !== "reconocido") return primera;
+  const abierto = iniciarTurno(primera.estado, respuesta);
+  const hallazgo = await ejecutarConsulta(abierto.consulta);
+  const estado = aplicarIdentidad(abierto.estado, hallazgo);
+  return { hallazgo: primera.hallazgo, estado, contexto: contextoDeEstado(estado) ?? "" };
+}
+
 /** Un turno de identidad desde cero: lo que pasa cuando alguien escribe su primer mensaje. */
 export async function identidadDe(
   texto: string,

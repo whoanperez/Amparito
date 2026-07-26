@@ -157,6 +157,24 @@ export interface Obligatorio {
  * tienes"; le faltaba el más humano. Lo decide el MOTOR, no el LLM, para que sea la misma regla
  * de oro: el motor calcula, el modelo redacta.
  */
+/**
+ * Lo que SÍ responde a lo que la persona pidió, cuando el motor se niega a vender.
+ *
+ * `no_venta` significa "no te lo vendo", no "no hay nada para ti". Sin esto, alguien que llega
+ * pidiendo algo concreto —"quiero dejar algo para que mis hijos no carguen con el entierro"— se va
+ * con las manos vacías: el motor devolvía CERO y el prompt prohibía mencionar cualquier producto.
+ *
+ * Va SIN prima y SIN quoteId a propósito: no es una oferta, es información. Y no puede volverse una
+ * venta por descuido, porque la cotización está cerrada por compuerta en servidor.
+ */
+export interface Informativo {
+  id: string;
+  nombre: string;
+  aseguradora: string;
+  /** Por qué responde a lo que pidió. Sale del scorecard, no del modelo. */
+  razon: string;
+}
+
 export interface NoVenta {
   motivo: string;
   /** Lo que sí sirve hoy. Colsubsidio es una caja: tiene servicios que una aseguradora no. */
@@ -207,6 +225,8 @@ export interface TrazaDecision {
 
 export interface PropensionResult {
   recomendaciones: Recomendacion[];
+  /** Solo cuando hay `no_venta`: qué existe para lo que pidió, sin precio y sin cierre. */
+  informativo?: Informativo;
   /** Traza auditable de esta decisión (RNF-6). Aditiva: nada existente cambia de forma. */
   traza?: TrazaDecision;
   /** Si viene, NO se recomienda ningún producto de pago: no es una venta perdida, es criterio. */

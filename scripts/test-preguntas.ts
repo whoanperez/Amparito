@@ -63,12 +63,18 @@ const real = ["tengo familia, y no tengo trabajo", "no tengo ingresos", "mi espo
 const r = resumenEvidencia(real) ?? "";
 console.log(r.split("\n").map((l) => "   " + l).join("\n"));
 check("reconoce que ya habló del carro", r.includes("vehículo = carro"));
-check("reconoce que ya habló de quién depende de él", r.includes("Ya sabes") && r.includes("depende"));
+// Por PROPIEDAD, no por la frase: lo que importa es que el dato quede del lado de lo sabido y
+// NO del lado de lo que falta. Estas dos aserciones estaban atadas a la redacción ("Ya sabes")
+// y se pusieron rojas al reescribir el bloque, con la conducta intacta — que es exactamente el
+// tipo de gate que este proyecto viene quitando.
+check("reconoce que ya habló de quién depende de él",
+  /depende de su ingreso/.test(r) && !/Falta por saber[^\n]*depende de su ingreso/.test(r));
 check("sabe que falta la vivienda", r.includes("Falta por saber") && r.includes("vivienda"));
-check("no da por sabida la vivienda", !r.includes("Ya sabes: vivienda"));
+check("no da por sabida la vivienda", /Falta por saber[^\n]*vivienda/.test(r));
 
 const vacio = resumenEvidencia("hola") ?? "";
-check("con una conversación vacía dice que no sabe nada", vacio.includes("Todavía no te ha contado nada"));
+check("con una conversación vacía dice que no sabe nada",
+  /no sabes nada|no te ha contado nada/i.test(vacio));
 check("sin texto no devuelve nada", resumenEvidencia("") === null);
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);

@@ -1,0 +1,437 @@
+<title>Amparito · el caso que rompe el guion</title>
+
+<style>
+  :root {
+    --amarillo: #ffd000;
+    --amarillo-tenue: #fff6c8;
+    --azul: #0067b1;
+    --azul-claro: #eaf3fa;
+    --verde: #147a47;
+    --verde-tenue: #e8f5ee;
+    --ambar: #8a6a00;
+    --ambar-tenue: #fff3cd;
+
+    --tinta: #1d1d1f;
+    --papel: #faf9f5;
+    --tarjeta: #ffffff;
+    --gris: #6f6e68;
+    --gris-suave: #f2f1ec;
+    --borde: #e3e1d9;
+    --burbuja: #ffffff;
+    --burbuja-yo: #0067b1;
+    --burbuja-yo-texto: #ffffff;
+
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    --paso: clamp(1.5rem, 4vw, 2.75rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --azul: #64a8e8;
+      --azul-claro: #14232e;
+      --verde: #4fc98a;
+      --verde-tenue: #12241a;
+      --ambar: #e8c04a;
+      --ambar-tenue: #2a2410;
+
+      --tinta: #ecebe6;
+      --papel: #131310;
+      --tarjeta: #1c1c18;
+      --gris: #98968d;
+      --gris-suave: #212120;
+      --borde: #33322c;
+      --burbuja: #1c1c18;
+      --burbuja-yo: #1e4e78;
+      --burbuja-yo-texto: #f4f9ff;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --azul: #64a8e8;
+    --azul-claro: #14232e;
+    --verde: #4fc98a;
+    --verde-tenue: #12241a;
+    --ambar: #e8c04a;
+    --ambar-tenue: #2a2410;
+
+    --tinta: #ecebe6;
+    --papel: #131310;
+    --tarjeta: #1c1c18;
+    --gris: #98968d;
+    --gris-suave: #212120;
+    --borde: #33322c;
+    --burbuja: #1c1c18;
+    --burbuja-yo: #1e4e78;
+    --burbuja-yo-texto: #f4f9ff;
+  }
+
+  :root[data-theme="light"] {
+    --azul: #0067b1;
+    --azul-claro: #eaf3fa;
+    --verde: #147a47;
+    --verde-tenue: #e8f5ee;
+    --ambar: #8a6a00;
+    --ambar-tenue: #fff3cd;
+
+    --tinta: #1d1d1f;
+    --papel: #faf9f5;
+    --tarjeta: #ffffff;
+    --gris: #6f6e68;
+    --gris-suave: #f2f1ec;
+    --borde: #e3e1d9;
+    --burbuja: #ffffff;
+    --burbuja-yo: #0067b1;
+    --burbuja-yo-texto: #ffffff;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .marco {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 4vw, 2.5rem) 5rem;
+  }
+
+  /* ── Cabecera ─────────────────────────────────────────── */
+  .cabecera { display: flex; flex-direction: column; gap: .9rem; padding-bottom: 1.75rem; border-bottom: 2px solid var(--tinta); }
+  .eyebrow {
+    font: 600 .72rem/1 var(--mono);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--gris);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(1.9rem, 5vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: -.03em;
+    font-weight: 800;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  h1 em { font-style: normal; color: var(--azul); }
+  .entradilla { margin: 0; max-width: 62ch; color: var(--gris); font-size: 1.02rem; }
+  .entradilla strong { color: var(--tinta); font-weight: 650; }
+
+  /* ── Turno ────────────────────────────────────────────── */
+  .turno {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: var(--paso) 0;
+    border-bottom: 1px solid var(--borde);
+  }
+  @media (min-width: 880px) {
+    .turno { grid-template-columns: 60fr 40fr; gap: 2.5rem; align-items: start; }
+  }
+
+  .num {
+    display: flex; align-items: baseline; gap: .7rem;
+    grid-column: 1 / -1;
+    margin-bottom: -.4rem;
+  }
+  .num b {
+    font: 700 .72rem/1 var(--mono);
+    letter-spacing: .1em;
+    color: var(--amarillo);
+    background: var(--tinta);
+    padding: .35rem .5rem;
+    border-radius: 4px;
+  }
+  .num span { font-size: .84rem; color: var(--gris); font-weight: 600; }
+
+  /* ── Conversación ─────────────────────────────────────── */
+  .chat { display: flex; flex-direction: column; gap: .55rem; max-width: 27rem; }
+  .msg {
+    background: var(--burbuja);
+    border: 1px solid var(--borde);
+    border-radius: 4px 16px 16px 16px;
+    padding: .8rem .95rem;
+    font-size: .95rem;
+    align-self: flex-start;
+    max-width: 96%;
+  }
+  .msg.yo {
+    background: var(--burbuja-yo);
+    color: var(--burbuja-yo-texto);
+    border-color: transparent;
+    border-radius: 16px 4px 16px 16px;
+    align-self: flex-end;
+    font-weight: 550;
+  }
+  .msg p { margin: 0 0 .6rem; }
+  .msg p:last-child { margin-bottom: 0; }
+  .msg ul { margin: .5rem 0 .6rem; padding-left: 1.05rem; }
+  .msg li { margin-bottom: .18rem; }
+  .msg .no { color: var(--ambar); font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .15rem; }
+  .chip {
+    font-size: .8rem; font-weight: 600;
+    border: 1px solid var(--borde);
+    background: var(--tarjeta);
+    color: var(--tinta);
+    padding: .38rem .75rem;
+    border-radius: 999px;
+  }
+
+  /* ── Tarjetas dentro del hilo ─────────────────────────── */
+  .tarjeta {
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: .9rem 1rem;
+    font-size: .9rem;
+  }
+  .tarjeta.destacada { border-color: var(--amarillo); border-width: 2px; }
+  .rotulo {
+    font: 700 .66rem/1 var(--mono);
+    letter-spacing: .11em; text-transform: uppercase;
+    color: var(--gris);
+    margin-bottom: .5rem;
+  }
+  .producto { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; font-weight: 700; }
+  .producto small { font-weight: 500; color: var(--gris); font-size: .78rem; }
+  .razones { margin: .45rem 0 0; padding-left: 1rem; color: var(--gris); font-size: .84rem; }
+  .precio { font-size: 1.85rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .precio span { font-size: .82rem; font-weight: 600; color: var(--gris); letter-spacing: 0; }
+
+  .sello {
+    display: inline-flex; align-items: center; gap: .35rem;
+    font: 700 .66rem/1 var(--mono);
+    letter-spacing: .07em; text-transform: uppercase;
+    background: var(--ambar-tenue); color: var(--ambar);
+    border: 1px dashed currentColor;
+    padding: .3rem .5rem; border-radius: 4px;
+  }
+  .ok {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .74rem; font-weight: 700;
+    background: var(--verde-tenue); color: var(--verde);
+    padding: .18rem .45rem; border-radius: 4px;
+  }
+
+  /* ── Formulario ───────────────────────────────────────── */
+  .form { display: grid; gap: .55rem; }
+  .campo { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem; border: 1px solid var(--borde); border-radius: 8px; padding: .5rem .7rem; background: var(--gris-suave); }
+  .campo.pendiente { background: var(--tarjeta); border-color: var(--azul); }
+  .campo b { font-weight: 650; font-size: .88rem; }
+  .campo i { font-style: normal; display: block; font-size: .72rem; color: var(--gris); font-weight: 600; }
+  .campo .vacio { color: var(--gris); font-weight: 500; }
+  .btn {
+    margin-top: .3rem; text-align: center; font-weight: 750; font-size: .92rem;
+    background: var(--amarillo); color: #1d1d1f;
+    border-radius: 999px; padding: .7rem 1rem;
+  }
+
+  /* ── Carril del servidor ──────────────────────────────── */
+  .rail { display: flex; flex-direction: column; gap: .75rem; }
+  .rail h3 {
+    margin: 0;
+    font: 700 .68rem/1 var(--mono);
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--gris);
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--borde);
+  }
+  .rail p { margin: 0; font-size: .88rem; color: var(--gris); }
+  .rail p strong { color: var(--tinta); font-weight: 650; }
+  .rail code { font: 500 .82em var(--mono); background: var(--gris-suave); padding: .1em .35em; border-radius: 3px; color: var(--tinta); }
+  .hoy {
+    border-left: 3px solid var(--ambar);
+    padding: .1rem 0 .1rem .7rem;
+    font-size: .84rem;
+    color: var(--gris);
+  }
+  .hoy b { color: var(--ambar); font-weight: 700; display: block; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; font-family: var(--mono); margin-bottom: .15rem; }
+
+  /* ── Cierre ───────────────────────────────────────────── */
+  .cierre { padding-top: var(--paso); }
+  .cierre h2 { font-size: 1.4rem; letter-spacing: -.02em; margin: 0 0 1.25rem; }
+  .tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .tabla th { text-align: left; font: 700 .68rem/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gris); padding-bottom: .6rem; border-bottom: 1px solid var(--borde); }
+  .tabla td { padding: .7rem 1rem .7rem 0; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  .tabla td:first-child { color: var(--gris); width: 34%; }
+  .tabla td:last-child { padding-right: 0; font-weight: 550; }
+  .envoltura { overflow-x: auto; }
+
+  .abierto { margin-top: 2.5rem; background: var(--azul-claro); border-radius: 12px; padding: 1.25rem 1.4rem; }
+  .abierto h3 { margin: 0 0 .6rem; font-size: 1rem; }
+  .abierto ol { margin: 0; padding-left: 1.15rem; font-size: .92rem; }
+  .abierto li { margin-bottom: .45rem; }
+  .abierto li:last-child { margin-bottom: 0; }
+</style>
+<style>
+  /* Marcas propias de este documento */
+  .aviso { background: var(--ambar-tenue); border: 1px solid var(--ambar); border-radius: 10px; padding: 1rem 1.15rem; margin-top: .9rem; }
+  .aviso h4 { margin: 0 0 .4rem; font-size: .92rem; color: var(--ambar); }
+  .aviso p { margin: 0 0 .5rem; font-size: .88rem; color: var(--tinta); }
+  .aviso p:last-child { margin-bottom: 0; }
+  .aviso .cita { font-family: var(--mono); font-size: .8rem; background: var(--tarjeta); border-radius: 6px; padding: .5rem .65rem; display: block; margin: .5rem 0; }
+  .rama { border-left: 3px solid var(--azul); padding-left: 1.1rem; margin-top: .5rem; }
+  .rama > .num b { background: var(--gris); }
+</style>
+<div class="marco">
+
+  <header class="cabecera">
+    <div class="eyebrow">Amparito · caso atípico · prueba de que no está guionizado</div>
+    <h1>Rosa, 62 años, <em>que no encaja en ninguno de los dos caminos</em></h1>
+    <p class="entradilla">
+      Los documentos de Carolina y de Andrés describen dos caminos limpios. Este existe para
+      romperlos. Rosa <strong>no aparece con su nombre</strong>, dice que está
+      <strong>por su hija</strong>, <strong>no tiene ingresos propios</strong> y viene a hablar de
+      su propia muerte. Ningún guion cubre eso — y si el producto solo sabe responder los dos
+      casos bonitos, se cae con el tercero que llegue.
+    </p>
+  </header>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 1</b> <span>Se rompe el primer supuesto: afiliado o no afiliado</span></div>
+    <div class="chat">
+      <div class="msg yo">Soy Rosa Elena Buitrago</div>
+      <div class="msg">
+        <p>Con ese nombre no te encuentro como afiliada, Rosa. Puede que estés registrada de otra forma, o que todavía no lo estés — no quiero suponerlo.</p>
+        <p>Seguimos igual. ¿Hay alguien que dependa de tu ingreso?</p>
+      </div>
+      <div class="msg yo">Yo estoy por mi hija, ella es la afiliada. Y más bien yo dependo de ella.</div>
+      <div class="msg">
+        <p>Ah, entonces posiblemente estás como beneficiaria de ella. Eso no lo puedo confirmar desde aquí — solo puedo buscar por afiliado principal — pero me sirve igual para entenderte.</p>
+        <p>Cuéntame una cosa, Rosa: ¿qué te trajo hoy?</p>
+      </div>
+    </div>
+    <div class="rail">
+      <h3>Qué principio produjo esto</h3>
+      <p><strong>El binario no existe en la realidad.</strong> Colsubsidio tiene afiliados principales y beneficiarios; la búsqueda solo resuelve el primero. Un guion diría "no eres afiliada" y estaría mintiendo.</p>
+      <p>Lo que el servidor sabe es <code>no_encontrado</code>. Lo que NO sabe —si es beneficiaria— se dice como lo que es: <strong>un límite de la herramienta, no un veredicto sobre ella</strong>.</p>
+      <p>Y la segunda pregunta cambia sola: ella acaba de invertir el marco ("yo dependo de ella"), así que insistir con "¿quién depende de tu ingreso?" sería no haber escuchado.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 2</b> <span>Se rompe el segundo supuesto: proteger tu ingreso</span></div>
+    <div class="chat">
+      <div class="msg yo">Quiero dejar algo para que cuando yo falte mis hijos no tengan que salir a conseguir plata para el entierro. Eso es lo que me preocupa.</div>
+      <div class="msg">
+        <p>Gracias por contármelo así de claro, Rosa. Lo que me estás pidiendo tiene nombre y existe: un seguro exequial. No es para ti, es para que ellos no tengan que resolver nada ese día.</p>
+        <p>Antes de mostrarte nada necesito saber una cosa, y te explico para qué: ¿tú tienes alguna entrada propia al mes —pensión, algún trabajito, arriendo— o todo lo cubre tu hija?</p>
+      </div>
+      <div class="chips"><span class="chip">Todo lo cubre mi hija</span><span class="chip">Tengo una pensión pequeña</span></div>
+    </div>
+    <div class="rail">
+      <h3>Qué principio produjo esto</h3>
+      <p>Todo el motor razona sobre <em>proteger un ingreso</em>. Rosa no tiene ingreso que proteger: ella <strong>es</strong> la dependiente. Un guion construido sobre Carolina no tiene salida aquí.</p>
+      <p>Lo que sí funciona es la regla que ya existe: <strong>lo que la persona declara MANDA sobre el segmento</strong>. Ella dijo qué quiere y para qué. El producto sale de ahí, no de una tabla de propensión.</p>
+      <p>La pregunta del ingreso no es curiosidad: decide si se puede vender algo. Por eso se hace <strong>diciendo para qué sirve</strong>.</p>
+      <div class="hoy"><b>Tacto</b> Esta parte de la conversación es sobre su muerte. Sin emojis, sin "¡perfecto!", sin entusiasmo comercial. Es una regla que ya está escrita en el prompt.</div>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 3</b> <span>Se rompe el tercer supuesto: el anti-venta como final</span></div>
+    <div class="chat">
+      <div class="msg yo">Todo lo cubre mi hija, yo no tengo entrada.</div>
+      <div class="msg">
+        <p>Entonces te lo digo de frente: <span class="no">a ti hoy no te vendo nada.</span> Un seguro que salga de un bolsillo que no es el tuyo no se sostiene solo, y lo último que quiero es dejarte con una cuota que después nadie pague.</p>
+        <p>Pero tu necesidad es real y tiene solución, así que no la dejo aquí.</p>
+        <p>Lo que te propongo: te preparo lo que cuesta y lo que cubre, con todo claro, <strong>y se lo muestras a tu hija</strong> — que es quien lo pagaría y quien tiene que decidirlo. Si ella quiere, lo tomamos en tres minutos.</p>
+      </div>
+      <div class="chips"><span class="chip">Sí, muéstrame para contarle</span><span class="chip">Prefiero que ella hable contigo</span></div>
+    </div>
+    <div class="rail">
+      <h3>Qué principio produjo esto</h3>
+      <p>La compuerta del motor dispara <code>no_venta</code> porque <code>sin_ingresos</code> es cierto. <strong>Y se respeta.</strong> No se busca la vuelta para vender igual: eso sería convertir una garantía en un obstáculo a esquivar.</p>
+      <p>Pero <code>no_venta</code> no significa "se acabó". Significa <em>no le vendas a ELLA hoy</em>. Quien paga es otra persona, y esa persona tiene que decidirlo. El producto no pierde la venta: la pone donde corresponde.</p>
+      <p><strong>Esto es lo que un guion no puede hacer.</strong> Un árbol de decisión con una hoja "sin ingresos → ofrecer servicios de la caja" cierra la conversación y deja a Rosa sin lo que vino a buscar.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 4</b> <span>La información, sin venderla</span></div>
+    <div class="chat">
+      <div class="msg yo">Sí, muéstrame para contarle</div>
+      <div class="tarjeta">
+        <div class="rotulo">Para mostrarle a tu hija · Seguro Exequial</div>
+        <div class="producto"><span>Seguro Exequial</span> <small>GEA</small></div>
+        <p style="margin:.5rem 0 0;font-size:.84rem;color:var(--gris)">Cubre los servicios funerarios completos. Sin exámenes médicos. <a href="#" style="color:var(--azul)">Ver qué cubre y qué no</a></p>
+        <p style="margin:.6rem 0 0"><span class="sello">Sin cotizar · el precio depende de la edad y del plan</span></p>
+      </div>
+      <div class="msg">
+        <p>Ahí está lo que cubre. <span class="no">El precio exacto no te lo puedo dar todavía</span> porque a tu edad depende del plan, y prefiero no darte un número que después cambie.</p>
+        <p>Si tu hija quiere, entra por aquí y en la misma conversación lo cerramos — ella ya está afiliada, así que a ella no le voy a preguntar nada.</p>
+      </div>
+      <div class="chips"><span class="chip">Que ella hable contigo</span><span class="chip">¿Qué NO cubre?</span></div>
+    </div>
+    <div class="rail">
+      <h3>Qué principio produjo esto</h3>
+      <p>El tercero de los cuatro NO: <em>"no te lo afirmo, no lo sé"</em>. Si el catálogo no tiene una prima cerrada para su caso, se dice — no se aproxima.</p>
+      <p>El cierre engancha con el otro documento: <strong>la hija sí es afiliada</strong>, así que su camino es el de Carolina. Los tres flujos son el mismo sistema, no tres guiones.</p>
+    </div>
+  </section>
+
+  <!-- ── La parte importante ────────────────────────────── -->
+  <section class="cierre">
+    <h2>Qué está quemado y qué no</h2>
+    <p class="entradilla" style="margin-bottom:1.5rem">
+      Ninguna de las respuestas de arriba está escrita en el código. Lo que está escrito son
+      <strong>los hechos, los límites y el presupuesto</strong>; las palabras las pone el modelo.
+      Esa división es lo que hace que Rosa funcione sin haberla previsto.
+    </p>
+    <div class="envoltura">
+      <table class="tabla">
+        <thead><tr><th>Lo decide el servidor · determinista, con gate</th><th>Lo decide el modelo · en cada conversación</th></tr></thead>
+        <tbody>
+          <tr><td>Si la encontró, no la encontró, o hay homónimos</td><td>Cómo decírselo sin sonar a rechazo</td></tr>
+          <tr><td>Qué está verificado y de dónde vino cada dato</td><td>Cómo confirmarlo en humano, sin recitar la ficha</td></tr>
+          <tr><td>Qué recomienda el motor, qué descarta y por qué</td><td>Cómo explicarlo con las palabras de ella</td></tr>
+          <tr><td>Que sin ingresos NO se vende nada de pago</td><td>Que la necesidad no se quede sin salida</td></tr>
+          <tr><td>Qué ya se preguntó, para no repetirlo</td><td>Qué preguntar de lo que falta, y en qué orden</td></tr>
+          <tr><td>Una sola pregunta por turno</td><td>Cuál es esa pregunta</td></tr>
+          <tr><td>Que no se afirme nada que el estado no respalde</td><td>Cómo decir "no lo sé" sin sonar incompetente</td></tr>
+          <tr><td>El sello de simulación y el clausulado real</td><td>Cuándo hace falta tacto y cuándo entusiasmo</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="abierto" style="margin-top:2rem">
+      <h3>Y cómo se comprueba que sigue funcionando, sin quemarlo</h3>
+      <p style="margin:0 0 .8rem;font-size:.92rem">
+        Si los gates comprobaran frases exactas, quemaríamos el guion por la puerta de atrás: cualquier
+        respuesta distinta —aunque fuera mejor— daría rojo. Por eso comprueban <strong>propiedades</strong>:
+      </p>
+      <ol>
+        <li>¿Afirmó algo que el estado no respalda? <em>(ya existe: el validador de salida)</em></li>
+        <li>¿Preguntó algo que ya sabía? <em>(ya existe: el resumen de evidencia)</em></li>
+        <li>¿Insistió después de un "no"? <em>(ya existe: <code>dichoUnaVez</code>)</em></li>
+        <li>¿Hizo dos preguntas en un turno? <em>(ya existe: <code>contarPreguntas</code> y el doble cañón)</em></li>
+        <li>¿Recomendó algo de pago con <code>sin_ingresos</code>? <em>(ya existe)</em></li>
+        <li>¿Apareció al menos un NO honesto en la conversación? <strong>← este no existe todavía, y es el que más define al producto</strong></li>
+      </ol>
+      <p style="margin:.9rem 0 0;font-size:.92rem">
+        Rosa no se convierte en una rama del código: se convierte en <strong>un caso de
+        <code>scripts/eval-conversacion.ts</code></strong>. Si mañana el modelo cambia, o el prompt
+        se reescribe, el caso sigue ahí comprobando que el sistema sabe manejar a alguien que no
+        encaja. Eso es lo que hace que no esté guionizado <em>y</em> que no se rompa.
+      </p>
+    </div>
+
+    <div class="aviso" style="margin-top:1.5rem">
+      <h4>Lo que este caso deja abierto</h4>
+      <p><strong>Beneficiarios.</strong> Hoy la búsqueda solo resuelve afiliado principal. Si la base tiene la relación beneficiario→afiliado, Rosa podría reconocerse igual que Carolina y esto cambia mucho. Hay que preguntarle a Colsubsidio si ese dato existe.</p>
+      <p><strong>El traspaso a la hija.</strong> "Que ella hable conmigo" necesita un mecanismo real — un enlace, un código, algo. Hoy no existe, y es lo que convierte esta conversación en una venta.</p>
+      <p><strong>Límites de edad y de producto.</strong> Si un producto no se le puede emitir a los 62, eso es el cuarto NO ("la ley no me deja") y tiene que salir del catálogo, no del criterio del modelo.</p>
+    </div>
+  </section>
+
+</div>

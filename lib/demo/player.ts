@@ -50,6 +50,14 @@ export async function playDemo(beats: DemoBeat[], cb: PlayerCallbacks): Promise<
     }
     if (cb.cancelled()) return;
 
+    // Un evento literal del guion (el paso de pago). No pasa por ninguna tool porque en vivo lo
+    // produce `/api/issue`, no el motor.
+    if (beat.evento) {
+      cb.addEvent(beat.evento);
+      await cb.sleep(1200);
+      if (cb.cancelled()) return;
+    }
+
     if (beat.tool) {
       const input: Record<string, unknown> = { ...beat.tool.input };
       // Hilvana el quoteId de la cotización hacia la emisión.

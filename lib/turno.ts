@@ -19,7 +19,13 @@ import type { ConsultaIdentidad, EstadoConversacion, UiEvent, UiVista } from "@/
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
-import { afirmacionesSinRespaldo, instruccionDeCorreccion, quitarFrases } from "@/lib/estado/validar";
+import {
+  afirmacionesSinRespaldo,
+  coberturasContradichas,
+  instruccionDeCorreccion,
+  quitarFrases,
+  type Clausulado,
+} from "@/lib/estado/validar";
 import { SALUDO_INICIAL, SIN_RESPUESTA, vistaDeEstado } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
@@ -101,6 +107,9 @@ function estadoRecuperado(messages: Msg[]): EstadoConversacion {
  * avería.
  */
 const DECISIONES_NO_FALLOS = new Set([
+  // La compuerta del anti-venta: marcarla como error invitaría al modelo a reintentar hasta
+  // saltársela, que es justo lo contrario de lo que hace.
+  "SIN_INGRESO_HOY",
   "PRODUCTO_REQUIERE_ASESORIA",
   "PRIMA_NO_COTIZABLE",
   "CONSENTIMIENTO_REQUERIDO",
@@ -120,12 +129,42 @@ const textoDe = (r: Anthropic.Message) =>
     .join("\n")
     .trim();
 
+/**
+ * Qué nombre puede traer ya escrito el formulario, y a quién atribuirlo.
+ *
+ * La primera versión de esto usaba `identidad.nombre` siempre, etiquetándolo "declarado" mientras
+ * no estuviera verificada. Eso abría por la puerta de atrás justo lo que cierra 5d:
+ *
+ *     ella escribe   "soy carolina ramirez"
+ *     la base tiene  "CAROLINA RAMÍREZ LÓPEZ"
+ *     el formulario  recibía el apellido que nunca tecleó, sin verificar,
+ *                    y encima etiquetado como algo que ella había dicho
+ *
+ * Son dos faltas a la vez: revela un dato de la base antes de la verificación, y le atribuye a la
+ * persona algo que no dijo. Las tres ramas de abajo son explícitas para que el caso del medio no
+ * pueda volver a colarse por descuido.
+ */
+function nombreQueSePuedeEscribir(
+  estado: EstadoConversacion
+): { nombre: string; origen: "base" | "declarado" } | undefined {
+  const id = estado.identidad;
+  if (!id.nombre) return undefined;
+  // Verificada: el nombre canónico de Colsubsidio, y se dice de dónde viene.
+  if (id.resultado === "reconocido" && id.verificada) return { nombre: id.nombre, origen: "base" };
+  // Encontrada pero SIN verificar: lo que tenemos es el nombre de la base. No se escribe.
+  if (id.resultado === "reconocido") return undefined;
+  // No está en la base: lo que tenemos es lo que ella escribió, y es suyo.
+  return { nombre: id.nombre, origen: "declarado" };
+}
+
 export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Promise<SalidaTurno> {
   const { messages } = entrada;
   const MODEL = deps.modeloId ?? MODELO_POR_DEFECTO;
   const maxRondas = deps.maxRondas ?? MAX_TOOL_ROUNDS;
 
   const events: UiEvent[] = [];
+  /** El clausulado real que devolvieron las tools de este turno. Es la única verdad disponible. */
+  let clausulado: Clausulado | undefined;
   let perfilUsado: Perfil | undefined;
   let descartes: string[] | undefined;
 
@@ -163,8 +202,18 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // Corre también en RECONOCIDO. Antes solo en DESCUBRIENDO, así que un afiliado reconocido no
   // tenía ninguna protección contra preguntas repetidas — y en la conversación real preguntó dos
   // veces por los dependientes y dos por el uso del carro, con las mismas palabras.
+  //
+  // Y CORRE SIEMPRE, incluida ASESORANDO. Antes se apagaba justo ahí — que es la fase donde
+  // cotiza, es decir donde de verdad preguntaba de más: a Carolina le pedía la edad, los
+  // dependientes y el ingreso teniendo su segmento verificado en la mano. El bloque sabe adaptarse
+  // (`puedePreguntar`): en ASESORANDO deja de invitar a preguntar y pasa a frenarlo.
   const puedePreguntar = estado.fase === "DESCUBRIENDO" || estado.fase === "RECONOCIDO";
-  const evidencia = puedePreguntar ? resumenEvidencia(textoUsuario, estado.perfil) : null;
+  const evidencia = resumenEvidencia(textoUsuario, estado.perfil, {
+    puedePreguntar,
+    // El segmento verificado se resuelve al decir el nombre; el perfil solo lo recibe cuando el
+    // motor corre. Entre esos dos momentos está el tramo donde antes preguntaba de más.
+    segmentoBase: estado.identidad.segmento,
+  });
   // Dos bloques en vez de un string: el primero es invariable y lleva el punto de corte de caché
   // (#39). El texto que ve el modelo es el mismo de siempre — ver `bloquesDeSystem`.
   const system = bloquesDeSystem(
@@ -179,6 +228,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     textoUsuario,
     segmentoBase: estado.identidad.segmento,
     perfilPrevio: estado.perfil,
+    conocido: nombreQueSePuedeEscribir(estado),
   };
 
   const convo: Anthropic.MessageParam[] = messages.map((m) => ({
@@ -271,6 +321,24 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
         perfilUsado = conPerfil.perfil_usado;
         descartes = conPerfil.descartado_por_falta_de_evidencia ?? [];
       }
+
+      /*
+       * El clausulado, por el mismo criterio: se lee por los CAMPOS y no por el nombre de la tool,
+       * para que no haya que acordarse de añadir la siguiente que lo devuelva.
+       *
+       * Y se ACUMULA, no se reemplaza. Si en un turno se piden dos productos —"compárame los
+       * dos"—, quedarse con el último hacía que una frase sobre el primero se contrastara contra
+       * las exclusiones del otro: comprobado, "el de mascotas incluye responsabilidad civil" se
+       * marcaba porque el SOAT excluye la RC. Unir las dos listas falla hacia NO marcar, que es el
+       * lado correcto para una guarda que poda texto.
+       */
+      const conClausulado = result as { coberturas?: unknown; exclusiones?: unknown };
+      if (Array.isArray(conClausulado?.coberturas) && Array.isArray(conClausulado?.exclusiones)) {
+        clausulado = {
+          coberturas: [...(clausulado?.coberturas ?? []), ...conClausulado.coberturas.map(String)],
+          exclusiones: [...(clausulado?.exclusiones ?? []), ...conClausulado.exclusiones.map(String)],
+        };
+      }
       return {
         type: "tool_result" as const,
         tool_use_id: block.id,
@@ -357,7 +425,19 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // y Amparito dijo "hay varios Carolinas": una afirmación fabricada sobre la base de datos de
   // Colsubsidio, dicha con la autoridad de quien acaba de consultarla. El prompt ya lo prohíbe,
   // pero una regla de prompt es una petición probabilística.
-  let sinRespaldo = afirmacionesSinRespaldo(reply, estado);
+  /*
+   * Y la guarda de COBERTURAS (5h). `lib/tools.ts` afirmaba que "el modelo nunca inventa precios,
+   * coberturas ni razones": los precios sí salen de una tool y no hay otra vía, pero las coberturas
+   * no tenían nada. El modelo podía decir "y además te cubre X" con una X que el clausulado
+   * excluye, en el terreno que regula el Art. 9 de la Ley 1328.
+   *
+   * Se contrasta contra el clausulado que las tools devolvieron EN ESTE TURNO. Sin clausulado no se
+   * mira nada: adivinar sería peor.
+   */
+  let sinRespaldo = [
+    ...afirmacionesSinRespaldo(reply, estado),
+    ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+  ];
   if (sinRespaldo.length) {
     try {
       const corregida = await deps.modelo.crear({
@@ -375,7 +455,10 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
       const texto = textoDe(corregida);
       if (texto) {
         reply = texto;
-        sinRespaldo = afirmacionesSinRespaldo(reply, estado);
+        sinRespaldo = [
+          ...afirmacionesSinRespaldo(reply, estado),
+          ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+        ];
       }
     } catch {
       /* si el reintento falla, queda la poda de abajo */

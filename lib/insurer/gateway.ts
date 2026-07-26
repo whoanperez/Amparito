@@ -49,4 +49,12 @@ export interface Policy {
 export interface InsurerGateway {
   quote(productId: string, perfil: Perfil): Promise<Quote>;
   issue(quoteId: string, contacto: Contacto): Promise<Policy>;
+  /**
+   * Lee una cotización SIN emitir. La necesita el paso de pago: el importe que se le cobra a
+   * alguien no puede salir del navegador, aunque el navegador lo tenga en pantalla.
+   *
+   * Opcional porque un asegurador real podría no exponerlo; si no está, el paso de pago se muestra
+   * sin importe en vez de inventarlo.
+   */
+  leerCotizacion?(quoteId: string): Promise<{ productId: string; prima: number; periodicidad: string } | null>;
 }

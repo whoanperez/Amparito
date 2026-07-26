@@ -4,14 +4,18 @@ import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
-import { sanearPerfil, type SanearCtx } from "./engine/sanear";
+import { sanearPerfil, declaroSinIngresos, normalizar, type SanearCtx } from "./engine/sanear";
+import { nosHonestos, instruccionDeNos } from "./engine/nos";
 import { registrar } from "./auditoria";
 import { Perfil } from "./engine/types";
 
 /**
  * Definición de las tools que el orquestador expone a Claude Haiku.
  * Los handlers son la ÚNICA fuente de verdad de datos de producto y de
- * propensión: el modelo nunca inventa precios, coberturas ni razones.
+ * propensión: el modelo nunca inventa precios ni razones — esos salen de una tool y no hay otra
+ * vía— y desde 5h tampoco puede afirmar como cubierto algo que el clausulado excluye: el validador
+ * de salida lo contrasta contra las coberturas y exclusiones que devolvió la tool en ese turno.
+ * Antes esta línea era una aspiración: las coberturas no tenían nada que las respaldara.
  */
 export const toolDefinitions: Anthropic.Tool[] = [
   {
@@ -232,7 +236,20 @@ import type { UiEvent } from "./estado/tipos";
  * empiezan a divergir — uno gana `perfilPrevio` y el otro no, y el turno deja de acumular sin
  * que nada se queje.
  */
-export interface ToolCtx extends SanearCtx {}
+export interface ToolCtx extends SanearCtx {
+  /**
+   * Lo que el servidor ya sabe de la persona y puede escribirle en el formulario.
+   *
+   * El formulario nacía VACÍO por construcción —`useState({ nombre: "", ... })`— incluso para
+   * alguien a quien Amparito acababa de reconocer y saludar por su nombre. El pitch del producto
+   * dice que "lo acompaña hasta completar el proceso" y ahí le entregaba una hoja en blanco.
+   *
+   * Con `origen` porque no es lo mismo: si vino verificado de la base se dice así; si lo escribió
+   * la persona, también. Etiquetar de "tu afiliación" algo que no lo es sería la misma falsa
+   * atribución que ya apareció dos veces en este bloque.
+   */
+  conocido?: { nombre?: string; origen?: "base" | "declarado" };
+}
 
 /**
  * Punto ÚNICO por donde pasan las 9 tools. Aquí se registra la decisión (RNF-6): no en nueve
@@ -299,6 +316,7 @@ async function ejecutar(
       // verifica nada en runtime, así que el motor creía cualquier cosa que mandara el modelo.
       const { perfil, descartes } = sanearPerfil(input.perfil, ctx);
       const prop = calcularPropension(perfil);
+      const nos = nosHonestos(prop);
       // El resultado que ve el modelo (para redactar) y el evento que ve la UI son el mismo objeto.
       // Los descartes van SOLO al modelo (no a la UI): le dicen qué no pudo usar y por qué, para
       // que pueda preguntarlo en vez de improvisarlo.
@@ -311,11 +329,23 @@ async function ejecutar(
             ? "Estos campos NO se usaron porque no vinieron de la base ni la persona los dijo. No los " +
               "des por ciertos ni los menciones como si los supieras: si alguno importa, pregúntalo."
             : undefined,
+          /*
+           * Antes esto decía "NO la menciones ni la aproximes", y un modelo que obedece se CALLA.
+           * Ahí se perdía el tercero de los cuatro NO —"no te lo afirmo, no lo sé"—, que es de los
+           * momentos que más confianza ganan y el único que este camino puede mostrar.
+           *
+           * No afirmar y no hablar no son lo mismo. La instrucción ahora pide lo primero.
+           */
+          // El material del NO honesto, que hasta ahora el modelo tenía que deducir de mirar tres
+          // campos distintos. Ver `lib/engine/nos.ts`.
+          nos_honestos: nos,
+          instruccion_nos: instruccionDeNos(nos),
           instruccion_peer: prop.peer
             ? undefined
-            : "No hay prueba social para este perfil. NO la menciones ni la aproximes. Si la persona " +
-              "no está identificada, puedes invitarla: con su nombre podrías decirle cuántos afiliados " +
-              "como ella hay en Colsubsidio.",
+            : "No hay prueba social verificada para este perfil: NO afirmes ni aproximes ningún " +
+              "número de personas parecidas. Si viene al caso, dilo — que no se lo puedes afirmar y " +
+              "por qué —, con tus palabras. Callarlo no es más prudente que decirlo. Si no está " +
+              "identificada, puedes invitarla: con su nombre podrías decírselo.",
         },
         event: { type: "propension", data: prop as unknown as Record<string, unknown> },
       };
@@ -386,6 +416,39 @@ async function ejecutar(
     case "quote_product": {
       const p = getProduct(String(input.productId));
       if (!p) return { result: { error: "Producto no encontrado" } };
+
+      /*
+       * COMPUERTA 0 · sin ingreso hoy, no hay precio.
+       *
+       * Es la garantía más importante del producto —"hoy no te vendo nada"— y hasta ahora lo único
+       * que la sostenía era UNA FRASE DEL PROMPT. El motor devolvía `no_venta`, sí, pero nada
+       * impedía que el modelo llamara igual a esta tool y pusiera una cifra en pantalla. Una regla
+       * de prompt es una petición probabilística; esto es una compuerta.
+       *
+       * Y al cerrarla aquí, la conversación puede abrirse: el modelo YA PUEDE hablar de lo que
+       * existe (`informativo`) sin que eso pueda convertirse en una venta por descuido. Es el mismo
+       * intercambio de todo el sistema — el servidor garantiza, el agente conversa.
+       *
+       * Se lee del TEXTO de la persona, no del perfil acumulado: si dice "me quedé sin trabajo" y
+       * pregunta el precio en el mismo turno, el perfil del turno anterior todavía no lo sabe.
+       */
+      const sinIngresoHoy =
+        declaroSinIngresos(normalizar(ctx.textoUsuario ?? "")) ||
+        ctx.perfilPrevio?.enriquecido?.sin_ingresos === true;
+      if (sinIngresoHoy) {
+        return {
+          result: {
+            error: "SIN_INGRESO_HOY",
+            instruccion:
+              "La persona dijo que hoy no tiene ingreso, así que NO hay precio: un seguro que no " +
+              "se pueda pagar el mes entrante no protege. No des ninguna cifra ni la aproximes. " +
+              "Puedes explicar qué es el producto y para qué sirve, y decir que cuando vuelva a " +
+              "tener entrada lo tomamos en tres minutos. Si quien pagaría es otra persona, " +
+              "ofrécele preparárselo para mostrárselo.",
+          },
+        };
+      }
+
       // Compuerta: productos que requieren asesoría NO se cotizan por el bot.
       if (p.requiere_asesoria) {
         return {
@@ -487,9 +550,24 @@ async function ejecutar(
       if (!p) return { result: { error: "Producto no encontrado" } };
       // Última cotización válida: el frontend usa su propio quoteId guardado,
       // aquí solo señalamos que se abra el formulario para este producto.
+      // Lo que ya se sabe viaja al formulario. Antes solo iba el producto, así que la pantalla no
+      // tenía forma de saber el nombre de alguien a quien acababa de reconocer.
+      const conocido = ctx.conocido?.nombre
+        ? { nombre: ctx.conocido.nombre, origen: ctx.conocido.origen ?? "declarado" }
+        : undefined;
       return {
-        result: { estado: "FORMULARIO_ABIERTO", instruccion: "El formulario se abrió en pantalla. Espera a que la persona lo complete." },
-        event: { type: "form", data: { productId: p.id, producto: p.nombre, aseguradora: p.aseguradora } },
+        result: {
+          estado: "FORMULARIO_ABIERTO",
+          instruccion:
+            "El formulario se abrió en pantalla, con lo que ya sabemos de ella ya escrito. NO le " +
+            "pidas esos datos por chat ni se los leas en voz alta: dile en una frase qué falta y " +
+            "espera a que lo complete.",
+          ya_escrito: conocido ? Object.keys(conocido).filter((k) => k !== "origen") : [],
+        },
+        event: {
+          type: "form",
+          data: { productId: p.id, producto: p.nombre, aseguradora: p.aseguradora, conocido },
+        },
       };
     }
 

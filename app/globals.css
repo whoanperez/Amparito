@@ -574,6 +574,20 @@ a { text-decoration: none; color: inherit; }
 .tz-peso { font-family: ui-monospace, monospace; font-weight: 700; color: var(--tinta); min-width: 30px; }
 /* La traza pasó de volcado a lectura (#28): el nombre del campo se lee, el valor se destaca y el
    identificador interno del motor ya no sale a pantalla. */
+/* De dónde salió lo que el formulario trae ya escrito. Pequeño y al lado de la etiqueta: informa
+   sin competir con el campo. */
+/* Tarjeta de pago. El sello va ENCIMA del botón a propósito: nadie debe poder tocarlo creyendo
+   que se le cobra de verdad. */
+.pagocard { align-self: stretch; width: 100%; background: var(--blanco); border: 2px solid var(--amarillo); border-radius: 14px; padding: 14px 16px; }
+.rotulo-pago { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gris); }
+.pg-linea { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 8px; font-size: 14px; }
+.pg-linea b { font-size: 22px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.pg-sello { margin: 10px 0 0; }
+.sello-sim { display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #7a5a00; background: var(--amarillo-claro); border: 1px dashed #c99b00; padding: 4px 9px; border-radius: 6px; }
+.pg-btn { display: block; width: 100%; margin-top: 10px; padding: 12px; background: var(--amarillo); color: var(--tinta); border: none; border-radius: 999px; font-family: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
+.pg-btn:hover { filter: brightness(.96); }
+.pg-btn:disabled { opacity: .5; cursor: default; }
+.df-origen { margin-left: .4rem; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #0a5c2e; background: #e8f5ee; padding: 1px 6px; border-radius: 999px; }
 .tz-campo { font-weight: 600; color: var(--gris); }
 .tz-valor { font-weight: 700; color: var(--tinta); }
 .tz-razon { flex: 1 1 60%; color: var(--tinta); }

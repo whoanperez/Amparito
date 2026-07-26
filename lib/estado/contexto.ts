@@ -15,6 +15,7 @@
  * Función pura.
  */
 import type { EstadoConversacion } from "./tipos";
+import { MAX_VERIFICACION } from "./tipos";
 import type { SegmentoBase } from "../engine/sanear";
 
 function describirComun(s: SegmentoBase): string {
@@ -108,10 +109,62 @@ export function contextoDeEstado(e: EstadoConversacion): string | null {
   return bloques.length ? bloques.join("\n\n") : null;
 }
 
+/**
+ * El sello de la verificación, propiedad del SERVIDOR.
+ *
+ * La primera versión de esto le decía al modelo "la pantalla lo dice" — y la pantalla no dice nada.
+ * Es la misma falta que el video que desmentía al sello de simulación: un archivo afirmando algo
+ * sobre otra superficie que no es cierto.
+ *
+ * Aquí no se le pide al modelo que lo redacte a su manera: es una revelación de honestidad, así que
+ * las palabras las pone el código y el modelo solo las coloca. Cuando la verificación sea real,
+ * esta constante desaparece y con ella la frase.
+ */
+export const AVISO_VERIFICACION =
+  "Esta validación es simulada para la demostración: no se contrasta contra los sistemas de Colsubsidio.";
+
 function identidad(e: EstadoConversacion): string | null {
   const id = e.identidad;
 
-  if (id.resultado === "reconocido") return reconocido(e);
+  if (id.resultado === "reconocido") {
+    /*
+     * ── Aquí es donde se cierra la fuga ─────────────────────────────────────
+     *
+     * Antes bastaba con escribir un nombre para llevarse el género, el rango de edad, la categoría
+     * de afiliación y la composición familiar de esa persona. No era un riesgo de suplantación:
+     * era una consulta abierta sobre la base de afiliados de Colsubsidio.
+     *
+     * Y no se cierra pidiéndole discreción al modelo. Se cierra porque EL DATO NO VIAJA: mientras
+     * no esté verificada, este bloque no lleva el segmento, y no se puede revelar lo que no se
+     * recibe. Una regla de prompt es una petición probabilística; esto es ausencia de información.
+     */
+    if (!id.verificada) {
+      const primerNombre = (id.nombre ?? "").split(" ")[0];
+      if (id.intentosVerificacion >= MAX_VERIFICACION) {
+        return (
+          `## VERIFICACIÓN NO COMPLETADA — SIGUE SIN ARRANQUE CALIENTE\n` +
+          `Aparece en la base, pero no pudo confirmar que es ella, así que NO tienes sus datos y no ` +
+          `los vas a tener. No vuelvas a mencionar el tema: atiéndela completa como a cualquiera, ` +
+          `preguntándole lo mínimo. No le hagas sentir que falló.`
+        );
+      }
+      return (
+        `## LA ENCONTRASTE, PERO TODAVÍA NO PUEDES HABLARLE DE LO SUYO\n` +
+        `Hay coincidencia en la base para "${id.nombre}". NO tienes su segmento y no lo vas a tener ` +
+        `hasta que confirme que es ella: no inventes ni insinúes su edad, su categoría, su ciudad ni ` +
+        `su composición familiar.\n` +
+        `Salúdala por su primer nombre (${primerNombre}), di en una línea que lo que Colsubsidio ` +
+        `tiene de ella no se lo enseñas a nadie más, y pídele la fecha de expedición de su documento. ` +
+        `Una sola pregunta.\n` +
+        `Y cierra el mensaje con esta frase LITERAL, en su propia línea: "${AVISO_VERIFICACION}"` +
+        (id.intentosVerificacion > 0
+          ? `\nYa lo intentó una vez y no salió. Pídeselo UNA última vez, sin presionar, y ofrécele ` +
+            `seguir sin eso si prefiere.`
+          : ``)
+      );
+    }
+    return reconocido(e);
+  }
 
   if (id.resultado === "ambiguo") {
     if (id.esperando === "ciudad") return ambiguo(e);

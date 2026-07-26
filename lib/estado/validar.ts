@@ -127,6 +127,80 @@ export function afirmacionesSinRespaldo(
   return hallazgos;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Coberturas afirmadas contra el clausulado
+   ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * `lib/tools.ts` afirma en su cabecera que "el modelo nunca inventa precios, coberturas ni
+ * razones". Los precios sí: salen de una tool y no hay otra vía. Las coberturas NO tenían nada — el
+ * modelo podía decir "y además te cubre X" con una X que el clausulado excluye, y ningún gate se
+ * enteraba. Es el terreno que regula el Art. 9 de la Ley 1328, o sea el de más consecuencias.
+ *
+ * ── QUÉ COMPRUEBA, Y QUÉ NO ────────────────────────────────────────────────
+ *
+ * NO comprueba que todo lo que diga esté en la lista: eso es imposible sin mutilar el lenguaje —
+ * "te protege si te pasa algo" no está literalmente en ningún clausulado y es una frase correcta.
+ *
+ * Comprueba la CONTRADICCIÓN, que es precisa y es la que hace daño: afirmar como cubierto algo que
+ * el clausulado EXCLUYE. Las exclusiones son una lista finita y conocida del producto, así que aquí
+ * no hay ambigüedad ni margen de interpretación.
+ *
+ * Solo corre cuando el turno trae clausulado de verdad (una tool lo devolvió). Sin él no hay contra
+ * qué contrastar, y adivinar sería peor que no mirar.
+ */
+export interface Clausulado {
+  coberturas: string[];
+  exclusiones: string[];
+}
+
+/** Afirmar que algo está cubierto. Con negación explícita fuera: "NO te cubre X" es correcto. */
+const AFIRMA_COBERTURA = /\b(te\s+)?(cubre|cubren|ampara|amparan|incluye|incluyen|protege|protegen|entra|entran)\b/;
+const NIEGA = /\bno\b|\bnunca\b|\btampoco\b|\bexcluy|\bqueda\s+fuera\b|\bsin\s+cobertura\b/;
+
+/** Palabras con peso de una exclusión: las que la identifican sin ser conectores. */
+function terminosDe(frase: string): string[] {
+  const VACIAS = new Set([
+    "declarada", "cualquier", "durante", "mediante", "cuando", "donde", "sobre", "entre", "entre",
+    "entrega", "estado", "riesgo", "causa", "otros", "otras", "misma", "mismo", "desde", "hasta",
+    "articulo", "arts", "comercio", "codigo", "junta", "dictamen",
+  ]);
+  return Array.from(
+    new Set(
+      sinTildes(frase)
+        .toLowerCase()
+        .split(/[^a-z]+/)
+        .filter((w) => w.length >= 6 && !VACIAS.has(w))
+    )
+  );
+}
+
+export function coberturasContradichas(texto: string, c: Clausulado): AfirmacionSinRespaldo[] {
+  if (!c.exclusiones.length) return [];
+  // Lo que el clausulado SÍ cubre gana: si una palabra aparece en las dos listas, no es una
+  // contradicción — es un matiz del propio contrato, y el modelo puede estar explicándolo.
+  const cubiertas = new Set(c.coberturas.flatMap(terminosDe));
+  const hallazgos: AfirmacionSinRespaldo[] = [];
+
+  for (const frase of frasesDe(texto)) {
+    const f = norm(frase);
+    if (!AFIRMA_COBERTURA.test(f) || NIEGA.test(f)) continue;
+    for (const exc of c.exclusiones) {
+      const choca = terminosDe(exc).filter((t) => !cubiertas.has(t) && new RegExp(`\\b${t}`).test(f));
+      if (choca.length) {
+        hallazgos.push({
+          frase,
+          motivo:
+            `afirmas que cubre "${choca[0]}", y el clausulado lo EXCLUYE: "${exc}". No lo digas, ` +
+            `y si te preguntan por eso, di que no está cubierto.`,
+        });
+        break;
+      }
+    }
+  }
+  return hallazgos;
+}
+
 /** La instrucción de corrección que se le manda al modelo. */
 export function instruccionDeCorreccion(hallazgos: AfirmacionSinRespaldo[]): string {
   return (

@@ -1,0 +1,537 @@
+<title>Amparito · el camino de Andrés</title>
+
+<style>
+  :root {
+    --amarillo: #ffd000;
+    --amarillo-tenue: #fff6c8;
+    --azul: #0067b1;
+    --azul-claro: #eaf3fa;
+    --verde: #147a47;
+    --verde-tenue: #e8f5ee;
+    --ambar: #8a6a00;
+    --ambar-tenue: #fff3cd;
+
+    --tinta: #1d1d1f;
+    --papel: #faf9f5;
+    --tarjeta: #ffffff;
+    --gris: #6f6e68;
+    --gris-suave: #f2f1ec;
+    --borde: #e3e1d9;
+    --burbuja: #ffffff;
+    --burbuja-yo: #0067b1;
+    --burbuja-yo-texto: #ffffff;
+
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    --paso: clamp(1.5rem, 4vw, 2.75rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --azul: #64a8e8;
+      --azul-claro: #14232e;
+      --verde: #4fc98a;
+      --verde-tenue: #12241a;
+      --ambar: #e8c04a;
+      --ambar-tenue: #2a2410;
+
+      --tinta: #ecebe6;
+      --papel: #131310;
+      --tarjeta: #1c1c18;
+      --gris: #98968d;
+      --gris-suave: #212120;
+      --borde: #33322c;
+      --burbuja: #1c1c18;
+      --burbuja-yo: #1e4e78;
+      --burbuja-yo-texto: #f4f9ff;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --azul: #64a8e8;
+    --azul-claro: #14232e;
+    --verde: #4fc98a;
+    --verde-tenue: #12241a;
+    --ambar: #e8c04a;
+    --ambar-tenue: #2a2410;
+
+    --tinta: #ecebe6;
+    --papel: #131310;
+    --tarjeta: #1c1c18;
+    --gris: #98968d;
+    --gris-suave: #212120;
+    --borde: #33322c;
+    --burbuja: #1c1c18;
+    --burbuja-yo: #1e4e78;
+    --burbuja-yo-texto: #f4f9ff;
+  }
+
+  :root[data-theme="light"] {
+    --azul: #0067b1;
+    --azul-claro: #eaf3fa;
+    --verde: #147a47;
+    --verde-tenue: #e8f5ee;
+    --ambar: #8a6a00;
+    --ambar-tenue: #fff3cd;
+
+    --tinta: #1d1d1f;
+    --papel: #faf9f5;
+    --tarjeta: #ffffff;
+    --gris: #6f6e68;
+    --gris-suave: #f2f1ec;
+    --borde: #e3e1d9;
+    --burbuja: #ffffff;
+    --burbuja-yo: #0067b1;
+    --burbuja-yo-texto: #ffffff;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .marco {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 4vw, 2.5rem) 5rem;
+  }
+
+  /* ── Cabecera ─────────────────────────────────────────── */
+  .cabecera { display: flex; flex-direction: column; gap: .9rem; padding-bottom: 1.75rem; border-bottom: 2px solid var(--tinta); }
+  .eyebrow {
+    font: 600 .72rem/1 var(--mono);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--gris);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(1.9rem, 5vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: -.03em;
+    font-weight: 800;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  h1 em { font-style: normal; color: var(--azul); }
+  .entradilla { margin: 0; max-width: 62ch; color: var(--gris); font-size: 1.02rem; }
+  .entradilla strong { color: var(--tinta); font-weight: 650; }
+
+  /* ── Turno ────────────────────────────────────────────── */
+  .turno {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: var(--paso) 0;
+    border-bottom: 1px solid var(--borde);
+  }
+  @media (min-width: 880px) {
+    .turno { grid-template-columns: 60fr 40fr; gap: 2.5rem; align-items: start; }
+  }
+
+  .num {
+    display: flex; align-items: baseline; gap: .7rem;
+    grid-column: 1 / -1;
+    margin-bottom: -.4rem;
+  }
+  .num b {
+    font: 700 .72rem/1 var(--mono);
+    letter-spacing: .1em;
+    color: #fff;
+    background: var(--azul);
+    padding: .35rem .5rem;
+    border-radius: 4px;
+  }
+  .num span { font-size: .84rem; color: var(--gris); font-weight: 600; }
+
+  /* ── Conversación ─────────────────────────────────────── */
+  .chat { display: flex; flex-direction: column; gap: .55rem; max-width: 27rem; }
+  .msg {
+    background: var(--burbuja);
+    border: 1px solid var(--borde);
+    border-radius: 4px 16px 16px 16px;
+    padding: .8rem .95rem;
+    font-size: .95rem;
+    align-self: flex-start;
+    max-width: 96%;
+  }
+  .msg.yo {
+    background: var(--burbuja-yo);
+    color: var(--burbuja-yo-texto);
+    border-color: transparent;
+    border-radius: 16px 4px 16px 16px;
+    align-self: flex-end;
+    font-weight: 550;
+  }
+  .msg p { margin: 0 0 .6rem; }
+  .msg p:last-child { margin-bottom: 0; }
+  .msg ul { margin: .5rem 0 .6rem; padding-left: 1.05rem; }
+  .msg li { margin-bottom: .18rem; }
+  .msg .no { color: var(--ambar); font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .15rem; }
+  .chip {
+    font-size: .8rem; font-weight: 600;
+    border: 1px solid var(--borde);
+    background: var(--tarjeta);
+    color: var(--tinta);
+    padding: .38rem .75rem;
+    border-radius: 999px;
+  }
+
+  /* ── Tarjetas dentro del hilo ─────────────────────────── */
+  .tarjeta {
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: .9rem 1rem;
+    font-size: .9rem;
+  }
+  .tarjeta.destacada { border-color: var(--amarillo); border-width: 2px; }
+  .rotulo {
+    font: 700 .66rem/1 var(--mono);
+    letter-spacing: .11em; text-transform: uppercase;
+    color: var(--gris);
+    margin-bottom: .5rem;
+  }
+  .producto { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; font-weight: 700; }
+  .producto small { font-weight: 500; color: var(--gris); font-size: .78rem; }
+  .razones { margin: .45rem 0 0; padding-left: 1rem; color: var(--gris); font-size: .84rem; }
+  .precio { font-size: 1.85rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .precio span { font-size: .82rem; font-weight: 600; color: var(--gris); letter-spacing: 0; }
+
+  .sello {
+    display: inline-flex; align-items: center; gap: .35rem;
+    font: 700 .66rem/1 var(--mono);
+    letter-spacing: .07em; text-transform: uppercase;
+    background: var(--ambar-tenue); color: var(--ambar);
+    border: 1px dashed currentColor;
+    padding: .3rem .5rem; border-radius: 4px;
+  }
+  .ok {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .74rem; font-weight: 700;
+    background: var(--verde-tenue); color: var(--verde);
+    padding: .18rem .45rem; border-radius: 4px;
+  }
+
+  /* ── Formulario ───────────────────────────────────────── */
+  .form { display: grid; gap: .55rem; }
+  .campo { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem; border: 1px solid var(--borde); border-radius: 8px; padding: .5rem .7rem; background: var(--gris-suave); }
+  .campo.pendiente { background: var(--tarjeta); border-color: var(--azul); }
+  .campo b { font-weight: 650; font-size: .88rem; }
+  .campo i { font-style: normal; display: block; font-size: .72rem; color: var(--gris); font-weight: 600; }
+  .campo .vacio { color: var(--gris); font-weight: 500; }
+  .btn {
+    margin-top: .3rem; text-align: center; font-weight: 750; font-size: .92rem;
+    background: var(--amarillo); color: #1d1d1f;
+    border-radius: 999px; padding: .7rem 1rem;
+  }
+
+  /* ── Carril del servidor ──────────────────────────────── */
+  .rail { display: flex; flex-direction: column; gap: .75rem; }
+  .rail h3 {
+    margin: 0;
+    font: 700 .68rem/1 var(--mono);
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--gris);
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--borde);
+  }
+  .rail p { margin: 0; font-size: .88rem; color: var(--gris); }
+  .rail p strong { color: var(--tinta); font-weight: 650; }
+  .rail code { font: 500 .82em var(--mono); background: var(--gris-suave); padding: .1em .35em; border-radius: 3px; color: var(--tinta); }
+  .hoy {
+    border-left: 3px solid var(--ambar);
+    padding: .1rem 0 .1rem .7rem;
+    font-size: .84rem;
+    color: var(--gris);
+  }
+  .hoy b { color: var(--ambar); font-weight: 700; display: block; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; font-family: var(--mono); margin-bottom: .15rem; }
+
+  /* ── Cierre ───────────────────────────────────────────── */
+  .cierre { padding-top: var(--paso); }
+  .cierre h2 { font-size: 1.4rem; letter-spacing: -.02em; margin: 0 0 1.25rem; }
+  .tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .tabla th { text-align: left; font: 700 .68rem/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gris); padding-bottom: .6rem; border-bottom: 1px solid var(--borde); }
+  .tabla td { padding: .7rem 1rem .7rem 0; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  .tabla td:first-child { color: var(--gris); width: 34%; }
+  .tabla td:last-child { padding-right: 0; font-weight: 550; }
+  .envoltura { overflow-x: auto; }
+
+  .abierto { margin-top: 2.5rem; background: var(--azul-claro); border-radius: 12px; padding: 1.25rem 1.4rem; }
+  .abierto h3 { margin: 0 0 .6rem; font-size: 1rem; }
+  .abierto ol { margin: 0; padding-left: 1.15rem; font-size: .92rem; }
+  .abierto li { margin-bottom: .45rem; }
+  .abierto li:last-child { margin-bottom: 0; }
+</style>
+<style>
+  /* Marcas propias de este documento */
+  .aviso { background: var(--ambar-tenue); border: 1px solid var(--ambar); border-radius: 10px; padding: 1rem 1.15rem; margin-top: .9rem; }
+  .aviso h4 { margin: 0 0 .4rem; font-size: .92rem; color: var(--ambar); }
+  .aviso p { margin: 0 0 .5rem; font-size: .88rem; color: var(--tinta); }
+  .aviso p:last-child { margin-bottom: 0; }
+  .aviso .cita { font-family: var(--mono); font-size: .8rem; background: var(--tarjeta); border-radius: 6px; padding: .5rem .65rem; display: block; margin: .5rem 0; }
+  .rama { border-left: 3px solid var(--azul); padding-left: 1.1rem; margin-top: .5rem; }
+  .rama > .num b { background: var(--gris); }
+</style>
+<div class="marco">
+
+  <header class="cabecera">
+    <div class="eyebrow">Amparito · flujo propuesto · arranque frío</div>
+    <h1>El camino de Andrés, <em>que no es afiliado</em></h1>
+    <p class="entradilla">
+      El hermano del documento de Carolina. Aquí no hay foso: no se le puede reconocer, así que
+      <strong>toca preguntar</strong> — y el producto existe justamente para no interrogar.
+      La regla de todo este flujo es una: <strong>cada pregunta se paga con algo que la persona ve</strong>.
+      Dos preguntas antes de la primera recomendación, y una tercera solo cuando pide precio.
+    </p>
+  </header>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 0</b> <span>Entra</span></div>
+    <div class="chat">
+      <div class="msg">Soy Amparito, de amparar: protegerte. Si me dices tu nombre y estás afiliado a Colsubsidio te reconozco, y nos saltamos el interrogatorio 💛</div>
+      <div class="chips"><span class="chip"><i>Soy…</i></span><span class="chip">Me quedé sin trabajo</span><span class="chip">Prefiero no dar mi nombre</span></div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p>Idéntico para todos. El saludo <strong>no promete</strong> reconocer: dice "si estás afiliado". Quien no lo esté no siente que falló.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 1</b> <span>Da su nombre y no aparece</span></div>
+    <div class="chat">
+      <div class="msg yo">Soy Andrés Gómez Ruiz</div>
+      <div class="msg">
+        <p>Con ese nombre no te encuentro como afiliado, Andrés. Puede que estés registrado de otra forma, o que todavía no lo estés — no quiero suponerlo.</p>
+        <p>Seguimos igual: <strong>te hago dos preguntas cortas y te muestro qué te conviene</strong>.</p>
+        <p>¿Hay alguien que dependa de tu ingreso? Hijos, pareja, tus papás, alguien más.</p>
+      </div>
+      <div class="chips"><span class="chip">Nadie, vivo solo</span><span class="chip">Sí, hay quien depende de mí</span><span class="chip">Está mal escrito mi nombre</span></div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p>Dos reglas se cruzan aquí, y las dos importan.</p>
+      <p><strong>No afirmar lo que no se sabe.</strong> "No eres afiliado" sería una afirmación fabricada sobre la base de Colsubsidio: pudo ser una tilde. Por eso ofrece las dos posibilidades y ninguna como hecho — y en tono de duda propia ("no quiero suponerlo"), no de reproche.</p>
+      <p><strong>No insistir.</strong> Corregir el nombre se <em>ofrece</em>, nunca se exige. Un segundo "dame tu nombre bien escrito" convierte el producto en el formulario que vino a reemplazar.</p>
+      <p>Y cuesta <strong>una línea</strong>, no un párrafo de disculpas: se nombra el fallo y se sigue.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 2</b> <span>El anti-venta llega aquí, sin que lo pida</span></div>
+    <div class="chat">
+      <div class="msg yo">Nadie, vivo solo</div>
+      <div class="msg">
+        <p>Entonces te ahorro plata: <span class="no">no te vendo un Seguro de Vida.</span></p>
+        <p>Un seguro de vida existe para que a alguien no le falte tu ingreso el día que tú faltes. Si hoy no depende nadie de ti, sería venderte tranquilidad para otra persona.</p>
+        <p>Lo tuyo es protegerte <strong>a ti</strong>. Última pregunta: ¿te mueves en carro, en moto, o en ninguno?</p>
+      </div>
+      <div class="chips"><span class="chip">Moto</span><span class="chip">Carro</span><span class="chip">Ninguno</span></div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p>El motor ya devolvió Vida con puntaje bajo: el "no" no lo decide el modelo, lo decide el scorecard.</p>
+      <p><strong>Aquí está el momento del producto.</strong> Y en este camino pega más fuerte que con Carolina: no hay relación previa, ni dato verificado, ni foso. Lo único que se le ofrece es <strong>criterio</strong> — y llega en el segundo turno, gratis, sin que lo pida.</p>
+      <p>La segunda pregunta se hace <em>después</em> de haberle dado algo. Ese es el trato: nunca dos preguntas seguidas sin nada en medio.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 3</b> <span>Recomendación, obligación y un "no lo sé"</span></div>
+    <div class="chat">
+      <div class="msg yo">Moto</div>
+      <div class="msg">Con eso ya está. Esto es lo que de verdad te protege:</div>
+      <div class="tarjeta destacada">
+        <div class="rotulo">Recomendado para ti</div>
+        <div class="producto"><span>Accidentes Personales</span> <small>MetLife</small></div>
+        <ul class="razones"><li>Te mueves en moto: más exposición, y te cubre a ti</li></ul>
+      </div>
+      <div class="tarjeta">
+        <div class="producto"><span>Seguro y Asistencia para Moto</span> <small>Seguros Mundial</small></div>
+        <ul class="razones"><li>Robo, asistencia y grúa</li></ul>
+      </div>
+      <div class="msg">
+        <p><strong>Y algo que no es una venta, es una obligación:</strong> sin SOAT te pueden inmovilizar la moto. Si trabajas en ella, eso te deja sin entrada el mismo día — te cuesta más que la prima.</p>
+        <p><span class="no">Una cosa que no te puedo decir:</span> cuántas personas como tú eligen esto. Para eso necesitaría tus datos verificados de Colsubsidio, y no los tengo. Prefiero no inventarme un número.</p>
+      </div>
+      <div class="chips"><span class="chip">¿Cuánto cuesta?</span><span class="chip">¿Qué NO cubre?</span></div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p>La prueba social exige los cuatro ejes verificados (<code>base</code> o <code>declarado</code>). Aquí no hay ninguno, el motor devuelve <code>peer: null</code>, y <strong>la respuesta correcta es decirlo</strong>.</p>
+      <p>Eso convierte una carencia en el tercero de los cuatro NO: <em>"no te lo afirmo, no lo sé"</em>. Es el único camino donde se puede mostrar, y es de los que más confianza ganan.</p>
+      <p>El SOAT sale como <strong>advertencia</strong>, nunca dentro de la lista de recomendados: no es una oferta, es la ley.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 4</b> <span>La tercera pregunta, y se dice para qué</span></div>
+    <div class="chat">
+      <div class="msg yo">¿Cuánto cuesta?</div>
+      <div class="msg">Para el precio sí necesito tu edad exacta: es lo único que lo mueve. ¿Cuántos años tienes?</div>
+      <div class="msg yo">28</div>
+      <div class="tarjeta">
+        <div class="rotulo">Cotización · MetLife</div>
+        <div class="precio">$12.900 <span>/ mensual</span></div>
+        <p style="margin:.5rem 0 0;font-size:.84rem;color:var(--gris)">Cifra de ejemplo — la pone el motor. Te cubre muerte accidental e incapacidad. <a href="#" style="color:var(--azul)">Ver qué NO cubre</a></p>
+      </div>
+      <div class="msg">Por eso al mes quedas cubierto si te pasa algo en la moto. ¿Lo activamos?</div>
+      <div class="chips"><span class="chip">Sí, activémoslo</span><span class="chip">¿Qué NO cubre?</span></div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p>A Carolina no se le pregunta la edad porque su rango vino verificado. A Andrés <strong>sí hay que preguntársela</strong> — y por eso se pide <em>en el momento en que hace falta</em>, no en un cuestionario al principio, y <strong>diciendo para qué</strong>.</p>
+      <p>Una pregunta cuyo motivo se explica deja de sentirse como trámite.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 5</b> <span>Datos · aquí sí le toca escribir</span></div>
+    <div class="chat">
+      <div class="msg yo">Sí, activémoslo</div>
+      <div class="msg">Aquí sí te toca escribir: de ti solo tengo el nombre. Es una vez y queda guardado.</div>
+      <div class="tarjeta">
+        <div class="rotulo">Confirma tu protección</div>
+        <div class="form">
+          <div class="campo"><span><b>Andrés Gómez Ruiz</b><i>Nombre · lo dijiste tú</i></span> <span class="ok">✓</span></div>
+          <div class="campo pendiente"><span><b class="vacio">Número de documento</b><i>Te falta</i></span></div>
+          <div class="campo pendiente"><span><b class="vacio">DD/MM/AAAA</b><i>Fecha de nacimiento · te falta</i></span></div>
+          <div class="campo pendiente"><span><b class="vacio">300 000 0000</b><i>Celular · te falta</i></span></div>
+          <div class="campo pendiente"><span><b class="vacio">tucorreo@ejemplo.com</b><i>Correo · te falta</i></span></div>
+          <div class="btn">Confirmar y continuar →</div>
+        </div>
+      </div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p>El formulario nace con lo que la conversación capturó — aquí, el nombre. No es mucho, y por eso <strong>se dice de frente</strong> en vez de disimularlo.</p>
+      <p>La diferencia con Carolina es el argumento comercial más honesto que tiene Colsubsidio: <em>ella no escribió nada, él escribe cuatro campos</em>.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 6</b> <span>Pago y emisión</span></div>
+    <div class="chat">
+      <div class="msg">Listo. Te dejo el link de pago: $12.900 del primer mes. Apenas pagues, la póliza se emite sola.</div>
+      <div class="tarjeta destacada">
+        <div class="rotulo">Pago · PSE / tarjeta</div>
+        <div class="producto"><span>Accidentes Personales · primer mes</span> <span class="precio" style="font-size:1.2rem">$12.900</span></div>
+        <div class="btn">Pagar $12.900 →</div>
+        <p style="margin:.6rem 0 0"><span class="sello">Pago simulado · no se cobra nada</span></p>
+      </div>
+      <div class="msg">
+        <p>Con esto tu solicitud queda completa 🎉</p>
+        <p style="color:var(--gris)">Esto es una simulación del proceso completo. Hoy no se emitió ninguna póliza y no vas a recibir ningún correo.</p>
+      </div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p>Igual que en el camino caliente. El sello sale de una sola fuente y ya tiene gate.</p>
+    </div>
+  </section>
+
+  <section class="turno">
+    <div class="num"><b>TURNO 7</b> <span>Lo único que se le ofrece de Colsubsidio</span></div>
+    <div class="chat">
+      <div class="msg">
+        <p>Una cosa y te dejo tranquilo, Andrés.</p>
+        <p>Como no estás afiliado a Colsubsidio, esta conversación empezó de cero. A quien sí lo está lo reconozco y no le pregunto nada.</p>
+        <p>Te dejo por dónde se hace, por si algún día te sirve. No te lo vuelvo a mencionar.</p>
+      </div>
+      <div class="chips"><span class="chip">Cómo afiliarme →</span></div>
+    </div>
+    <div class="rail">
+      <h3>El servidor</h3>
+      <p><strong>Una vez, al final, y se dice que no se repite.</strong> Si esto va antes de la recomendación, todo lo anterior se lee como el anzuelo de una afiliación.</p>
+      <p>Y se enmarca por lo que <em>de verdad</em> ganó él en esta conversación, no por beneficios sin verificar.</p>
+      <div class="hoy"><b>Confirmar con negocio</b> qué se le puede prometer a quien se afilia. Si no hay nada concreto, esta pantalla no va: prometer de más aquí arruina todo lo honesto de arriba.</div>
+    </div>
+  </section>
+
+  <section class="cierre">
+    <h2>Dos ramas que salen de la misma pantalla</h2>
+
+    <div class="rama">
+      <div class="num" style="margin-top:1rem"><b>RAMA A</b> <span>"Prefiero no dar mi nombre"</span></div>
+      <div class="turno" style="border:0;padding-top:.4rem">
+        <div class="chat">
+          <div class="msg yo">Prefiero no dar mi nombre</div>
+          <div class="msg">
+            <p>Perfecto, no lo necesito. Trabajamos con lo que me quieras contar.</p>
+            <p>¿Qué te gustaría proteger?</p>
+          </div>
+          <div class="chips"><span class="chip">👪 Mi familia</span><span class="chip">🏍️ Mi movilidad</span><span class="chip">🐶 Mi mascota</span><span class="chip">🏠 Mi hogar</span></div>
+        </div>
+        <div class="rail">
+          <h3>El servidor</h3>
+          <p>Se acepta <strong>a la primera</strong> y no se vuelve a pedir el nombre nunca. Un "no" respetado a la primera es parte de lo que el producto dice ser.</p>
+          <p>Aquí sí entra la grilla de seis: quien no quiere identificarse tampoco quiere escribir. Es un toque en vez de una frase.</p>
+          <p>De ahí en adelante, el mismo camino.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rama">
+      <div class="num" style="margin-top:1.5rem"><b>RAMA B</b> <span>"Me quedé sin trabajo" · y aquí hay un defecto</span></div>
+      <div class="turno" style="border:0;padding-top:.4rem">
+        <div class="chat">
+          <div class="msg yo">Me quedé sin trabajo</div>
+          <div class="msg">
+            <p>Espera. Quedarse sin trabajo pesa, y lo siento de verdad.</p>
+            <p><span class="no">Hoy no te vendo nada.</span> Un seguro que no puedas pagar el mes entrante no protege: aprieta.</p>
+            <p>Lo que sí te sirve hoy es la agencia de empleo de Colsubsidio, que atiende estés o no afiliado. Y si te afilias, el subsidio al desempleo.</p>
+            <p>Cuando vuelvas a tener entrada me escribes y en tres minutos te dejo protegido.</p>
+          </div>
+        </div>
+        <div class="rail">
+          <h3>El servidor</h3>
+          <div class="aviso">
+            <h4>⚠ Defecto encontrado al diseñar esto</h4>
+            <p>El motor devuelve hoy esta alternativa, siempre, sin mirar si la persona está afiliada:</p>
+            <span class="cita">"Como afiliado de Colsubsidio te puede corresponder el subsidio al desempleo, y tienes la agencia de empleo."</span>
+            <p>A Andrés, que <strong>no está afiliado</strong>, eso le dice algo que no le corresponde — y en el momento más delicado de todo el producto, justo después de contar que se quedó sin ingreso.</p>
+            <p>El texto de arriba es la versión que distingue: primero lo que aplica a cualquiera, después lo que depende de afiliarse.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cierre">
+    <h2>En qué se diferencia del camino de Carolina</h2>
+    <div class="envoltura">
+      <table class="tabla">
+        <thead><tr><th>Carolina · afiliada</th><th>Andrés · no es afiliado</th></tr></thead>
+        <tbody>
+          <tr><td>Verificar identidad antes de revelar nada</td><td>Nada que verificar: no hay fricción, tampoco foso</td></tr>
+          <tr><td>Cero preguntas de perfilamiento</td><td>Dos antes de recomendar, una tercera solo al cotizar</td></tr>
+          <tr><td>El momento fuerte es "te reconozco"</td><td>El momento fuerte es "no te vendo", y llega en el turno 2</td></tr>
+          <tr><td>Prueba social afirmada: 62.459 verificados</td><td>"No te lo afirmo, no lo sé" — y eso también gana confianza</td></tr>
+          <tr><td>Formulario con el nombre, etiquetado "de tu afiliación"</td><td>Formulario con el nombre, etiquetado "lo dijiste tú"</td></tr>
+          <tr><td>—</td><td>Al final, una vez, por dónde se afilia</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="abierto">
+      <h3>Lo que hay que decidir</h3>
+      <ol>
+        <li><strong>Cuántas preguntas antes de recomendar.</strong> Propongo dos: quién depende de tu ingreso, y cómo te mueves. Son las que más mueven el motor.</li>
+        <li><strong>Qué se le promete a quien no está afiliado.</strong> Hay que confirmarlo con negocio. Si no hay nada concreto, la pantalla de afiliación no va.</li>
+        <li><strong>La alternativa del anti-venta debe distinguir</strong> qué aplica a cualquiera y qué depende de estar afiliado. Es un arreglo de una constante, y hoy está mal para la mitad de la gente que llega.</li>
+      </ol>
+    </div>
+  </section>
+
+</div>

@@ -50,6 +50,18 @@ export class MockInsurerAdapter implements InsurerGateway {
     };
   }
 
+  /** El `quoteId` codifica su propio contenido, así que leerlo no necesita almacenamiento. */
+  async leerCotizacion(quoteId: string) {
+    try {
+      const d = JSON.parse(Buffer.from(quoteId.replace(/^Q-/, ""), "base64url").toString("utf8"));
+      return typeof d?.prima === "number" && typeof d?.productId === "string"
+        ? { productId: d.productId, prima: d.prima, periodicidad: String(d.periodicidad ?? "mensual") }
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
   async issue(quoteId: string, contacto: Contacto): Promise<Policy> {
     const decoded = JSON.parse(
       Buffer.from(quoteId.replace(/^Q-/, ""), "base64url").toString("utf8")

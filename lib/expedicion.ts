@@ -43,6 +43,13 @@ export const AVISO_SIMULACION =
   "Esto es una simulación del proceso completo. Hoy no se emitió ninguna póliza y no vas a " +
   "recibir ningún correo.";
 
+/**
+ * El sello del paso de pago. Vive aquí, con el otro, porque es la misma promesa: que nada de esto
+ * cobra ni emite de verdad. Y se exporta para que lo pueda comprobar un gate en vez de quedar
+ * escrito a mano dentro de un componente — que es como el video acabó desmintiendo a la tarjeta.
+ */
+export const AVISO_PAGO_SIMULADO = "Pago simulado · no se cobra nada";
+
 /** Lo que una superficie promete cuando habla de la entrega. */
 const PROMETE_ENTREGA = /correo|certificad|póliza (activa|emitida)|qued\w*\s+asegurad/i;
 

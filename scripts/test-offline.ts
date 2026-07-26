@@ -34,6 +34,13 @@ async function main() {
   console.log("Recomendaciones:", recs.join(", "));
 
   check("los 4 eventos del flujo llegan", ["propension", "impacto", "quote", "policy"].every((e) => tipos.includes(e)));
+  /*
+   * El paracaídas tiene que contar la MISMA historia que el producto. Desde 5f la emisión la
+   * dispara el pago, así que un demo offline que salte del formulario a la póliza volvería a
+   * mostrar un producto que no existe — el defecto que ya costó un commit entero.
+   */
+  check("y el paso de pago también, antes de la póliza",
+    tipos.indexOf("pago") >= 0 && tipos.indexOf("pago") < tipos.indexOf("policy"));
 
   const prop = eventos.find((e) => e.type === "propension")?.data as Record<string, any> | undefined;
   check("hay recomendaciones", (prop?.recomendaciones?.length ?? 0) > 0);
@@ -68,6 +75,9 @@ async function main() {
     });
     const p = ev.find((e) => e.type === "propension")?.data as Record<string, any> | undefined;
     check(`${quien}: el flujo llega a la póliza`, ev.some((e) => e.type === "policy"));
+    const t = ev.map((e) => e.type);
+    check(`${quien}: y pasa por el pago antes de emitir`,
+      t.indexOf("pago") >= 0 && t.indexOf("pago") < t.indexOf("policy"));
 
     if (quien === "Andres") {
       // Aserción de PRESENCIA: no basta con que Vida no salga —una lista vacía también lo

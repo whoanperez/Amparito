@@ -18,7 +18,7 @@ import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "../lib/prompts
 import { estadoInicial } from "../lib/estado/tipos";
 import { siguienteFase } from "../lib/estado/reducir";
 import "./_env";
-import { identidadDe, nombreDePrueba } from "./_identidad";
+import { identidadDe, identidadVerificada, nombreDePrueba } from "./_identidad";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { executeTool } from "../lib/tools";
@@ -57,12 +57,26 @@ async function main() {
     // Se lee del ESTADO que produjo la búsqueda real. Antes se le pasaba `afiliadoReconocido:
     // true` a mano a `detectarEstado`, así que la aserción no comprobaba que reconocer a alguien
     // llevara a RECONOCIDO: comprobaba que la función respetara un booleano inventado por el test.
-    check("la fase que produce el reconocimiento es RECONOCIDO", id.estado.fase === "RECONOCIDO");
+    /*
+     * Desde 5d el arranque caliente son DOS turnos. El primero la encuentra y le pide que confirme
+     * —sin revelarle nada—; el segundo abre la ruta caliente. Escribir un nombre ya no basta para
+     * llevarse los datos de esa persona.
+     */
+    check("encontrarla la deja en VERIFICANDO, no en RECONOCIDO", id.estado.fase === "VERIFICANDO");
+    check("y ahí el prompt NO lleva su segmento", !(id.contexto ?? "").includes("SEGMENTO VERIFICADO"));
+    const idv = await identidadVerificada(`soy ${nombreReal}`);
+    check("la fase que produce el reconocimiento es RECONOCIDO", idv.estado.fase === "RECONOCIDO");
 
-    const prompt = buildSystemPrompt(id.estado.fase, id.contexto);
+    const prompt = buildSystemPrompt(idv.estado.fase, idv.contexto);
     check("el prompt PROHÍBE perfilar", prompt.includes("PROHIBIDO hacerle preguntas de perfilamiento"));
     check("NO trae el presupuesto de preguntas de descubrimiento", !prompt.includes("PRESUPUESTO DE DOS PREGUNTAS"));
     check("el segmento verificado va en el contexto", prompt.includes("SEGMENTO VERIFICADO"));
+
+    // Y el prompt del paso intermedio le prohíbe justo lo contrario: hablar de lo que todavía no
+    // puede saber que sabe.
+    const pVerif = buildSystemPrompt(id.estado.fase, id.contexto);
+    check("mientras verifica, el prompt le prohíbe revelar nada", /NO le digas nada de lo que sabes/i.test(pVerif));
+    check("y no le pasa el segmento por ninguna vía", !pVerif.includes("SEGMENTO VERIFICADO"));
 
     // El motor con SOLO el segmento de la base ya debe recomendar: eso es "tarjeta en el mensaje 2".
     const { perfil } = sanearPerfil({}, {

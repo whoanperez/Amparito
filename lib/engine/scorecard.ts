@@ -184,17 +184,47 @@ export function calcularPropension(perfil: Perfil): PropensionResult {
   // cuesta más que la prima — le cuesta el ingreso del día. Advertir de una obligación legal es
   // INFORMACIÓN, no una venta. Un asesor humano lo diría; el sistema también debe.
   if (sinIngresos) {
+    /*
+     * `no_venta` significa "no te lo vendo", NO "no hay nada para ti".
+     *
+     * Antes esto devolvía cero y ahí se acababa la conversación. Para quien llega pidiendo algo
+     * concreto —"quiero dejar algo para que mis hijos no carguen con el entierro"— eso es
+     * despedirla con cortesía: el motor sabía perfectamente que lo suyo era un exequial (lo puntúa
+     * 35, con razón real) y el prompt prohibía mencionarlo.
+     *
+     * `informativo` es el producto mejor puntuado CON señal real —nada de priors— y viaja sin
+     * prima y sin quoteId. No puede convertirse en venta por descuido: la cotización está cerrada
+     * por compuerta en servidor, no por una frase del prompt.
+     */
+    const mejor = scored.filter((x) => x.hasRealSignal && !x.yaCubierto && x.score > 0).sort(ordenar)[0];
+    const prod = mejor ? getProduct(mejor.id) : undefined;
+
     return {
       recomendaciones: [],
       obligatorios,
       descartados: [],
+      informativo:
+        mejor && prod
+          ? {
+              id: mejor.id,
+              nombre: prod.nombre,
+              aseguradora: prod.aseguradora,
+              razon: mejor.reasons[0]?.razon ?? "Responde a lo que contaste.",
+            }
+          : undefined,
       no_venta: {
         motivo:
           "Hoy no hay ingreso con qué sostener una póliza. Un seguro que no se pueda pagar el mes " +
           "entrante no protege: aprieta.",
+        // Distingue lo que aplica a CUALQUIERA de lo que depende de estar afiliado. La versión
+        // anterior afirmaba "como afiliado de Colsubsidio te puede corresponder…" a todo el mundo,
+        // incluida gente que no está afiliada — y se lo decía en el momento más delicado de la
+        // conversación, justo después de contar que se quedó sin ingreso.
+        // TODO(negocio): confirmar que la agencia de empleo atiende también a no afiliados. Si no
+        // fuera así, esta frase se cae entera; no se deja "por si acaso".
         alternativa:
-          "Como afiliado de Colsubsidio te puede corresponder el subsidio al desempleo, y tienes la " +
-          "agencia de empleo. A eso sí se te puede apuntar hoy mismo.",
+          "La agencia de empleo de Colsubsidio te puede ayudar a buscar trabajo, estés afiliado o " +
+          "no. Y si estás afiliado, además te puede corresponder el subsidio al desempleo.",
       },
       ledger: { riesgos_hoy: [], ya_cubierto: yaCubiertoList },
       peer: null,
