@@ -3,7 +3,7 @@
 > Cómo se compra un seguro hoy y qué cambia con un asesor que conversa. Sin tecnicismos.
 > Las capturas del proceso actual son reales.
 
-**¿Prefieres verlo con el diseño completo?** → [amparito-zeta.vercel.app/como-funciona](https://amparito-zeta.vercel.app/como-funciona)
+**▶ [Ver el video](https://www.loom.com/share/3a776d547fc347a8aef9760d202e106d)** · **[Probar la aplicación](https://amparito-zeta.vercel.app/chat)** · [Esta misma página con el diseño completo](https://amparito-zeta.vercel.app/como-funciona)
 
 ---
 
@@ -100,7 +100,64 @@ El mismo chat genera la cotización, muestra el valor y entrega el paso de pago 
 
 ---
 
-## 4 · Qué hay por dentro
+## 4 · Y así se ve
+
+El mismo recorrido, en pantallas de la aplicación funcionando. Ocho pasos, una sola conversación.
+
+**▶ [Ver el video](https://www.loom.com/share/3a776d547fc347a8aef9760d202e106d)** · **[Probarlo tú](https://amparito-zeta.vercel.app/chat)**
+
+### Paso 1 · La promesa, sin letra pequeña
+
+«Sin formularios, sin te contactaremos, sin esperas». Lo que se promete arriba es exactamente lo que pasa abajo.
+
+<img src="../public/como-funciona/sol-1-portada.jpg" alt="Portada de Amparito con el mensaje «Tus seguros a un clic. Ahora sí, de verdad»" width="620">
+
+### Paso 2 · Abre por la vida, no por el catálogo
+
+No hay menú de productos. Hay una invitación a contar qué cambió — y quien no quiera dar su nombre tiene su botón para seguir igual.
+
+<img src="../public/como-funciona/sol-2-abre-por-la-vida.jpg" alt="Chat de Amparito con el saludo inicial y botones de respuesta rápida" width="620">
+
+### Paso 3 · Reconoce al afiliado, y lo comprueba
+
+Lo encuentra en la base y le pide un dato que solo él sabría antes de enseñarle nada suyo. Hasta que no lo confirma, sus datos no se usan.
+
+<img src="../public/como-funciona/sol-3-verificacion.jpg" alt="Tarjeta de verificación de identidad pidiendo la fecha de expedición del documento" width="620">
+
+### Paso 4 · Recomienda con el porqué escrito
+
+No es «te sugerimos esto». Es qué producto, en qué orden y por qué motivo — cada razón viene del motor, no del texto.
+
+<img src="../public/como-funciona/sol-4-recomendacion.jpg" alt="Tarjeta «Así analicé tu protección» con el producto recomendado y sus razones" width="620">
+
+### Paso 5 · Y se puede auditar en la misma pantalla
+
+Qué supo de la persona y de dónde lo supo, qué regla aplicó y cuánto pesó cada una. Sin salir de la conversación.
+
+<img src="../public/como-funciona/sol-5-traza.jpg" alt="Traza del cálculo con las señales, sus pesos y la procedencia de cada dato" width="620">
+
+### Paso 6 · Cotiza con lo que cubre y lo que NO
+
+El precio, el valor asegurado y las exclusiones antes de decidir — que es lo que exige el Art. 9 de la Ley 1328, y aquí llega sin pedirlo.
+
+<img src="../public/como-funciona/sol-6-cotizacion.jpg" alt="Cotización con el precio mensual, qué cubre y qué no cubre" width="620">
+
+### Paso 7 · El formulario llega escrito, y se paga ahí
+
+Lo que ya se sabe viene puesto; solo falta lo que nadie tiene. Y el pago va en el mismo hilo, rotulado como simulado.
+
+<img src="../public/como-funciona/sol-7-pago.jpg" alt="Formulario listo y tarjeta de pago del primer mes" width="620">
+
+### Paso 8 · Termina con algo en la mano
+
+Número, tomador, vigencia y qué pasa de aquí en adelante. Donde hoy había un «te contactaremos», aquí hay una solicitud completa.
+
+<img src="../public/como-funciona/sol-8-poliza.jpg" alt="Certificado simulado con el número de póliza y el cierre explicando los pasos siguientes" width="620">
+
+
+---
+
+## 5 · Qué hay por dentro
 
 Un diagrama de arquitectura, contado sin tecnicismos.
 

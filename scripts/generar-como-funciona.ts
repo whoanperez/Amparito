@@ -15,7 +15,7 @@
  * se olvida el otro: la fuente sigue siendo `app/como-funciona/page.tsx`, y esto la fotografía.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { COMPARACION, HOY, LAURA, PIEZAS } from "../app/como-funciona/contenido";
+import { COMPARACION, HOY, LAURA, PIEZAS, SOLUCION, VER_EN_VIVO } from "../app/como-funciona/contenido";
 
 const ORIGEN = process.env.ORIGEN ?? "http://localhost:3000";
 const SALIDA = "docs/como-funciona.html";
@@ -45,6 +45,12 @@ function generarMarkdown(): string {
 
   const laura = LAURA.map((p) => `**${p.ico} ${p.t}**\n\n${p.d}\n`).join("\n");
 
+  const solucion = SOLUCION.map(
+    (p, i) =>
+      `### Paso ${i + 1} · ${p.t}\n\n${p.d}\n\n` +
+      `<img src="../public/como-funciona/${p.img}.jpg" alt="${p.alt}" width="620">\n`
+  ).join("\n");
+
   const piezas = PIEZAS.map(
     (p) => `| ${p.acento ? "**" + p.n + "**" : p.n} | ${p.d} |`
   ).join("\n");
@@ -54,7 +60,7 @@ function generarMarkdown(): string {
 > Cómo se compra un seguro hoy y qué cambia con un asesor que conversa. Sin tecnicismos.
 > Las capturas del proceso actual son reales.
 
-**¿Prefieres verlo con el diseño completo?** → [amparito-zeta.vercel.app/como-funciona](https://amparito-zeta.vercel.app/como-funciona)
+**▶ [Ver el video](${VER_EN_VIVO.video})** · **[Probar la aplicación](${VER_EN_VIVO.app})** · [Esta misma página con el diseño completo](https://amparito-zeta.vercel.app/como-funciona)
 
 ---
 
@@ -89,7 +95,17 @@ ${laura}
 
 ---
 
-## 4 · Qué hay por dentro
+## 4 · Y así se ve
+
+El mismo recorrido, en pantallas de la aplicación funcionando. Ocho pasos, una sola conversación.
+
+**▶ [Ver el video](${VER_EN_VIVO.video})** · **[Probarlo tú](${VER_EN_VIVO.app})**
+
+${solucion}
+
+---
+
+## 5 · Qué hay por dentro
 
 Un diagrama de arquitectura, contado sin tecnicismos.
 
