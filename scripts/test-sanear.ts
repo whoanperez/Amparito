@@ -529,6 +529,20 @@ check("pero sin convertirlo en un problema", /sin discutírselo/.test(choca));
 const cuadra = resumenEvidencia("tengo 40 anos", undefined, { puedePreguntar: false, segmentoBase: SEG_36_45 }) ?? "";
 check("y cuando sí cuadra, no se dice nada", !/no cuadra/.test(cuadra));
 
+/*
+ * Y SOLO si el rango vino de la BASE. El perfil también puede traerlo porque ella lo declaró en un
+ * turno anterior, y ahí decir "la base la sitúa en X" sería atribuirle a Colsubsidio un dato que
+ * puso ella. Además no habría contradicción que avisar: comparar lo que dijo consigo misma no es
+ * un choque, es que cambió de idea.
+ */
+const rangoDeclarado = resumenEvidencia(
+  "tengo 35 anos",
+  { RANGO_EDAD: "36 a 45 años", _origen: { RANGO_EDAD: "declarado" } },
+  { puedePreguntar: false }
+) ?? "";
+check("un rango que declaró ELLA no se le atribuye a la base",
+  !/la base la sitúa/.test(rangoDeclarado));
+
 // Los tres formatos de rango del enum, incluidos los abiertos.
 check("«mayor de 55» acepta 60 y rechaza 40",
   edadCabeEnRango(60, "Mayor de 55 años") && !edadCabeEnRango(40, "Mayor de 55 años"));

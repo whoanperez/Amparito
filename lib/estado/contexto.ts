@@ -31,8 +31,7 @@ function describirComun(s: SegmentoBase): string {
 function reconocido(e: EstadoConversacion): string {
   const seg = e.identidad.segmento ?? {};
   const primerNombre = (e.identidad.nombre ?? "").split(" ")[0];
-  const saludo =
-    seg.GENERO === "F" ? "Bienvenida" : seg.GENERO === "M" ? "Bienvenido" : "Bienvenido(a)";
+  // El saludo ya no se decide aquí: vive en CONFIRMANDO, que es el único turno que saluda.
   return (
     `## SEGMENTO VERIFICADO DE ESTE AFILIADO (viene de la base de Colsubsidio, no lo preguntes)\n` +
     /*

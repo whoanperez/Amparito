@@ -833,7 +833,6 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   const obligatorios = (data.obligatorios ?? []) as Array<{
     nombre: string; aseguradora: string; razon: string; consecuencia: string;
   }>;
-  const descartados = (data.descartados ?? []) as Array<{ nombre: string; motivo: string }>;
   const riesgos = (data.ledger?.riesgos_hoy ?? []) as string[];
   const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
   const peer = data.peer as { descripcion: string; n: number; pct: number } | null;

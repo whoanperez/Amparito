@@ -733,7 +733,16 @@ export function resumenEvidencia(
    * desactualizada. Pero callarlo tampoco: la prima se calcula con su número, y si más adelante
    * la aseguradora ve otro dato, ella tiene derecho a saber de dónde salió el que se usó.
    */
-  const rangoVerificado = opciones.segmentoBase?.RANGO_EDAD ?? perfilPrevio?.RANGO_EDAD;
+  /*
+   * SOLO el rango que vino de la base. El perfil también puede traer `RANGO_EDAD` porque la
+   * persona lo declaró en un turno anterior, y en ese caso decirle "la base la sitúa en X" sería
+   * atribuirle a Colsubsidio un dato que puso ella — la misma falsa atribución que ya apareció
+   * tres veces en este proyecto. Y además no habría contradicción que avisar: comparar lo que dijo
+   * consigo misma no es un choque, es que cambió de idea.
+   */
+  const rangoVerificado =
+    opciones.segmentoBase?.RANGO_EDAD ??
+    (org.RANGO_EDAD === "base" ? perfilPrevio?.RANGO_EDAD : undefined);
   const chocaConElRango = !!edad && !!rangoVerificado && !edadCabeEnRango(edad, rangoVerificado);
 
   const lineaEdad = edad
