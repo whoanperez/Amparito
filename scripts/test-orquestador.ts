@@ -187,6 +187,44 @@ async function main() {
     check("y el turno no se queda mudo", t.trim().length > 0);
   }
 
+  titulo("No se anuncia un formulario que no se abrió");
+  {
+    /*
+     * El caso real, de punta a punta. Amparito escribió "Ya está, abre el formulario y llena tus
+     * datos" sin haber llamado collect_customer_data, y la persona contestó "no lo veo" — y que
+     * pudiera contestar es la prueba de que no había formulario: con uno abierto no hay barra de
+     * entrada donde escribir.
+     */
+    const { d } = deps([
+      dice("Ya está, abre el formulario y llena tus datos — con eso confirmas tu protección."),
+      dice("Te dejo listo el siguiente paso para confirmar tu protección."),
+    ]);
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "sí, avancemos" }] }, d);
+    const t = textoDe(r);
+    check("la orden de abrir un formulario que no existe no llega a pantalla",
+      !/abre el formulario/i.test(t), `→ "${t.slice(0, 52)}"`);
+    check("y el turno no se queda mudo", t.trim().length > 0);
+    check("y la vista no trae formulario, que es la verdad", !r.ui.entrada.formulario);
+  }
+
+  titulo("Con la tool llamada, la misma frase pasa entera");
+  {
+    /*
+     * El otro lado de la guarda, y el que corre siempre: si el formulario SÍ se abrió, describirlo
+     * es cierto y no se toca. Una guarda que también poda el camino bueno es peor que no tenerla.
+     */
+    const { d } = deps(
+      [
+        usaTool("collect_customer_data", { productId: "vida_panamerican" }),
+        dice("Ya está abierto en pantalla. Solo falta que confirmes tus datos y listo."),
+      ],
+      { ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "sí, avancemos" }] }, d);
+    check("la frase sobrevive intacta", /ya está abierto en pantalla/i.test(textoDe(r)));
+    check("y el formulario de verdad está en la vista", !!r.ui.entrada.formulario);
+  }
+
   titulo("El turno atrapa una cobertura que el clausulado excluye (5h)");
   {
     /*

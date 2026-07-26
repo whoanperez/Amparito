@@ -15,7 +15,16 @@ import {
 } from "@/lib/ui/traza";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
-import { SALUDO_INICIAL, esVinieta, textoDeVinieta, trozosDe } from "@/lib/estado/vista";
+import {
+  AVISO_VERIFICACION,
+  PREGUNTA_VERIFICACION,
+  SALUDO_INICIAL,
+  TITULO_VERIFICACION,
+  VERIFICACION_ES_REAL,
+  esVinieta,
+  textoDeVinieta,
+  trozosDe,
+} from "@/lib/estado/vista";
 import type { Bloque, Rec, UiEvent, UiVista } from "@/lib/estado/tipos";
 
 // `UiEvent` y `Rec` se IMPORTAN, ya no se copian. La copia existía porque el tipo vivía en
@@ -27,7 +36,9 @@ interface ChatItem {
   /** "proteger" es la grilla de seis: ahora la decide el SERVIDOR y llega como un bloque más,
    *  en su posición. Antes el cliente la sacaba contando burbujas, sin saber que el agente
    *  acababa de hacer una pregunta abierta. */
-  kind: "msg" | "event" | "recommend" | "video" | "proteger";
+  /** "verificacion" es la pregunta de la fecha de expedición, en su propia tarjeta. El copy entero
+   *  lo pone el servidor: aquí no se escribe ninguna frase, ni la que dice qué hay de simulado. */
+  kind: "msg" | "event" | "recommend" | "video" | "proteger" | "verificacion";
   role?: "user" | "assistant";
   text?: string;
   event?: UiEvent;
@@ -44,6 +55,7 @@ function bloquesAItems(bloques: Bloque[]): ChatItem[] {
       case "tarjetas": return { kind: "recommend", recs: b.recs };
       case "evento": return { kind: "event", event: b.evento };
       case "elegir_proteccion": return { kind: "proteger" };
+      case "verificacion": return { kind: "verificacion" };
     }
   });
 }
@@ -486,6 +498,23 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
             <RecommendCards key={i} recs={item.recs!} onPick={(n) => send(`Quiero el ${n}`)} />
           ) : item.kind === "video" ? (
             <DetrasDeCamaras key={i} />
+          ) : item.kind === "verificacion" ? (
+            /*
+               Tarjeta de PRODUCTO con un aviso de demo dentro, exactamente como el formulario de
+               datos. La primera versión la envolvía entera en `.demo`, y así el rótulo "Solo para
+               la demo" caía sobre la pregunta: se leía "esto no va a quedar así", cuando el paso sí
+               se queda. `.demo` va SOLO en el aviso, que es lo único que desaparece el día que la
+               comprobación sea real.
+
+               Las cuatro frases vienen del servidor y ninguna se escribe aquí: una copia a mano en
+               el componente es exactamente como el video acabó desmintiendo al sello de simulación.
+            */
+            <div key={i} className="verif">
+              <span className="vf-badge">{TITULO_VERIFICACION}</span>
+              <p className="vf-q">{PREGUNTA_VERIFICACION}</p>
+              <p className="vf-real">{VERIFICACION_ES_REAL}</p>
+              <p className="demo vf-sim">{AVISO_VERIFICACION}</p>
+            </div>
           ) : item.kind === "proteger" ? (
             <div key={i} className="pullfirst">
               <div className="pf-q">¿Qué te gustaría proteger?</div>

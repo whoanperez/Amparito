@@ -9,6 +9,7 @@
  * modelo y los eventos del turno, y devuelve lo único que el cliente renderiza.
  */
 import type { Bloque, EstadoConversacion, Rec, UiEvent, UiVista } from "./tipos";
+import { frasesDe } from "./validar";
 
 /**
  * Último recurso cuando el turno no logra producir texto. Existe porque la alternativa real
@@ -44,6 +45,99 @@ export const SALUDO_INICIAL =
 
 /** Eventos que son ESTADO, no contenido: no pintan tarjeta. */
 const NO_PINTAN = new Set(["form", "opciones"]);
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   La verificación, enmarcada
+
+   ── LA LÍNEA QUE HAY QUE TRAZAR, Y DÓNDE ──────────────────────────────────
+
+   La primera versión de esta tarjeta la envolvía entera en `.demo`, o sea bajo el rótulo "Solo
+   para la demo". Y eso dice algo FALSO: que pedir un dato de identidad es parte del montaje y que
+   en producción no va a estar. Sí va a estar — sin ese dato no se puede enseñar lo que Colsubsidio
+   tiene de una persona, y ese es justo el motivo por el que el paso existe.
+
+   Lo simulado es OTRA cosa, y es una sola: hoy el valor que se escribe no se contrasta contra
+   nada. La pregunta es de verdad; la comprobación es la que no.
+
+   Por eso la tarjeta se estructura como el formulario de datos, que ya resolvió este mismo
+   problema: la tarjeta es de PRODUCTO y solo el aviso lleva el rótulo de demo. Envolverlo todo en
+   amarillo discontinuo es lo que hacía leer "esto no va a quedar así".
+
+   Las frases viven aquí y no en `contexto.ts` porque dejaron de ser una instrucción para el
+   modelo: antes se le PEDÍA copiar el aviso literal, así que la honestidad del paso dependía de
+   que se acordara. Ahora no escribe ninguna y no puede olvidarse de ninguna.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/** El rótulo de la tarjeta. Nombra el paso por lo que es, no por dónde corre. */
+export const TITULO_VERIFICACION = "Verificación de identidad";
+
+/** Lo único que se le pide, y se le pide UNA vez. */
+export const PREGUNTA_VERIFICACION = "¿Cuál es la fecha de expedición de tu documento?";
+
+/**
+ * Lo que NO es del montaje, dicho antes que lo que sí.
+ *
+ * Va primero a propósito: quien lea solo la línea grande y una más tiene que quedarse con que el
+ * paso es real. Si lo primero que lee es "simulado", ya concluyó que todo esto es de mentira y no
+ * sigue leyendo.
+ */
+export const VERIFICACION_ES_REAL =
+  "Este paso se queda: pedirte un dato que solo tú sabrías es parte del producto, no del montaje.";
+
+/**
+ * El sello de la verificación, propiedad del SERVIDOR.
+ *
+ * Delimita la simulación con precisión —"la comprobación, no la pregunta"— porque el sello anterior
+ * no la delimitaba: decía "esta validación es simulada" y se leía como que el paso entero era
+ * decorado. Un sello que exagera cuánto hay de mentira hace el mismo daño que uno que lo esconde;
+ * en los dos casos la pantalla afirma algo que no es.
+ *
+ * Cuando la verificación sea real, esta constante desaparece y con ella el aviso.
+ */
+export const AVISO_VERIFICACION =
+  "Lo simulado es la comprobación, no la pregunta: hoy el valor que escribas no se contrasta " +
+  "contra los sistemas de Colsubsidio, así que cualquier fecha sirve —23/04/2004, por ejemplo— y " +
+  "seguimos. En producción este mismo dato sí se valida.";
+
+/**
+ * ¿Toca pedir la fecha de expedición?
+ *
+ * Se lee del estado, que es quien sabe qué preguntó. Cuando se agotan los intentos, `esperando`
+ * queda en `null` y la tarjeta desaparece sola: nunca un callejón sin salida.
+ */
+const pideVerificacion = (e: EstadoConversacion): boolean => e.identidad.esperando === "verificacion";
+
+/**
+ * Lo que la tarjeta ya dice. Si el modelo lo escribe igual, sale dos veces.
+ *
+ * Hay una marca por cada cosa que la tarjeta afirma —la pregunta, la simulación, el "cualquier
+ * fecha" y el "en producción"— y no una sola por el aviso entero: el aviso son tres frases, y
+ * `frasesDe` corta por frases, así que un patrón que solo pegue con la primera deja las otras
+ * dentro del texto. Pasó: se colaba "En producción este mismo dato sí se valida."
+ *
+ * Que "en producción" pode aquí no es un accidente: Amparito hablándole a alguien de en qué entorno
+ * corre está fuera de su voz, esté o no duplicado.
+ */
+const YA_LO_DICE_LA_TARJETA =
+  /fecha de expedici[oó]n|validaci[oó]n[^.?!]{0,20}simulada|no se contrasta|cualquier fecha|en producci[oó]n/i;
+
+/**
+ * Quita del texto lo que la tarjeta ya pone.
+ *
+ * El prompt se lo pide al modelo; esto lo garantiza. Es la regla de siempre —el prompt pide, el
+ * servidor garantiza— y aquí importa el doble: una pregunta duplicada en dos superficies distintas
+ * se lee como que algo se rompió.
+ */
+function sinLoQueDiceLaTarjeta(texto: string): string {
+  if (!YA_LO_DICE_LA_TARJETA.test(texto)) return texto;
+  // Solo se reconstruye si de verdad sobra algo. `frasesDe` une con espacio, así que reconstruir
+  // siempre aplastaría los saltos de línea de un mensaje que no tenía nada malo — y el caso normal,
+  // el modelo obedeciendo, es justo ese.
+  return frasesDe(texto)
+    .filter((f) => !YA_LO_DICE_LA_TARJETA.test(f))
+    .join(" ")
+    .trim();
+}
 
 /**
  * Cuánta énfasis se permite por mensaje.
@@ -239,7 +333,10 @@ export function vistaDeEstado(
     ),
   ].filter(Boolean);
 
-  const texto = limpiarTexto(textoDelModelo ?? "", { productos: productosEnPantalla });
+  const limpio = limpiarTexto(textoDelModelo ?? "", { productos: productosEnPantalla });
+  // La pregunta y su aviso los pone la tarjeta. Si el modelo los escribió igual, se podan: mejor un
+  // mensaje corto que la misma pregunta dos veces en dos superficies distintas.
+  const texto = pideVerificacion(estado) ? sinLoQueDiceLaTarjeta(limpio) : limpio;
   const bloques: Bloque[] = [];
 
   // GANA EL ÚLTIMO evento de propensión: si el modelo llamó la tool dos veces —cosa que el prompt
@@ -268,6 +365,9 @@ export function vistaDeEstado(
   }
 
   if (texto) bloques.push({ t: "texto", contenido: texto });
+  // DESPUÉS del texto: el saludo y el motivo van primero, y la pregunta cierra. Al revés se le
+  // pide un dato de identidad a alguien antes de decirle para qué.
+  if (pideVerificacion(estado)) bloques.push({ t: "verificacion" });
   if (vaElegirProteccion(estado, texto, eventos)) bloques.push({ t: "elegir_proteccion" });
 
   // Se ofrecen el turno en que la recomendación ATERRIZA, no para siempre. Colgarlas de

@@ -12,7 +12,8 @@
  * y el segundo solo cuando ya hizo daño — así que el listón de "no dispares" tiene que ser alto.
  */
 import {
-  afirmacionesSinRespaldo, coberturasContradichas, describePantallaQueNoExiste, quitarFrases,
+  afirmacionesSinRespaldo, coberturasContradichas, describePantallaQueNoExiste,
+  formularioQueNoExiste, quitarFrases,
 } from "../lib/estado/validar";
 import { executeTool } from "../lib/tools";
 import { estadoInicial, type EstadoConversacion } from "../lib/estado/tipos";
@@ -205,6 +206,46 @@ async function coberturas() {
     ["Aquí abajo está lo que te contó tu prima.", false],
   ] as Array<[string, boolean]>) {
     check(`no se pasa de listo: "${t.slice(0, 46)}…"`, describePantallaQueNoExiste(t, hayCot).length === 0);
+  }
+
+  /*
+   * ── El formulario anunciado y no abierto ──────────────────────────────────
+   *
+   * El caso real, palabra por palabra. Y la prueba de que no había formulario es la propia
+   * conversación: ella pudo CONTESTAR "no lo veo", y con el formulario abierto no hay barra de
+   * entrada donde escribir.
+   */
+  console.log("\n===== No se anuncia un formulario que no está =====");
+  const TURNO_REAL = "Ya está, abre el formulario y llena tus datos — con eso confirmas tu protección.";
+  const INSISTE = "Ya está abierto en pantalla. Solo falta que confirmes tu número de documento, fecha de nacimiento, celular y correo.";
+  check("atrapa la orden de abrir un formulario que no se abrió",
+    formularioQueNoExiste(TURNO_REAL, false).length > 0);
+  check("y también la insistencia del turno siguiente",
+    formularioQueNoExiste(INSISTE, false).length > 0);
+  check("el hallazgo dice de quién es abrirlo",
+    /no lo abre ella/.test(formularioQueNoExiste(TURNO_REAL, false)[0]?.motivo ?? ""));
+  // Con la tool llamada en el mismo turno, la frase es CIERTA y no se toca. Este es el check que
+  // impide que la guarda mutile el camino bueno, que es el que corre siempre.
+  check("con el formulario abierto de verdad, la misma frase pasa",
+    formularioQueNoExiste(TURNO_REAL, true).length === 0);
+  for (const t of [
+    // Una oferta no promete nada, igual que en `contradiceElSello`.
+    "¿Te abro el formulario para dejar todo listo?",
+    // Habla del formulario sin darlo por puesto.
+    "No te pido nada por chat: de eso se encarga el formulario.",
+    // Pasado, no pantalla.
+    "Con lo que llenaste en el formulario ya tengo todo.",
+    // Ni una palabra de formularios: no es asunto de esta guarda.
+    "Ya está, aquí abajo tienes el resumen de tu protección.",
+    // El desplegable de coberturas SÍ existe y el prompt manda hablar de él. Es el falso positivo
+    // que tenía que impedir la segunda señal: sin ella, esta frase correcta se mutilaba.
+    "El detalle de qué cubre y qué no queda abierto justo debajo de la tarjeta.",
+    // Y los dos que exigieron la TERCERA señal: el mensaje sí va de los datos, pero lo que está
+    // "abierto" en esa frase no es el formulario. Sin el ancla por frase, las dos se podaban.
+    "No le enseño tus datos a nadie. Tu solicitud ya está abierta con la aseguradora.",
+    "Con tus datos ya confirmados, el detalle de coberturas queda abierto bajo la tarjeta.",
+  ]) {
+    check(`no se pasa de listo: "${t.slice(0, 46)}…"`, formularioQueNoExiste(t, false).length === 0);
   }
 
   const h = coberturasContradichas("Y también te cubre si hay una guerra civil.", c)[0];

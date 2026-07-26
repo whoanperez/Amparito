@@ -21,6 +21,11 @@ import type { EstadoConversacion, UiEvent } from "../lib/estado/tipos";
 import {
   vistaDeEstado, limpiarTexto, SALUDO_INICIAL,
   MAX_ENFASIS, trozosDe, esVinieta, textoDeVinieta,
+  PREGUNTA_VERIFICACION, VERIFICACION_ES_REAL,
+  // Se importa por su nombre de origen para poder comprobar que el aviso que reexporta
+  // `contexto.ts` y el que pinta la tarjeta son EL MISMO. Dos copias es como el video acabó
+  // desmintiendo al sello de simulación.
+  AVISO_VERIFICACION as AVISO_DE_LA_TARJETA,
 } from "../lib/estado/vista";
 import { sellar, abrir, abrirOInicial } from "../lib/estado/sello";
 import { contextoDeEstado, AVISO_VERIFICACION } from "../lib/estado/contexto";
@@ -251,8 +256,66 @@ titulo("La identidad reconocida se congela");
   check("sin verificar, el segmento NO viaja al prompt", !ctxSin.includes("SEGMENTO VERIFICADO"));
   check("  …ni su categoría por ninguna vía", !/categoría B/i.test(ctxSin));
   check("  …ni su grupo familiar", !/Monoparental/i.test(ctxSin));
-  check("y el sello de la validación simulada lo pone el SERVIDOR, no el modelo",
-    ctxSin.includes(AVISO_VERIFICACION));
+  /*
+   * ── La pregunta, enmarcada ────────────────────────────────────────────────
+   *
+   * Este check comprobaba que el aviso viajara en el CONTEXTO, o sea que el prompt le PIDIERA al
+   * modelo copiarlo. Comprobaba la petición, no el resultado: si el modelo se saltaba la frase, el
+   * gate seguía verde y la pantalla pedía un dato de identidad sin decir que no valida contra nada.
+   *
+   * Ahora se comprueba sobre la VISTA, que es la superficie que la persona ve — y el modelo ya no
+   * puede olvidarse porque no escribe ninguna de las tres frases.
+   */
+  const esperando: EstadoConversacion = {
+    ...sinVerificar,
+    identidad: { ...sinVerificar.identidad, esperando: "verificacion" },
+  };
+  const vSin = vistaDeEstado(esperando, "¡Carolina! Te encontré en la base de Colsubsidio.", []);
+  check("mientras se espera la verificación, la vista trae la tarjeta",
+    vSin.bloques.some((b) => b.t === "verificacion"));
+  check("  …y va DESPUÉS del texto: primero el motivo, después el dato",
+    vSin.bloques.findIndex((b) => b.t === "verificacion") >
+      vSin.bloques.findIndex((b) => b.t === "texto"));
+  check("el sello de la validación simulada lo pone el SERVIDOR, no el modelo",
+    AVISO_VERIFICACION === AVISO_DE_LA_TARJETA);
+  /*
+   * ── Dónde va la línea entre lo real y lo simulado ─────────────────────────
+   *
+   * La primera versión de la tarjeta decía "esta validación es simulada" y ya: se leía como que
+   * PEDIR el dato era parte del montaje y que en producción no iba a estar. Es lo contrario — sin
+   * ese dato no se puede enseñar lo que Colsubsidio tiene de alguien, así que el paso se queda.
+   *
+   * Un sello que exagera cuánto hay de mentira hace el mismo daño que uno que lo esconde: en los
+   * dos casos la pantalla afirma algo que no es. Estos dos checks fijan la línea donde va.
+   */
+  check("la tarjeta dice que el PASO es real, no del montaje",
+    /se queda/i.test(VERIFICACION_ES_REAL) && /producto/i.test(VERIFICACION_ES_REAL));
+  check("  …y el aviso acota la simulación a la COMPROBACIÓN, no a la pregunta",
+    /comprobaci[oó]n, no la pregunta/i.test(AVISO_VERIFICACION));
+  check("  …dice que cualquier fecha sirve, con ejemplo",
+    /cualquier fecha/i.test(AVISO_VERIFICACION) && /\d{2}\/\d{2}\/\d{4}/.test(AVISO_VERIFICACION));
+  check("  …y que en producción sí se valida",
+    /en producci[oó]n[^.]*s[ií] se valida/i.test(AVISO_VERIFICACION));
+
+  /*
+   * Y si el modelo la escribe igual, no sale dos veces. El prompt se lo pide; esto lo garantiza:
+   * la misma pregunta en dos superficies se lee como que algo se rompió.
+   */
+  const vDoble = vistaDeEstado(
+    esperando,
+    `¡Carolina! Te encontré. ${PREGUNTA_VERIFICACION} ${AVISO_VERIFICACION}`,
+    []
+  );
+  const textoDoble = vDoble.bloques.find((b) => b.t === "texto");
+  checkEq("si el modelo repite la pregunta, se poda del texto",
+    textoDoble && textoDoble.t === "texto" ? textoDoble.contenido : "", "¡Carolina! Te encontré.");
+  check("  …y la tarjeta sigue ahí, una sola vez",
+    vDoble.bloques.filter((b) => b.t === "verificacion").length === 1);
+
+  // Agotados los intentos, `esperando` queda en null y la tarjeta desaparece sola: el callejón sin
+  // salida no puede depender de que alguien se acuerde de esconderla.
+  check("sin verificación pendiente, no hay tarjeta",
+    !vistaDeEstado(e, "Perfecto, Carolina.", []).bloques.some((b) => b.t === "verificacion"));
   check("tras verificar, el segmento sí viaja",
     (contextoDeEstado(e) ?? "").includes("SEGMENTO VERIFICADO"));
 

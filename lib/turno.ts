@@ -23,6 +23,7 @@ import {
   afirmacionesSinRespaldo,
   coberturasContradichas,
   describePantallaQueNoExiste,
+  formularioQueNoExiste,
   instruccionDeCorreccion,
   quitarFrases,
   type Clausulado,
@@ -465,10 +466,18 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
    * que fallar hacia no marcar.
    */
   const hayCotizacion = events.some((ev) => ev.type === "quote") || !!estado.quoteId;
+  /*
+   * Y la guarda del FORMULARIO ANUNCIADO. Aquí no vale mirar el estado como en la cotización: una
+   * cotización de un turno anterior sigue en pantalla, pero un formulario abierto BLOQUEA la barra
+   * de entrada, así que no puede haber un turno nuevo con uno abierto de antes. Si este turno no
+   * emitió el evento, no hay formulario que señalar.
+   */
+  const hayFormulario = events.some((ev) => ev.type === "form");
   let sinRespaldo = [
     ...afirmacionesSinRespaldo(reply, estado),
     ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
     ...describePantallaQueNoExiste(reply, hayCotizacion),
+    ...formularioQueNoExiste(reply, hayFormulario),
   ];
   if (sinRespaldo.length) {
     try {
@@ -491,6 +500,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
           ...afirmacionesSinRespaldo(reply, estado),
           ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
           ...describePantallaQueNoExiste(reply, hayCotizacion),
+          ...formularioQueNoExiste(reply, hayFormulario),
         ];
       }
     } catch {

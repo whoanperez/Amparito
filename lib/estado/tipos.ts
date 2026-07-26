@@ -246,7 +246,20 @@ export type Bloque =
   /** La grilla de "¿qué quieres proteger?". La decide el SERVIDOR: el cliente la pintaba contando
    *  burbujas del array, así que la sacaba junto a una pregunta abierta sin saber que el agente
    *  acababa de preguntar algo. */
-  | { t: "elegir_proteccion" };
+  | { t: "elegir_proteccion" }
+  /**
+   * La pregunta de la verificación, en su propia tarjeta.
+   *
+   * Iba dentro de la prosa del modelo, y con ella el aviso de que la comprobación es simulada — una
+   * frase literal que el prompt le PEDÍA copiar. De ahí dos consecuencias: el aviso dependía de que
+   * el modelo se acordara, y pedirle a alguien la fecha de expedición de su documento se leía igual
+   * que cualquier otro párrafo, sin nada que dijera qué parte de eso es de verdad.
+   *
+   * Ahora las palabras las pone el código y el modelo no puede olvidarse de ninguna, porque ya no
+   * escribe nada de esto. Dónde va la línea entre lo real y lo simulado —y por qué la tarjeta NO se
+   * envuelve entera en el rótulo de demo— está en `vista.ts`, con las frases.
+   */
+  | { t: "verificacion" };
 
 export interface UiVista {
   /** ORDENADOS por el servidor. El orden estaba hardcodeado en el componente. */

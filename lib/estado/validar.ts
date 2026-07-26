@@ -242,12 +242,104 @@ export function describePantallaQueNoExiste(texto: string, hayCotizacion: boolea
     }));
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Anunciar un formulario que no está en pantalla
+   ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * EL CASO REAL, y se sabe con certeza que pasó: Amparito escribió *"Ya está, abre el formulario y
+ * llena tus datos"*, y la persona contestó *"no lo veo"*. Que pudiera CONTESTAR es la prueba —
+ * cuando el formulario está abierto, el cliente esconde la barra de entrada, así que no habría
+ * tenido dónde escribir. El modelo redactó el paso sin llamar `collect_customer_data`. Al turno
+ * siguiente insistió: *"Ya está abierto en pantalla"*.
+ *
+ * Es la misma familia que `describePantallaQueNoExiste` y que el "déjame verificar" de un trámite
+ * que ya había ocurrido: afirmar algo sobre otra superficie que no es cierto. Y aquí duele más que
+ * en un precio, porque deja a la persona buscando una pantalla que no existe justo en el paso donde
+ * decidió comprar — el más caro de todos para abandonar.
+ *
+ * SE MIRA EL MENSAJE, SE REPORTA LA FRASE. En el caso real la afirmación va repartida en dos, y la
+ * segunda ni siquiera dice "formulario":
+ *
+ *     "Ya está, abre el formulario y llena tus datos"     ← nombra la cosa
+ *     "Ya está abierto en pantalla. Solo falta que confirmes tu número de documento…"
+ *
+ * Pedir las dos señales dentro de una sola frase habría dejado pasar la segunda, que es la peor —
+ * es la que le insiste a alguien que acaba de decir que no lo ve.
+ */
+
+/**
+ * Órdenes y anuncios que SOLO pueden ir del formulario: se anclan solos.
+ *
+ * "Llénalo", "llena tus datos", "te lo abro" — no hay otra cosa en pantalla que se llene, así que
+ * si no se abrió ninguno, la frase es falsa y punto.
+ */
+const ABRIR_O_LLENAR =
+  /\b([aá]brelo|abre\s+el\s+formulario|ll[eé]nalo|compl[eé]talo|llena\s+(tus|el|los)|completa\s+(tus|el|los)|te\s+(lo\s+)?abr[oíi]|se\s+(te\s+)?abri[oó])\b/;
+
+/**
+ * "Abierto" a secas NO dice qué está abierto, y ahí es donde una guarda se pasa de lista.
+ *
+ * Estas dos son ciertas y no se pueden tocar: "tu solicitud ya está abierta con la aseguradora" y
+ * "el detalle de coberturas queda abierto bajo la tarjeta" —el desplegable existe y el prompt manda
+ * hablar de él—. La que sí es falsa dice ADEMÁS dónde: "ya está abierto EN PANTALLA".
+ *
+ * Ojo con "debajo": no contiene "abajo" como palabra, así que no dispara.
+ */
+const ABIERTO = /\babiert[oa]s?\b/;
+const PUNTO_EN_PANTALLA = /\b(en pantalla|aqu[ií]|abajo|arriba)\b/;
+
+/**
+ * De qué va el mensaje, para no meterse donde no la llaman.
+ *
+ * Los campos van en la lista porque la frase que más daño hizo no menciona el formulario: los
+ * enumera ("confirmes tu número de documento, fecha de nacimiento, celular y correo").
+ */
+const ES_EL_PASO_DE_LOS_DATOS =
+  /\bformulario\b|\btus datos\b|\bn[uú]mero de documento\b|\bfecha de nacimiento\b|\bcelular y correo\b/;
+
+/**
+ * ¿El texto da por abierto un formulario que este turno no abrió?
+ *
+ * `hayFormulario` es el evento `form` del turno, no una suposición: el formulario se abre por una
+ * tool y no hay otra vía, así que si no hubo evento, no hay pantalla.
+ *
+ * Las PREGUNTAS quedan fuera, por lo mismo que en `contradiceElSello`: "¿te abro el formulario?" es
+ * una oferta, y tratarla como promesa incumplida obligaría a escribir peor para complacer a un
+ * predicado.
+ *
+ * El mensaje tiene que ir del paso de los datos, y la frase tiene que decir algo que solo pueda ser
+ * del formulario. "Abierto" a secas no basta nunca: necesita además señalar la pantalla. Una guarda
+ * que poda texto falla hacia NO marcar.
+ */
+export function formularioQueNoExiste(texto: string, hayFormulario: boolean): AfirmacionSinRespaldo[] {
+  if (hayFormulario) return [];
+  if (!ES_EL_PASO_DE_LOS_DATOS.test(norm(texto))) return [];
+  return frasesDe(texto)
+    .filter((f) => {
+      if (/[¿?]/.test(f)) return false;
+      const n = norm(f);
+      return ABRIR_O_LLENAR.test(n) || (ABIERTO.test(n) && PUNTO_EN_PANTALLA.test(n));
+    })
+    .map((frase) => ({
+      frase,
+      motivo:
+        "das por hecho que el formulario está en pantalla, y en este turno no se abrió ninguno: " +
+        "lo abre collect_customer_data y no la llamaste. La persona va a buscar algo que no " +
+        "está. Si toca abrirlo, llama la tool en este mismo mensaje; y nunca le digas a ella que " +
+        "lo ABRA, porque no lo abre ella.",
+    }));
+}
+
 /** La instrucción de corrección que se le manda al modelo. */
 export function instruccionDeCorreccion(hallazgos: AfirmacionSinRespaldo[]): string {
+  // Habla de "cosas que el sistema no respalda" y no solo de la base: por aquí pasan también las
+  // coberturas contradichas y las pantallas que no existen, y decirle que el problema está en la
+  // base cuando está en el formulario es mandarlo a corregir el sitio equivocado.
   return (
-    "Tu respuesta afirma cosas sobre la base de afiliados de Colsubsidio que el sistema NO " +
-    "verificó. Reescríbela quitando esas afirmaciones, sin sustituirlas por otras: si no lo " +
-    "sabes, no lo digas. Mantén el resto igual y conserva UNA SOLA pregunta.\n" +
+    "Tu respuesta afirma cosas que el sistema NO respalda. Reescríbela quitando esas " +
+    "afirmaciones, sin sustituirlas por otras: si no lo sabes, no lo digas. Mantén el resto igual " +
+    "y conserva UNA SOLA pregunta.\n" +
     hallazgos.map((h) => `- "${h.frase}" → ${h.motivo}`).join("\n")
   );
 }
