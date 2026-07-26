@@ -551,6 +551,7 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* Por qué el orden no es el del puntaje. Es explicabilidad, que es lo que se califica. */
+.pp-tambien { margin: 8px 0 0; font-size: 13px; color: var(--gris); }
 .pp-jerarquia { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--borde); font-size: 13px; line-height: 1.5; color: var(--azul-osc); font-weight: 600; }
 
 /* Medición al cierre: esfuerzo (CES) y satisfacción (CSAT). Dos toques, sin salir del chat. */

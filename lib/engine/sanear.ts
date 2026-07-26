@@ -610,6 +610,17 @@ const EDAD_DICHA =
   // que un número detrás de "tengo" es tan probablemente dinero como edad.
   /\b(?:tengo|cumplo|cumpli|voy a cumplir)\s+(\d{2})\b(?!\s*(?:mil|millon|lucas|barras|pesos|k\b))|\b(\d{2})\s*anos?\b/;
 
+/** Los rangos del enum son "20 a 35 años", "Mayor de 55 años", "Menor de 19 años". */
+export function edadCabeEnRango(edad: number, rango: string): boolean {
+  const entre = rango.match(/(\d{2})\s*a\s*(\d{2})/);
+  if (entre) return edad >= Number(entre[1]) && edad <= Number(entre[2]);
+  const mayor = rango.match(/mayor de (\d{2})/i);
+  if (mayor) return edad > Number(mayor[1]);
+  const menor = rango.match(/menor de (\d{2})/i);
+  if (menor) return edad < Number(menor[1]);
+  return true; // rango desconocido: no se inventa una contradicción
+}
+
 export function edadDicha(textoNormalizado: string): number | null {
   const m = textoNormalizado.match(EDAD_DICHA);
   const n = Number(m?.[1] ?? m?.[2]);
@@ -713,8 +724,25 @@ export function resumenEvidencia(
   // La edad exacta es OTRO dato que el rango. Si ya la dijo, no se vuelve a pedir; si no, se pide
   // en el único momento en que hace falta.
   const edad = edadDicha(texto);
+  /*
+   * La contradicción que nadie veía. En un flujo real la base la situaba en "36 a 45" y ella
+   * contestó "35" a la pregunta de la edad exacta. Dos hechos incompatibles conviviendo en el
+   * mismo turno, y el sistema cotizó sin decir nada.
+   *
+   * No se le discute: lo que la persona dice MANDA sobre el segmento, y la base puede estar
+   * desactualizada. Pero callarlo tampoco: la prima se calcula con su número, y si más adelante
+   * la aseguradora ve otro dato, ella tiene derecho a saber de dónde salió el que se usó.
+   */
+  const rangoVerificado = opciones.segmentoBase?.RANGO_EDAD ?? perfilPrevio?.RANGO_EDAD;
+  const chocaConElRango = !!edad && !!rangoVerificado && !edadCabeEnRango(edad, rangoVerificado);
+
   const lineaEdad = edad
-    ? `Edad exacta: ${edad} años, la dijo ella. Ya la tienes: no la vuelvas a pedir.`
+    ? `Edad exacta: ${edad} años, la dijo ella. Ya la tienes: no la vuelvas a pedir.` +
+      (chocaConElRango
+        ? `\nOJO: la base la sitúa en "${rangoVerificado}", y eso no cuadra con ${edad}. MANDA lo ` +
+          `que ella dice y con eso se cotiza — pero dilo en media línea, sin discutírselo ni ` +
+          `hacer un problema: "voy con ${edad}, que es lo que me dices".`
+        : "")
     : (opciones.segmentoBase?.RANGO_EDAD ?? perfilPrevio?.RANGO_EDAD)
       ? `Para COTIZAR necesitas la edad exacta — la base solo da el rango. Pídela únicamente cuando ` +
         `vayas a cotizar, y di para qué sirve. Nunca antes.`

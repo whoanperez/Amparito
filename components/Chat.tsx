@@ -841,6 +841,7 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   const jerarquia = data.jerarquia as string | undefined;
   const traza = data.traza as TrazaData | undefined;
   const top = recs[0];
+  const resto = recs.slice(1);
 
   // El segundo NO: "hoy no te sirve". Reemplaza la tarjeta entera — no tiene sentido mostrar un
   // ranking de productos de pago a quien acaba de decir que no tiene con qué.
@@ -915,6 +916,16 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
           </ul>
           {/* Explicabilidad del orden: si la jerarquía movió el ranking, se dice. */}
           {jerarquia && <p className="pp-jerarquia">↑ {jerarquia}</p>}
+          {/*
+            El panel explicaba SOLO el #1 y abajo aparecían dos tarjetas: se leía como si hubiera
+            una recomendación y luego salieran dos. Nombrar la segunda cuesta una línea y cierra la
+            distancia entre lo que el panel dice y lo que la pantalla muestra.
+          */}
+          {resto.length > 0 && (
+            <p className="pp-tambien">
+              Y también, en segundo lugar: <b>{resto.map((r) => r.nombre).join(", ")}</b>.
+            </p>
+          )}
         </div>
       )}
 
@@ -955,17 +966,15 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
           reglas que aplicaron con su peso, y la versión del scorecard con la que se decidió. */}
       {traza && <TrazaDecision traza={traza} />}
 
-      {/* Descartados — la pregunta de segundo orden: por qué NO lo otro */}
-      {descartados.length > 0 && (
-        <details className="pp-disc" open>
-          <summary>Por qué NO te recomendé lo demás</summary>
-          <ul>
-            {descartados.map((x, i) => (
-              <li key={i}><b>{x.nombre}:</b> {x.motivo}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      {/*
+        Aquí vivía "Por qué NO te recomendé lo demás", abierta por defecto. Era la TERCERA copia del
+        mismo motivo en la misma pantalla: está en la traza (para auditar) y tiene que estar en lo
+        que Amparito DICE (es uno de los cuatro NO, y el material se lo entrega el motor desde 5g).
+        Una tercera en la UI no añadía nada y encima quedaba fuera del rótulo de demo, así que un
+        bloque claramente técnico se leía como parte del producto.
+
+        El NO honesto no es una sección de pantalla: es algo que se dice.
+      */}
     </div>
   );
 }

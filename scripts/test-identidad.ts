@@ -88,7 +88,15 @@ async function main() {
     check("y ahí todavía NO se llama al motor", !v.contexto.includes("SEGMENTO VERIFICADO"));
 
     const c = await identidadConfirmada(`soy ${nombreReal}`);
-    check("tras confirmar, el contexto dice cómo saludar", c.contexto.includes("Bienvenid"));
+    /*
+     * El saludo vive en CONFIRMANDO, no aquí. En un flujo real Carolina recibió TRES seguidos —
+     * "¡Hola Carolina!", "Perfecto, Carolina" y "Bienvenida, Carolina 👋"— porque este bloque
+     * también ordenaba saludar, y solo llega después de que ya la saludaron dos veces.
+     */
+    check("tras confirmar, el contexto le prohíbe saludar otra vez",
+      /ya la saludaste: NO vuelvas a saludarla/.test(c.contexto));
+    check("y el saludo sí vive en el turno de la confirmación",
+      /Saluda con/.test(v.contexto));
     check("y ahí sí llega el segmento verificado", c.contexto.includes("SEGMENTO VERIFICADO"));
   } else {
     check("se encontró un afiliado real para la prueba", false);
