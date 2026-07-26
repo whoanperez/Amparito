@@ -1396,8 +1396,14 @@ function EventCard({ event, onPagar }: { event: UiEvent; onPagar?: () => void })
           <div><small>{simulada ? "Pagaría" : "Pagas"}</small><b>${Number(d.prima).toLocaleString("es-CO")} <span>/{per}</span></b></div>
           <div><small>Estado</small><b className={simulada ? "sim" : "ok"}>{simulada ? "Simulada" : "Activa"}</b></div>
         </div>
-        <div className="pc-cert-label">{simulada ? "Certificado simulado" : "Certificado digital"}</div>
-        <div className="cert">{String(d.certificado)}</div>
+        {/* Plegado. El certificado es un texto legal largo y ocupaba media pantalla del hilo por
+            debajo del dato que la persona vino a ver —si quedó o no—. Quien quiere el comprobante lo
+            abre; los demás siguen leyendo. El rótulo sigue diciendo si es simulado ANTES de abrirlo:
+            esconderlo dentro sería enseñar el certificado sin su sello. */}
+        <details className="pc-cert">
+          <summary>{simulada ? "Ver el certificado simulado" : "Ver el certificado digital"}</summary>
+          <div className="cert">{String(d.certificado)}</div>
+        </details>
         {simulada && (
           // Una sola fuente: el mismo sello que firma el cierre y contra el que se contrasta el
           // video. Estaba escrito aquí a mano y no tenía forma de enterarse si el otro cambiaba.

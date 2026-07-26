@@ -15,6 +15,39 @@
   --blanco: #ffffff;
   --verde: #1a9e5c;
   --borde: #e5e6e9;
+
+  /* ── ESCALA TIPOGRÁFICA ──────────────────────────────────────────────────
+     Había 24 tamaños de letra y, de 116 declaraciones de peso, 107 en 600 o más — con DOS en 400.
+     Es el mismo defecto que el chat ya tiene resuelto para el énfasis: cuando todo pesa, nada pesa.
+     Un párrafo entero en semibold no destaca nada, solo cansa.
+
+     Seis pasos, y ninguno se aleja más de 1px de lo que había: es una consolidación, no un rediseño.
+     Los tamaños de display de la portada (26px para arriba) quedan fuera — son irrepetibles por
+     definición y no compiten con nada. */
+  --t-xs: 11px;      /* rótulos, badges, letra legal */
+  --t-sm: 12.5px;    /* notas al pie, texto de apoyo */
+  --t-md: 13.5px;    /* cuerpo secundario dentro de tarjetas */
+  --t-base: 15px;    /* el cuerpo del chat */
+  --t-lg: 17px;      /* títulos de tarjeta */
+  --t-xl: 22px;      /* cifras */
+
+  /* TRES pesos, y el 800 desaparece. Si el título de una tarjeta y una cifra ya van en 700, un 800
+     encima no crea un nivel más: solo sube el ruido de toda la pantalla. */
+  --peso-texto: 400;    /* descripciones. El que faltaba. */
+  --peso-medio: 600;    /* etiquetas, botones, rótulos */
+  --peso-fuerte: 700;   /* títulos de tarjeta y cifras. No hay nada por encima. */
+
+  /* ── GEOMETRÍA ───────────────────────────────────────────────────────────
+     En el mismo hilo vertical convivían CINCO anchos (82%, 100%, 560px, 470px, 92%) y cinco radios
+     de tarjeta (12, 14, 16, 18, 20). Eso es lo que hace que se lea desestructurado.
+
+     Ahora hay DOS anchos, y la diferencia significa algo: la conversación va al 82% —tiene remitente,
+     así que se alinea a un lado— y la superficie de producto ocupa el ancho entero, porque no lo
+     tiene. La regla ya estaba escrita para la tarjeta de propensión; aquí solo deja de ser una
+     excepción y pasa a ser la norma. */
+  --ancho-conversacion: 82%;
+  --radio-tarjeta: 16px;
+  --radio-interno: 10px;   /* bloques DENTRO de una tarjeta */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -210,11 +243,11 @@ a { text-decoration: none; color: inherit; }
   min-height: 72vh;
 }
 .chat-title { display: flex; align-items: center; gap: 12px; padding: 14px 4px 20px; }
-.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--amarillo); color: var(--tinta); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
-.chat-title h2 { font-size: 18px; font-weight: 700; }
-.chat-title .status { font-size: 12.5px; color: var(--verde); font-weight: 600; }
+.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--amarillo); color: var(--tinta); display: flex; align-items: center; justify-content: center; font-weight: var(--peso-fuerte); font-size: var(--t-lg); flex-shrink: 0; }
+.chat-title h2 { font-size: var(--t-lg); font-weight: var(--peso-fuerte); }
+.chat-title .status { font-size: var(--t-sm); color: var(--verde); font-weight: var(--peso-medio); }
 /* Puente híbrido: pedir un asesor humano (vence la desconfianza, sobre todo en +50) */
-.chat-title .advisor-btn { margin-left: auto; background: var(--blanco); border: 1.5px solid var(--borde); color: var(--azul); font-weight: 600; font-size: 12.5px; padding: 7px 13px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: .15s; }
+.chat-title .advisor-btn { margin-left: auto; background: var(--blanco); border: 1.5px solid var(--borde); color: var(--azul); font-weight: var(--peso-medio); font-size: var(--t-sm); padding: 7px 13px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: .15s; }
 .chat-title .advisor-btn:hover { border-color: var(--azul); background: #f2f8ff; }
 .chat-title .advisor-btn:disabled { opacity: .5; cursor: default; }
 @media (max-width: 480px) { .chat-title .advisor-btn { font-size: 0; padding: 8px 11px; } .chat-title .advisor-btn::before { content: "☎"; font-size: 16px; } }
@@ -224,26 +257,34 @@ a { text-decoration: none; color: inherit; }
 .msgs { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
 .msgs > .msg.user { margin-top: 16px; }
 .msgs > *:first-child { margin-top: 0; }
-.msg { max-width: 82%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
+.msg { max-width: var(--ancho-conversacion); padding: 14px 18px; border-radius: var(--radio-tarjeta); font-size: var(--t-base); line-height: 1.55; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; background: var(--azul); color: var(--blanco); border-bottom-right-radius: 4px; }
 .msg.bot { align-self: flex-start; background: var(--blanco); border: 1px solid var(--borde); border-bottom-left-radius: 4px; }
-.typing { align-self: flex-start; color: var(--gris); font-size: 13px; padding: 6px 4px; }
-.card { align-self: flex-start; width: min(560px, 100%); background: var(--blanco); border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: 14px; padding: 16px 18px; }
+.typing { align-self: flex-start; color: var(--gris); font-size: var(--t-md); padding: 6px 4px; }
+.card { align-self: stretch; width: 100%; background: var(--blanco); border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: var(--radio-tarjeta); padding: 18px 20px; }
 .card.policy { border-left-color: var(--verde); }
 .card.escalation { border-left-color: var(--azul); }
-.card h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--gris); margin-bottom: 8px; }
-.card .big { font-size: 22px; font-weight: 800; }
-.card .sub { font-size: 13px; color: var(--gris); margin-top: 2px; }
-.card ul { margin: 10px 0 0 18px; font-size: 13.5px; color: var(--tinta); }
+.card h4 { font-size: var(--t-md); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: 0.6px; color: var(--gris); margin-bottom: 8px; }
+.card .big { font-size: var(--t-xl); font-weight: var(--peso-fuerte); }
+.card .sub { font-size: var(--t-md); color: var(--gris); margin-top: 2px; }
+.card ul { margin: 10px 0 0 18px; font-size: var(--t-md); color: var(--tinta); line-height: 1.5; }
 .card li { margin-bottom: 3px; }
-.card .cert { margin-top: 10px; background: var(--gris-suave); border-radius: 8px; padding: 10px 12px; font-size: 12px; white-space: pre-wrap; font-family: ui-monospace, monospace; color: #333; }
-.badge { display: inline-block; background: #e8f5ee; color: var(--verde); font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin-bottom: 6px; }
-.inputbar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--blanco); border-top: 1px solid var(--borde); padding: 14px 16px; }
+.card .cert { margin-top: 10px; background: var(--gris-suave); border-radius: var(--radio-interno); padding: 12px 14px; font-size: var(--t-sm); white-space: pre-wrap; font-family: ui-monospace, monospace; color: #333; line-height: 1.5; }
+.badge { display: inline-block; background: #e8f5ee; color: var(--verde); font-size: var(--t-xs); font-weight: var(--peso-medio); padding: 3px 10px; border-radius: 999px; margin-bottom: 6px; }
+/* La barra estaba plana contra el fondo y se perdía al final de la pantalla. La sombra hacia
+   arriba la despega del hilo: es el único elemento que no hace scroll, y tiene que leerse así. */
+.inputbar {
+  position: fixed; bottom: 0; left: 0; right: 0; background: var(--blanco);
+  border-top: 1px solid var(--borde); padding: 14px 16px;
+  box-shadow: 0 -4px 14px rgba(0,0,0,.05);
+}
 .inputbar form { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; }
-.inputbar input { flex: 1; border: 1.5px solid var(--borde); border-radius: 999px; padding: 13px 20px; font-size: 15px; outline: none; font-family: inherit; }
+.inputbar input { flex: 1; border: 1.5px solid var(--borde); border-radius: 999px; padding: 14px 20px; font-size: var(--t-base); outline: none; font-family: inherit; }
 .inputbar input:focus { border-color: var(--azul); }
-.inputbar button { background: var(--amarillo); border: none; border-radius: 999px; padding: 0 26px; font-weight: 800; font-size: 15px; cursor: pointer; color: var(--tinta); font-family: inherit; }
-.inputbar button:disabled { opacity: 0.5; cursor: default; }
+.inputbar button { background: var(--amarillo); border: none; border-radius: 999px; padding: 0 26px; font-weight: var(--peso-fuerte); font-size: var(--t-base); cursor: pointer; color: var(--tinta); font-family: inherit; transition: .15s; }
+/* Deshabilitado en GRIS, no en amarillo al 50%. Con opacidad seguía leyéndose amarillo, así que el
+   botón parecía disponible siempre y el amarillo dejaba de significar "ya puedes enviar". */
+.inputbar button:disabled { background: var(--gris-suave); color: #a0a0a6; cursor: default; }
 /* Botón de voz (Bloque 4) — solo visible con el feature flag encendido */
 .inputbar .voicebtn { background: var(--blanco); border: 1.5px solid var(--borde); border-radius: 999px; width: 48px; flex-shrink: 0; font-size: 18px; cursor: pointer; color: var(--tinta); font-family: inherit; transition: .15s; }
 .inputbar .voicebtn:hover { border-color: var(--azul); }
@@ -251,13 +292,13 @@ a { text-decoration: none; color: inherit; }
 .inputbar .voicebtn.connecting { opacity: .6; cursor: default; }
 .inputbar .voicebtn.error { border-color: #c0392b; color: #c0392b; }
 @keyframes voicepulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,103,177,.45); } 50% { box-shadow: 0 0 0 7px rgba(0,103,177,0); } }
-.disclaimer { max-width: 760px; margin: 6px auto 0; text-align: center; font-size: 11px; color: var(--gris); }
+.disclaimer { max-width: 760px; margin: 6px auto 0; text-align: center; font-size: var(--t-xs); color: var(--gris); line-height: 1.5; }
 
 /* ===== Quick replies (botones de respuesta rápida, inline) ===== */
-.qr-row { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; max-width: 92%; }
+.qr-row { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; max-width: var(--ancho-conversacion); }
 .quick {
   background: var(--blanco); border: 1.5px solid var(--azul); color: var(--azul);
-  font-weight: 600; font-size: 13.5px; padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  font-weight: var(--peso-medio); font-size: var(--t-md); padding: 9px 16px; border-radius: 999px; cursor: pointer;
   font-family: inherit; transition: .15s;
 }
 .quick:hover { background: var(--azul); color: #fff; }
@@ -265,29 +306,39 @@ a { text-decoration: none; color: inherit; }
 /* ===== Tarjeta de póliza (grande, ancha, con logo de aseguradora) ===== */
 .policycard {
   align-self: stretch; width: 100%; background: var(--blanco);
-  border: 1px solid var(--borde); border-radius: 20px; padding: 24px 26px;
+  border: 1px solid var(--borde); border-radius: var(--radio-tarjeta); padding: 24px 26px;
   box-shadow: 0 16px 44px rgba(0,0,0,.09); border-top: 5px solid var(--verde);
 }
 .pc-top { display: flex; align-items: center; justify-content: space-between; }
-.pc-badge { background: #e8f5ee; color: var(--verde); font-size: 12.5px; font-weight: 800; padding: 5px 14px; border-radius: 999px; }
+.pc-badge { background: #e8f5ee; color: var(--verde); font-size: var(--t-sm); font-weight: var(--peso-medio); padding: 5px 14px; border-radius: 999px; }
 .pc-logo { display: flex; align-items: center; gap: 9px; }
-.pc-mono { width: 34px; height: 34px; border-radius: 9px; color: #fff; font-weight: 800; font-size: 17px; display: flex; align-items: center; justify-content: center; }
-.pc-brand { font-weight: 800; font-size: 18px; letter-spacing: -.3px; }
-.pc-product { margin-top: 18px; font-size: 14px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: .5px; }
-.pc-id { font-size: 34px; font-weight: 800; letter-spacing: -1px; color: var(--tinta); margin-top: 2px; }
+.pc-mono { width: 34px; height: 34px; border-radius: var(--radio-interno); color: #fff; font-weight: var(--peso-fuerte); font-size: var(--t-lg); display: flex; align-items: center; justify-content: center; }
+.pc-brand { font-weight: var(--peso-fuerte); font-size: var(--t-lg); letter-spacing: -.3px; }
+.pc-product { margin-top: 18px; font-size: var(--t-md); font-weight: var(--peso-medio); color: var(--gris); text-transform: uppercase; letter-spacing: .5px; }
+/* Se queda en 34px: es LA cifra de la tarjeta, y la escala de arriba cubre la interfaz, no un
+   número que existe para leerse de un vistazo desde lejos. */
+.pc-id { font-size: 34px; font-weight: var(--peso-fuerte); letter-spacing: -1px; color: var(--tinta); margin-top: 2px; }
 .pc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; padding: 18px 0; border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); }
 .pc-grid > div { display: flex; flex-direction: column; gap: 3px; }
-.pc-grid small { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--gris); font-weight: 600; }
-.pc-grid b { font-size: 15px; font-weight: 700; color: var(--tinta); }
-.pc-grid b span { font-size: 12px; color: var(--gris); font-weight: 500; }
+.pc-grid small { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .4px; color: var(--gris); font-weight: var(--peso-medio); }
+.pc-grid b { font-size: var(--t-base); font-weight: var(--peso-fuerte); color: var(--tinta); }
+.pc-grid b span { font-size: var(--t-sm); color: var(--gris); font-weight: var(--peso-texto); }
 .pc-grid b.ok { color: var(--verde); }
 /* Simulación: el mock no emite nada, así que la tarjeta no puede vestirse de póliza vigente. */
 .pc-badge.sim { background: var(--amarillo-claro); color: #7a5a00; }
 .pc-grid b.sim { color: #7a5a00; }
-.pc-sim-note { margin-top: 12px; font-size: 12.5px; line-height: 1.5; color: var(--gris); }
-.pc-sim-note b { color: var(--tinta); font-weight: 700; }
-.pc-cert-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--gris); margin-bottom: 6px; }
-.policycard .cert { margin-top: 0; }
+.pc-sim-note { margin-top: 12px; font-size: var(--t-sm); line-height: 1.5; color: var(--gris); }
+.pc-sim-note b { color: var(--tinta); font-weight: var(--peso-fuerte); }
+/* El certificado, plegado. Es un texto legal largo y va entero dentro del hilo: quien quiere el
+   comprobante lo abre, y quien solo quería saber si quedó no tiene que hacerle scroll encima.
+   Mismo patrón que la traza y que "Ver términos completos" — el disclosure ya es el idioma de esta
+   pantalla, esta superficie era la única que faltaba. */
+.pc-cert { margin-top: 14px; border-top: 1px solid var(--borde); padding-top: 12px; }
+.pc-cert > summary { cursor: pointer; font-size: var(--t-md); font-weight: var(--peso-medio); color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
+.pc-cert > summary::-webkit-details-marker { display: none; }
+.pc-cert > summary::before { content: "▸"; transition: transform .15s; }
+.pc-cert[open] > summary::before { transform: rotate(90deg); }
+.policycard .cert { margin-top: 10px; }
 @media (max-width: 560px) { .pc-grid { grid-template-columns: repeat(2, 1fr); } .pc-id { font-size: 26px; } }
 
 /* ===== Explainer embebido (video de flujo) ===== */
@@ -325,16 +376,16 @@ a { text-decoration: none; color: inherit; }
 
 /* ===== Entrada pull-first ("¿Qué quieres proteger?") ===== */
 .pullfirst { align-self: stretch; width: 100%; margin-top: 6px; }
-.pf-q { font-size: 16px; font-weight: 700; color: var(--tinta); margin-bottom: 12px; }
+.pf-q { font-size: var(--t-lg); font-weight: var(--peso-fuerte); color: var(--tinta); margin-bottom: 12px; }
 .pf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .pf-card {
   display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 10px;
-  background: var(--blanco); border: 1.5px solid var(--borde); border-radius: 14px; cursor: pointer;
+  background: var(--blanco); border: 1.5px solid var(--borde); border-radius: var(--radio-tarjeta); cursor: pointer;
   font-family: inherit; transition: .15s;
 }
 .pf-card:hover { border-color: var(--amarillo); background: #fffdf3; box-shadow: 0 8px 22px rgba(245,196,0,.15); transform: translateY(-2px); }
 .pf-ico { font-size: 30px; line-height: 1; }
-.pf-t { font-size: 13.5px; font-weight: 600; color: var(--tinta); }
+.pf-t { font-size: var(--t-md); font-weight: var(--peso-medio); color: var(--tinta); }
 .pf-talk {
   margin-top: 12px; background: none; border: none; color: var(--azul); font-weight: 600;
   font-size: 13.5px; cursor: pointer; font-family: inherit; padding: 4px 0;
@@ -342,9 +393,9 @@ a { text-decoration: none; color: inherit; }
 .pf-talk:hover { text-decoration: underline; }
 /* Modo jurado: perfiles del demo (autogestión sin narrador) */
 .pf-ejemplo { margin-top: 18px; }
-.pf-ejemplo-lbl { display: block; font-size: 12.5px; color: var(--gris); margin-bottom: 8px; font-weight: 500; }
+.pf-ejemplo-lbl { display: block; font-size: var(--t-sm); color: var(--gris); margin-bottom: 8px; font-weight: var(--peso-texto); }
 .pf-ejemplo-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.pf-persona { background: var(--oscuro); color: #fff; border: none; border-radius: 999px; font-weight: 600; font-size: 13px; padding: 8px 15px; cursor: pointer; font-family: inherit; transition: .15s; }
+.pf-persona { background: var(--oscuro); color: #fff; border: none; border-radius: 999px; font-weight: var(--peso-medio); font-size: var(--t-md); padding: 8px 15px; cursor: pointer; font-family: inherit; transition: .15s; }
 .pf-persona:hover { background: #000; transform: translateY(-1px); }
 /* Entrada de afiliado (arranque caliente) */
 .afil-toggle { margin-top: 14px; background: var(--blanco); border: 1.5px solid var(--azul); color: var(--azul); border-radius: 999px; font-weight: 600; font-size: 13.5px; padding: 9px 17px; cursor: pointer; font-family: inherit; transition: .15s; }
@@ -362,52 +413,58 @@ a { text-decoration: none; color: inherit; }
 /* ===== Tarjetas de recomendación ===== */
 .recos { align-self: stretch; width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 2px; }
 .reco {
-  text-align: left; background: var(--blanco); border: 1.5px solid var(--borde); border-radius: 14px;
-  padding: 14px 16px; cursor: pointer; font-family: inherit; display: flex; flex-direction: column; gap: 3px;
+  text-align: left; background: var(--blanco); border: 1.5px solid var(--borde); border-radius: var(--radio-tarjeta);
+  padding: 16px 18px; cursor: pointer; font-family: inherit; display: flex; flex-direction: column; gap: 3px;
   transition: .15s; position: relative;
 }
 .reco:hover { border-color: var(--azul); box-shadow: 0 8px 22px rgba(0,0,0,.07); transform: translateY(-1px); }
-.reco.top { border-color: var(--amarillo); border-width: 2px; background: #fffdf3; box-shadow: 0 8px 24px rgba(245,196,0,.15); }
-.reco-badge { display: inline-block; align-self: flex-start; background: var(--amarillo); color: var(--tinta); font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; margin-bottom: 4px; }
-.reco-name { font-size: 15.5px; font-weight: 700; color: var(--tinta); }
-.reco-why { font-size: 13px; color: var(--gris); line-height: 1.4; }
-.reco-cta { font-size: 12.5px; font-weight: 700; color: var(--azul); margin-top: 4px; }
+/* Fondo BLANCO. El relleno amarillo pálido sobre una tarjeta que además ya lleva borde amarillo y
+   badge amarillo era el amarillo dicho tres veces: el borde y el badge marcan cuál es, y el relleno
+   solo bajaba el contraste del texto que hay que leer. */
+.reco.top { border-color: var(--amarillo); border-width: 2px; box-shadow: 0 8px 24px rgba(245,196,0,.15); }
+.reco-badge { display: inline-block; align-self: flex-start; background: var(--amarillo); color: var(--tinta); font-size: var(--t-xs); font-weight: var(--peso-fuerte); padding: 3px 10px; border-radius: 999px; margin-bottom: 4px; }
+.reco-name { font-size: var(--t-base); font-weight: var(--peso-fuerte); color: var(--tinta); }
+.reco-why { font-size: var(--t-md); color: var(--gris); line-height: 1.5; }
+.reco-cta { font-size: var(--t-sm); font-weight: var(--peso-medio); color: var(--azul); margin-top: 4px; }
 
 /* ===== Tarjeta de propensión (WhyThis + GapsLedger + PeerProof + Descartados) ===== */
-/* B8 · el hero pasa a ser el elemento más ancho del hilo. Antes: mensajes 82% (~623px),
-   propcard 470px, recomendaciones 430px — una escalera que angostaba justo donde el
-   contenido importa más. */
+/* B8 · el hero deja de ser el más angosto del hilo. Antes: mensajes 82% (~623px), propcard 470px,
+   recomendaciones 430px — una escalera que angostaba justo donde el contenido importa más.
+   Ya no es una excepción: desde la escala de arriba, TODA superficie de producto ocupa el ancho
+   entero, y esta regla solo cumple la norma. */
 .propcard {
   align-self: stretch; width: 100%; background: var(--blanco);
-  border: 1px solid var(--borde); border-top: 5px solid var(--azul); border-radius: 16px;
-  padding: 18px 20px; box-shadow: 0 12px 34px rgba(0,0,0,.07);
+  border: 1px solid var(--borde); border-top: 5px solid var(--azul); border-radius: var(--radio-tarjeta);
+  padding: 20px 22px; box-shadow: 0 12px 34px rgba(0,0,0,.07);
   display: flex; flex-direction: column; gap: 16px;
 }
-.pp-head .pp-eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--azul); }
-.pp-title { font-size: 17px; font-weight: 700; color: var(--tinta); margin-top: 2px; }
+.pp-head .pp-eyebrow { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .6px; color: var(--azul); }
+.pp-title { font-size: var(--t-lg); font-weight: var(--peso-fuerte); color: var(--tinta); margin-top: 2px; }
 
 /* Anti-venta como héroe: banner oscuro, honesto, imposible de no ver (el momento wow) */
-.pp-antiventa { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: #fff; border-radius: 12px; padding: 14px 16px; }
+.pp-antiventa { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: #fff; border-radius: var(--radio-interno); padding: 16px 18px; }
 .pp-av-ico { font-size: 26px; line-height: 1; flex-shrink: 0; }
-.pp-antiventa b { display: block; font-size: 15px; font-weight: 800; }
-.pp-antiventa span { display: block; font-size: 13.5px; color: #d9dbe0; margin-top: 2px; line-height: 1.4; }
+.pp-antiventa b { display: block; font-size: var(--t-base); font-weight: var(--peso-fuerte); }
+.pp-antiventa span { display: block; font-size: var(--t-md); color: #d9dbe0; margin-top: 2px; line-height: 1.5; }
 
 /* Obligatorio por ley — banda propia, con el peso visual del anti-venta. No es un producto
    más del ranking: es lo que la ley exige, y va antes que cualquier recomendación. */
-.pp-oblig { border: 2px solid var(--azul); background: #f2f8ff; border-radius: 12px; padding: 14px 16px; }
-.pp-oblig-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--azul); }
-.pp-oblig-name { font-size: 16px; font-weight: 800; color: var(--tinta); margin-top: 4px; }
-.pp-oblig-name small { font-size: 12px; font-weight: 600; color: var(--gris); margin-left: 6px; }
-.pp-oblig-txt { font-size: 14px; line-height: 1.5; color: var(--tinta); margin-top: 6px; }
-.pp-oblig-cons { font-size: 13.5px; line-height: 1.5; color: var(--azul-osc); font-weight: 600; margin-top: 8px; }
+.pp-oblig { border: 2px solid var(--azul); background: #f2f8ff; border-radius: var(--radio-interno); padding: 16px 18px; }
+.pp-oblig-lbl { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .5px; color: var(--azul); }
+.pp-oblig-name { font-size: var(--t-base); font-weight: var(--peso-fuerte); color: var(--tinta); margin-top: 4px; }
+.pp-oblig-name small { font-size: var(--t-sm); font-weight: var(--peso-texto); color: var(--gris); margin-left: 6px; }
+.pp-oblig-txt { font-size: var(--t-md); line-height: 1.55; color: var(--tinta); margin-top: 6px; }
+.pp-oblig-cons { font-size: var(--t-md); line-height: 1.55; color: var(--azul-osc); font-weight: var(--peso-medio); margin-top: 8px; }
 
-.pp-why { background: #fffdf3; border: 1px solid var(--amarillo); border-radius: 12px; padding: 14px; }
+/* Neutro, no amarillo. Es el bloque más largo de la tarjeta —el porqué, con sus viñetas— y era el
+   peor sitio para bajar el contraste: el acento ya lo pone el check verde. */
+.pp-why { background: var(--gris-suave); border: 1px solid var(--borde); border-radius: var(--radio-interno); padding: 16px; }
 .pp-why-top { display: flex; align-items: center; gap: 10px; }
-.pp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--verde); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex-shrink: 0; }
-.pp-why-top b { font-size: 15px; font-weight: 700; display: block; color: var(--tinta); }
-.pp-why-top small { font-size: 12px; color: var(--gris); }
+.pp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--verde); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: var(--peso-fuerte); font-size: var(--t-base); flex-shrink: 0; }
+.pp-why-top b { font-size: var(--t-base); font-weight: var(--peso-fuerte); display: block; color: var(--tinta); }
+.pp-why-top small { font-size: var(--t-sm); color: var(--gris); }
 .pp-reasons { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.pp-reasons li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.45; color: var(--tinta); }
+.pp-reasons li { display: flex; align-items: flex-start; gap: 8px; font-size: var(--t-md); line-height: 1.55; color: var(--tinta); }
 .pp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); margin-top: 6px; flex-shrink: 0; }
 
 .pp-ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -415,82 +472,86 @@ a { text-decoration: none; color: inherit; }
    espacio en el elemento que más pesa de la pantalla. */
 .pp-ledger.solo { grid-template-columns: 1fr; }
 /* El segundo NO: "hoy no te sirve". Colsubsidio es una caja, así que sí tiene qué ofrecer. */
-.pp-alt { background: var(--verde-wash, #e7f5ed); border: 1px solid rgba(26,158,92,.35); border-radius: 12px; padding: 14px 16px; }
-.pp-alt p { font-size: 14px; line-height: 1.55; color: var(--tinta); margin-top: 6px; }
-.pp-alt-nota { font-size: 13.5px; line-height: 1.55; color: var(--gris); }
-.pp-col { border-radius: 12px; padding: 12px 14px; }
+.pp-alt { background: var(--verde-wash, #e7f5ed); border: 1px solid rgba(26,158,92,.35); border-radius: var(--radio-interno); padding: 16px 18px; }
+.pp-alt p { font-size: var(--t-md); line-height: 1.55; color: var(--tinta); margin-top: 6px; }
+.pp-alt-nota { font-size: var(--t-md); line-height: 1.55; color: var(--gris); }
+.pp-col { border-radius: var(--radio-interno); padding: 14px 16px; }
 .pp-col.risk { background: #fdecea; }
 .pp-col.cov { background: #e8f5ee; }
-.pp-col-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+.pp-col-lbl { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
 .pp-col.risk .pp-col-lbl { color: #c0392b; }
 .pp-col.cov .pp-col-lbl { color: var(--verde); }
 .pp-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.pp-col li { font-size: 14px; line-height: 1.4; color: var(--tinta); padding-left: 16px; position: relative; }
-.pp-col.risk li::before { content: "!"; position: absolute; left: 0; color: #c0392b; font-weight: 800; }
-.pp-col.cov li::before { content: "✓"; position: absolute; left: 0; color: var(--verde); font-weight: 800; }
-.pp-empty { font-size: 12.5px; color: var(--gris); }
+.pp-col li { font-size: var(--t-md); line-height: 1.5; color: var(--tinta); padding-left: 16px; position: relative; }
+.pp-col.risk li::before { content: "!"; position: absolute; left: 0; color: #c0392b; font-weight: var(--peso-fuerte); }
+.pp-col.cov li::before { content: "✓"; position: absolute; left: 0; color: var(--verde); font-weight: var(--peso-fuerte); }
+.pp-empty { font-size: var(--t-sm); color: var(--gris); }
 
 .pp-why { margin-bottom: 10px; }
-.pp-peer { background: var(--gris-suave); border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.5; color: var(--tinta); }
-.pp-peer b { color: var(--azul); font-weight: 800; }
+.pp-peer { background: var(--gris-suave); border-radius: var(--radio-interno); padding: 14px 16px; font-size: var(--t-md); line-height: 1.55; color: var(--tinta); }
+.pp-peer b { color: var(--azul); font-weight: var(--peso-fuerte); }
 
 .pp-disc { border-top: 1px solid var(--borde); padding-top: 12px; }
-.pp-disc > summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
+.pp-disc > summary { cursor: pointer; font-weight: var(--peso-medio); font-size: var(--t-md); color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
 .pp-disc > summary::before { content: "▸"; transition: transform .15s; }
 .pp-disc[open] > summary::before { transform: rotate(90deg); }
 .pp-disc ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.pp-disc li { font-size: 13.5px; line-height: 1.45; color: var(--gris); }
+.pp-disc li { font-size: var(--t-md); line-height: 1.55; color: var(--gris); }
 .pp-disc li b { color: var(--tinta); }
 @media (max-width: 560px) { .pp-ledger { grid-template-columns: 1fr; } }
 
 /* ===== Tarjeta de impacto de ingreso (cuidado, no miedo) ===== */
-.impactocard { align-self: flex-start; width: min(470px, 94%); background: linear-gradient(135deg, #fffdf3 0%, #f2f8ff 100%); border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: 16px; padding: 20px 22px; box-shadow: 0 12px 34px rgba(0,0,0,.07); }
-.ic-eyebrow { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #8a6d00; }
-.ic-big { font-size: 34px; font-weight: 800; letter-spacing: -1px; color: var(--tinta); margin-top: 6px; font-variant-numeric: tabular-nums; }
-.ic-sub { font-size: 14.5px; color: var(--tinta); line-height: 1.45; margin-top: 4px; }
-.ic-frame { margin-top: 14px; font-size: 14px; font-weight: 600; color: var(--azul-osc); background: #e7f0f9; border-radius: 10px; padding: 11px 14px; line-height: 1.4; }
-.ic-note { margin-top: 10px; font-size: 12px; color: var(--gris); line-height: 1.4; }
+/* Fondo blanco: el degradado amarillo-a-azul teñía la tarjeta entera para decir algo que ya dicen
+   el borde izquierdo y el rótulo. Ancho completo, como el resto de superficies de producto. */
+.impactocard { align-self: stretch; width: 100%; background: var(--blanco); border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: var(--radio-tarjeta); padding: 20px 22px; box-shadow: 0 12px 34px rgba(0,0,0,.07); }
+.ic-eyebrow { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .04em; color: #8a6d00; }
+/* Como `.pc-id`: es LA cifra, y está fuera de la escala de interfaz a propósito. */
+.ic-big { font-size: 34px; font-weight: var(--peso-fuerte); letter-spacing: -1px; color: var(--tinta); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ic-sub { font-size: var(--t-base); color: var(--tinta); line-height: 1.55; margin-top: 4px; }
+.ic-frame { margin-top: 14px; font-size: var(--t-md); font-weight: var(--peso-texto); color: var(--azul-osc); background: #e7f0f9; border-radius: var(--radio-interno); padding: 13px 16px; line-height: 1.55; }
+.ic-note { margin-top: 10px; font-size: var(--t-sm); color: var(--gris); line-height: 1.5; }
 
 /* ===== Detalle de cobertura bajo la cotización ===== */
-.card { width: min(470px, 94%); }
-.price-tag { margin-top: 8px; font-size: 12px; color: #8a6d00; background: #fff6c8; display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
+.price-tag { margin-top: 8px; font-size: var(--t-sm); color: #8a6d00; background: #fff6c8; display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: var(--peso-medio); }
 .price-tag.reg { color: #0a5c2e; background: #e8f5ee; }
-.price-note { margin-top: 6px; font-size: 12px; color: var(--gris); }
+.price-note { margin-top: 6px; font-size: var(--t-sm); color: var(--gris); line-height: 1.5; }
 /* Sin precio: la tarifa depende de datos que el chat no tiene. No se muestra ningún número. */
-.card .big.nop { font-size: 16px; font-weight: 700; color: var(--azul); line-height: 1.35; }
+.card .big.nop { font-size: var(--t-lg); font-weight: var(--peso-fuerte); color: var(--azul); line-height: 1.35; }
 /* "¿De cuánto es la póliza?" — se responde siempre, con la verdad cuando no se sabe. */
 .va-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
-.va-lbl { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--gris); }
-.va-val { font-size: 14px; font-weight: 700; color: var(--tinta); }
+.va-lbl { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .4px; color: var(--gris); }
+.va-val { font-size: var(--t-md); font-weight: var(--peso-fuerte); color: var(--tinta); }
 .cov { margin-top: 14px; border-top: 1px solid var(--borde); padding-top: 10px; }
-.cov > summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
+.cov > summary { cursor: pointer; font-weight: var(--peso-medio); font-size: var(--t-md); color: var(--azul); list-style: none; display: flex; align-items: center; gap: 6px; }
 .cov > summary::before { content: "▸"; transition: transform .15s; }
 .cov[open] > summary::before { transform: rotate(90deg); }
-.cov-lbl { font-size: 11.5px; font-weight: 700; color: var(--verde); text-transform: uppercase; letter-spacing: .4px; margin-top: 12px; }
+.cov-lbl { font-size: var(--t-xs); font-weight: var(--peso-medio); color: var(--verde); text-transform: uppercase; letter-spacing: .4px; margin-top: 12px; }
 .cov-lbl.no { color: #c0392b; }
-.cov-txt { font-size: 12.5px; color: var(--tinta); margin-top: 3px; line-height: 1.45; }
-.cov ul { margin: 6px 0 0 18px; font-size: 12.5px; }
+.cov-txt { font-size: var(--t-sm); color: var(--tinta); margin-top: 3px; line-height: 1.5; }
+.cov ul { margin: 6px 0 0 18px; font-size: var(--t-sm); line-height: 1.5; }
 .cov li { margin-bottom: 3px; }
 /* Capa 2 del disclosure: síntesis cubre/no cubre siempre visible */
 .cov2 { margin-top: 14px; }
-.cov2 ul { margin: 6px 0 0 18px; font-size: 12.5px; }
+.cov2 ul { margin: 6px 0 0 18px; font-size: var(--t-sm); line-height: 1.5; }
 .cov2 li { margin-bottom: 3px; }
 .cov2 + .cov { margin-top: 12px; }
-.cov-legal { margin-top: 12px; font-size: 11px; color: var(--gris); font-style: italic; }
-.cov-legal a { color: var(--azul); font-style: normal; font-weight: 600; }
+.cov-legal { margin-top: 12px; font-size: var(--t-xs); color: var(--gris); font-style: italic; line-height: 1.5; }
+.cov-legal a { color: var(--azul); font-style: normal; font-weight: var(--peso-medio); }
 
 /* ===== Tarjeta de cumplimiento (Art. 9) ===== */
-.card.compliance { border-left-color: var(--azul); width: min(460px, 94%); }
-.card.compliance .cl-lbl { font-size: 12px; font-weight: 700; color: var(--verde); text-transform: uppercase; letter-spacing: .4px; margin-top: 12px; }
+.card.compliance { border-left-color: var(--azul); }
+.card.compliance .cl-lbl { font-size: var(--t-xs); font-weight: var(--peso-medio); color: var(--verde); text-transform: uppercase; letter-spacing: .4px; margin-top: 12px; }
 .card.compliance .cl-lbl.no { color: #c0392b; }
-.card.compliance .cl-txt { font-size: 13px; color: var(--tinta); margin-top: 3px; line-height: 1.45; }
-.card.compliance ul { margin: 6px 0 0 18px; font-size: 13px; }
-.card.compliance .cl-legal { margin-top: 14px; font-size: 11px; color: var(--gris); font-style: italic; }
+.card.compliance .cl-txt { font-size: var(--t-md); color: var(--tinta); margin-top: 3px; line-height: 1.55; }
+.card.compliance ul { margin: 6px 0 0 18px; font-size: var(--t-md); line-height: 1.55; }
+.card.compliance .cl-legal { margin-top: 14px; font-size: var(--t-xs); color: var(--gris); font-style: italic; line-height: 1.5; }
 
 /* ===== Pantalla de transición ===== */
 .processing {
   align-self: center; text-align: center; background: var(--blanco); border: 1px solid var(--borde);
-  border-radius: 18px; padding: 30px 34px; width: min(400px, 94%); box-shadow: 0 14px 40px rgba(0,0,0,.08);
+  /* Se queda estrecha y centrada a propósito: es un estado transitorio, no una superficie que la
+     persona vaya a leer con calma. No entra en la regla de los dos anchos. */
+  border-radius: var(--radio-tarjeta); padding: 30px 34px; width: min(400px, 94%); box-shadow: 0 14px 40px rgba(0,0,0,.08);
 }
 .spinner {
   width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%;
@@ -498,31 +559,31 @@ a { text-decoration: none; color: inherit; }
   animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.ptext { font-weight: 700; font-size: 16px; color: var(--tinta); }
-.psub { margin-top: 8px; font-size: 12.5px; color: var(--gris); line-height: 1.5; }
+.ptext { font-weight: var(--peso-fuerte); font-size: var(--t-lg); color: var(--tinta); }
+.psub { margin-top: 8px; font-size: var(--t-sm); color: var(--gris); line-height: 1.5; }
 
 /* ===== Formulario de datos ===== */
 .dataform {
-  align-self: stretch; background: var(--blanco); border: 1px solid var(--borde);
-  border-top: 4px solid var(--amarillo); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px;
+  align-self: stretch; width: 100%; background: var(--blanco); border: 1px solid var(--borde);
+  border-top: 4px solid var(--amarillo); border-radius: var(--radio-tarjeta); padding: 22px; display: flex; flex-direction: column; gap: 14px;
   box-shadow: 0 12px 34px rgba(0,0,0,.07);
 }
-.df-head .badge { display: inline-block; background: #fff6c8; color: #8a6d00; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
-.df-head h4 { font-size: 18px; font-weight: 700; margin-top: 8px; }
-.df-head p { font-size: 13px; color: var(--gris); margin-top: 2px; }
-.dataform label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--tinta); }
+.df-head .badge { display: inline-block; background: #fff6c8; color: #8a6d00; font-size: var(--t-xs); font-weight: var(--peso-medio); padding: 3px 10px; border-radius: 999px; }
+.df-head h4 { font-size: var(--t-lg); font-weight: var(--peso-fuerte); margin-top: 8px; }
+.df-head p { font-size: var(--t-md); color: var(--gris); margin-top: 2px; line-height: 1.5; }
+.dataform label { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-md); font-weight: var(--peso-medio); color: var(--tinta); }
 .dataform input, .dataform select {
-  border: 1.5px solid var(--borde); border-radius: 10px; padding: 11px 13px; font-size: 14px;
-  font-family: inherit; font-weight: 400; outline: none;
+  border: 1.5px solid var(--borde); border-radius: var(--radio-interno); padding: 12px 14px; font-size: var(--t-md);
+  font-family: inherit; font-weight: var(--peso-texto); outline: none;
 }
 .dataform input:focus, .dataform select:focus { border-color: var(--azul); }
 .df-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.df-check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; font-size: 12.5px; color: var(--gris); line-height: 1.4; }
+.df-check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: var(--peso-texto); font-size: var(--t-sm); color: var(--gris); line-height: 1.5; }
 .df-check input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
-.df-err { background: #fdecea; color: #c0392b; font-size: 13px; padding: 10px 12px; border-radius: 8px; }
+.df-err { background: #fdecea; color: #c0392b; font-size: var(--t-md); padding: 12px 14px; border-radius: var(--radio-interno); }
 .df-submit {
-  background: var(--amarillo); border: none; border-radius: 999px; padding: 14px; font-weight: 800;
-  font-size: 15px; cursor: pointer; color: var(--tinta); font-family: inherit; transition: .15s;
+  background: var(--amarillo); border: none; border-radius: 999px; padding: 14px; font-weight: var(--peso-fuerte);
+  font-size: var(--t-base); cursor: pointer; color: var(--tinta); font-family: inherit; transition: .15s;
 }
 .df-submit:hover { background: #f5c400; }
 
@@ -544,7 +605,7 @@ a { text-decoration: none; color: inherit; }
 /* Chips de arranque: prellenan la casilla en vez de enviar. Reemplazan los cuatro CTA que
    competían en la pantalla de entrada. */
 .pf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.pf-chip { background: var(--blanco); border: 1.5px solid var(--borde); color: var(--tinta); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.pf-chip { background: var(--blanco); border: 1.5px solid var(--borde); color: var(--tinta); font-family: inherit; font-size: var(--t-md); font-weight: var(--peso-medio); padding: 10px 16px; border-radius: 999px; cursor: pointer; transition: .15s; }
 .pf-chip:hover { border-color: var(--azul); background: #f2f8ff; color: var(--azul); }
 .pf-chip:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
 
@@ -557,17 +618,17 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* Por qué el orden no es el del puntaje. Es explicabilidad, que es lo que se califica. */
-.pp-tambien { margin: 8px 0 0; font-size: 13px; color: var(--gris); }
-.pp-jerarquia { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--borde); font-size: 13px; line-height: 1.5; color: var(--azul-osc); font-weight: 600; }
+.pp-tambien { margin: 8px 0 0; font-size: var(--t-md); color: var(--gris); line-height: 1.5; }
+.pp-jerarquia { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--borde); font-size: var(--t-md); line-height: 1.55; color: var(--azul-osc); font-weight: var(--peso-texto); }
 
 /* Medición al cierre: esfuerzo (CES) y satisfacción (CSAT). Dos toques, sin salir del chat. */
-.fbcard { align-self: stretch; width: 100%; background: var(--gris-suave); border: 1px solid var(--borde); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.fbcard { align-self: stretch; width: 100%; background: var(--gris-suave); border: 1px solid var(--borde); border-radius: var(--radio-tarjeta); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
 .fbcard.done { flex-direction: row; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.fbcard.done b { font-size: 15px; }
-.fbcard.done span { font-size: 13.5px; color: var(--gris); }
-.fb-q { font-size: 14.5px; font-weight: 700; color: var(--tinta); }
+.fbcard.done b { font-size: var(--t-base); font-weight: var(--peso-fuerte); }
+.fbcard.done span { font-size: var(--t-md); color: var(--gris); }
+.fb-q { font-size: var(--t-base); font-weight: var(--peso-fuerte); color: var(--tinta); }
 .fb-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.fb-opt { background: var(--blanco); border: 1.5px solid var(--borde); color: var(--tinta); font-family: inherit; font-size: 13.5px; font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.fb-opt { background: var(--blanco); border: 1.5px solid var(--borde); color: var(--tinta); font-family: inherit; font-size: var(--t-md); font-weight: var(--peso-medio); padding: 8px 14px; border-radius: 999px; cursor: pointer; transition: .15s; }
 .fb-opt:hover { border-color: var(--azul); color: var(--azul); }
 .fb-opt.on { background: var(--azul); border-color: var(--azul); color: #fff; }
 .fb-opt:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
@@ -598,22 +659,22 @@ a { text-decoration: none; color: inherit; }
    Lo simulado es solo la comprobación, y por eso `.demo` va únicamente en el aviso de abajo —
    la misma estructura que ya usa el formulario de datos con su nota de valores de ejemplo. */
 .verif {
-  /* El mismo 82% que `.msg`: la tarjeta es parte del turno de Amparito, y dos anchos distintos a
+  /* El mismo ancho que `.msg`: la tarjeta es parte del turno de Amparito, y dos anchos distintos a
      dos centímetros se leen como un descuadre, no como jerarquía. */
-  align-self: flex-start; max-width: 82%; background: var(--blanco);
+  align-self: flex-start; max-width: var(--ancho-conversacion); background: var(--blanco);
   border: 1px solid var(--borde); border-top: 4px solid var(--amarillo);
-  border-radius: 16px; padding: 18px 20px;
+  border-radius: var(--radio-tarjeta); padding: 18px 20px;
   box-shadow: 0 10px 28px rgba(0,0,0,.06);
 }
 .vf-badge {
   display: inline-block; background: #eaf2fb; color: var(--azul);
-  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+  font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .4px;
   padding: 4px 11px; border-radius: 999px;
 }
-.vf-q { margin-top: 11px; font-size: 17px; font-weight: 700; line-height: 1.35; color: var(--tinta); }
-.vf-real { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--gris); }
+.vf-q { margin-top: 11px; font-size: var(--t-lg); font-weight: var(--peso-fuerte); line-height: 1.35; color: var(--tinta); }
+.vf-real { margin-top: 6px; font-size: var(--t-md); line-height: 1.55; color: var(--gris); }
 /* El resto del aspecto —fondo, borde discontinuo y cinta— lo pone `.demo`, que ya existe. */
-.vf-sim { margin: 14px 0 0; font-size: 12.5px; line-height: 1.5; color: #5c4300; }
+.vf-sim { margin: 14px 0 0; font-size: var(--t-sm); line-height: 1.5; color: #5c4300; }
 
 /* El rótulo de demo va EN el resumen, visible sin abrir: plegado tiene que leerse como
    instrumentación, no como una función del producto. */
@@ -650,31 +711,33 @@ a { text-decoration: none; color: inherit; }
 /* Lo que escribe Amparito. El énfasis va como MARCADOR, no como negrita a secas: el amarillo es
    el color de la marca y el ojo lo encuentra sin que el mensaje parezca un formulario. Está topado
    en dos por mensaje desde el servidor, así que no puede convertirse en ruido. */
-.msg.bot strong { font-weight: 700; background: linear-gradient(transparent 62%, var(--amarillo) 62%); padding: 0 1px; }
+.msg.bot strong { font-weight: var(--peso-fuerte); background: linear-gradient(transparent 62%, var(--amarillo) 62%); padding: 0 1px; }
 .msg-p { margin: 0; }
 .msg-p + .msg-p, .msg-p + .msg-lista, .msg-lista + .msg-p { margin-top: .6em; }
 .msg-lista { margin: 0; padding-left: 1.05em; list-style: none; }
 .msg-lista li { position: relative; margin-bottom: .25em; }
-.msg-lista li::before { content: "•"; position: absolute; left: -1.05em; color: var(--azul); font-weight: 700; }
+.msg-lista li::before { content: "•"; position: absolute; left: -1.05em; color: var(--azul); font-weight: var(--peso-fuerte); }
 .msg-lista li:last-child { margin-bottom: 0; }
 
 /* Tarjeta de pago. El sello va ENCIMA del botón a propósito: nadie debe poder tocarlo creyendo
    que se le cobra de verdad. */
-.pagocard { align-self: stretch; width: 100%; background: var(--blanco); border: 2px solid var(--amarillo); border-radius: 14px; padding: 14px 16px; }
-.rotulo-pago { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gris); }
-.pg-linea { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 8px; font-size: 14px; }
-.pg-linea b { font-size: 22px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.pagocard { align-self: stretch; width: 100%; background: var(--blanco); border: 2px solid var(--amarillo); border-radius: var(--radio-tarjeta); padding: 18px 20px; }
+.rotulo-pago { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .5px; color: var(--gris); }
+.pg-linea { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 8px; font-size: var(--t-md); }
+.pg-linea b { font-size: var(--t-xl); font-weight: var(--peso-fuerte); letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
 .pg-sello { margin: 10px 0 0; }
-.sello-sim { display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #7a5a00; background: var(--amarillo-claro); border: 1px dashed #c99b00; padding: 4px 9px; border-radius: 6px; }
-.pg-btn { display: block; width: 100%; margin-top: 10px; padding: 12px; background: var(--amarillo); color: var(--tinta); border: none; border-radius: 999px; font-family: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
+/* El sello conserva su 800: es el único rótulo que tiene que ganarle la mirada al botón de pagar
+   que va justo debajo, y ese botón es la superficie más pesada de la tarjeta. */
+.sello-sim { display: inline-block; font-size: var(--t-xs); font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #7a5a00; background: var(--amarillo-claro); border: 1px dashed #c99b00; padding: 4px 9px; border-radius: 6px; }
+.pg-btn { display: block; width: 100%; margin-top: 10px; padding: 13px; background: var(--amarillo); color: var(--tinta); border: none; border-radius: 999px; font-family: inherit; font-weight: var(--peso-fuerte); font-size: var(--t-base); cursor: pointer; }
 .pg-btn:hover { filter: brightness(.96); }
 .pg-btn:disabled { opacity: .5; cursor: default; }
 /* Lo verificado y lo de ejemplo NO se pintan igual: verde para lo que vino de Colsubsidio,
    amarillo discontinuo —el lenguaje de la demo— para lo que rellenamos nosotros. Si se vieran
    iguales, el formulario estaría diciendo que la base tiene datos que no tiene. */
 .df-origen.ejemplo { color: #7a5a00; background: var(--amarillo-claro); border: 1px dashed #c99b00; }
-.df-aviso { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #5c4300; }
-.df-origen { margin-left: .4rem; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #0a5c2e; background: #e8f5ee; padding: 1px 6px; border-radius: 999px; }
+.df-aviso { margin: 12px 0 0; font-size: var(--t-sm); line-height: 1.5; color: #5c4300; }
+.df-origen { margin-left: .4rem; font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .3px; color: #0a5c2e; background: #e8f5ee; padding: 1px 6px; border-radius: 999px; }
 .tz-campo { font-weight: 600; color: var(--gris); }
 .tz-valor { font-weight: 700; color: var(--tinta); }
 .tz-razon { flex: 1 1 60%; color: var(--tinta); }
