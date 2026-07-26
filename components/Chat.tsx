@@ -457,7 +457,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
             </div>
             {/*
               Estas pastillas son el ÚNICO camino de un toque al arranque caliente para alguien que
-              llega solo con un enlace: si teclea su propio nombre no está en el padrón y solo ve el
+              llega solo con un enlace: si teclea su propio nombre no aparece como afiliado y solo ve el
               camino genérico, así que nunca llega al diferencial. Por eso van visibles siempre.
 
               Lo que sí sobraba era la etiqueta: decía "Prueba con uno de la base:", que le confiesa

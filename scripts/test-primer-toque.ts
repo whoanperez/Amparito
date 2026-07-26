@@ -46,7 +46,7 @@ check("y una respuesta entera, como completa", chipDeOpcion("Sí, avancemos").co
 /*
  * #27 · La invitación de las pastillas no puede confesar que esto es un demo. Y las pastillas
  * TIENEN que existir: son el único camino de un toque al arranque caliente para alguien que llega
- * solo con un enlace. Si teclea su propio nombre no está en el padrón, ve el camino genérico, y
+ * solo con un enlace. Si teclea su propio nombre no aparece como afiliado, ve el camino genérico, y
  * nunca llega al diferencial — que es justo lo que este gate existe para proteger.
  */
 check("hay un camino de un toque al reconocimiento", PERSONAS_DEMO.length > 0);
