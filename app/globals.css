@@ -747,3 +747,129 @@ a { text-decoration: none; color: inherit; }
 .tz-motivo { margin-top: 5px; font-size: 12px; line-height: 1.45; color: #7a5a00; }
 .tz-meta { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .tz-meta li { font-size: 12.5px; line-height: 1.5; color: var(--gris); }
+
+/* ============================================================================
+   /como-funciona — la página que explica el problema y la solución
+
+   Público: alguien de negocio que quiere entender qué cambia, no un perfil
+   técnico. Por eso no hay diagramas de cajas y flechas de ingeniería: hay una
+   tira de capturas reales, una tabla de antes/ahora y un C4 contado en palabras.
+
+   Usa la misma escala de letra, los mismos pesos y el mismo radio que el chat:
+   es la misma aplicación, no un micrositio aparte.
+   ========================================================================== */
+.cf { max-width: 940px; margin: 0 auto; padding: 40px 20px 80px; }
+
+.cf-hero { padding: 24px 0 8px; border-bottom: 1px solid var(--borde); margin-bottom: 40px; }
+.cf-eyebrow { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .6px; color: var(--azul); }
+.cf-hero h1 { font-size: 34px; font-weight: var(--peso-fuerte); line-height: 1.2; letter-spacing: -.5px; margin: 10px 0 0; max-width: 20ch; }
+.cf-lede { margin: 14px 0 26px; font-size: var(--t-lg); line-height: 1.6; color: var(--gris); max-width: 62ch; font-weight: var(--peso-texto); }
+
+.cf-sec { margin-bottom: 56px; }
+.cf-sec h2 { font-size: var(--t-xl); font-weight: var(--peso-fuerte); letter-spacing: -.3px; display: flex; align-items: center; gap: 12px; }
+.cf-num {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; background: var(--amarillo);
+  color: var(--tinta); font-size: var(--t-md); font-weight: var(--peso-fuerte);
+  display: flex; align-items: center; justify-content: center;
+}
+.cf-h3 { margin: 32px 0 14px; font-size: var(--t-lg); font-weight: var(--peso-fuerte); }
+.cf-intro { margin: 12px 0 26px; font-size: var(--t-base); line-height: 1.6; color: var(--gris); max-width: 64ch; }
+
+/* La tira de capturas. Scroll horizontal en pantallas angostas: comprimir cuatro
+   pantallazos de teléfono a un cuarto de ancho no los deja leer. */
+.cf-tira { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.cf-shot { display: flex; flex-direction: column; gap: 12px; }
+.cf-shot a { position: relative; display: block; }
+.cf-shot img {
+  width: 100%; border: 1px solid var(--borde); border-radius: var(--radio-tarjeta);
+  box-shadow: 0 10px 28px rgba(0,0,0,.08); display: block; transition: .15s;
+}
+.cf-shot a:hover img { border-color: var(--azul); box-shadow: 0 12px 32px rgba(0,0,0,.14); }
+.cf-lupa {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  background: rgba(29,29,31,.88); color: #fff; font-size: var(--t-xs); font-weight: var(--peso-medio);
+  padding: 6px 13px; border-radius: 999px; opacity: 0; transition: .15s; white-space: nowrap;
+}
+.cf-shot a:hover .cf-lupa, .cf-shot a:focus-visible .cf-lupa { opacity: 1; }
+.cf-shot figcaption { display: flex; flex-direction: column; gap: 5px; }
+.cf-paso { font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .5px; color: var(--gris); }
+.cf-shot figcaption b { font-size: var(--t-md); font-weight: var(--peso-fuerte); line-height: 1.35; }
+.cf-shot figcaption span:last-child { font-size: var(--t-sm); line-height: 1.55; color: var(--gris); }
+
+.cf-cita { margin-top: 34px; border-left: 4px solid var(--amarillo); padding: 4px 0 4px 20px; }
+.cf-cita p { font-size: var(--t-lg); line-height: 1.6; color: var(--tinta); max-width: 66ch; }
+.cf-cita cite { display: block; margin-top: 10px; font-size: var(--t-sm); font-style: normal; color: var(--gris); }
+
+/* Antes / ahora. Tres columnas con la de "ahora" resaltada por color, no por peso:
+   ponerla en negrita entera sería el defecto que el resto de la interfaz corrige. */
+.cf-tabla { border: 1px solid var(--borde); border-radius: var(--radio-tarjeta); overflow: hidden; }
+.cf-fila { display: grid; grid-template-columns: 1.1fr 1.3fr 1.6fr; gap: 18px; padding: 16px 20px; border-top: 1px solid var(--borde); }
+.cf-fila:first-child { border-top: none; }
+.cf-head { background: var(--gris-suave); font-size: var(--t-xs); font-weight: var(--peso-medio); text-transform: uppercase; letter-spacing: .5px; color: var(--gris); }
+.cf-q { font-size: var(--t-md); font-weight: var(--peso-medio); color: var(--tinta); }
+.cf-antes, .cf-ahora { font-size: var(--t-md); line-height: 1.55; }
+.cf-antes { color: var(--gris); }
+.cf-ahora { color: var(--azul-osc); }
+.cf-fila:not(.cf-head) .cf-ahora { position: relative; }
+
+/* El viaje de Laura */
+.cf-viaje { list-style: none; display: flex; flex-direction: column; gap: 2px; counter-reset: paso; }
+.cf-viaje li { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--borde); }
+.cf-viaje li:first-child { border-top: none; }
+.cf-ico { font-size: 24px; line-height: 1.3; flex-shrink: 0; width: 34px; text-align: center; }
+.cf-viaje li div { display: flex; flex-direction: column; gap: 4px; }
+.cf-viaje b { font-size: var(--t-base); font-weight: var(--peso-fuerte); }
+.cf-viaje span { font-size: var(--t-md); line-height: 1.6; color: var(--gris); max-width: 72ch; }
+
+/* C4 · nivel de contexto */
+.cf-c4 { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.cf-actor, .cf-sistema { border-radius: var(--radio-tarjeta); padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 190px; }
+.cf-actor { background: var(--gris-suave); border: 1px solid var(--borde); }
+.cf-sistema { background: var(--tinta); color: #fff; border: 1px solid var(--tinta); flex: 1.4; }
+.cf-actor b, .cf-sistema b { font-size: var(--t-base); font-weight: var(--peso-fuerte); }
+.cf-actor span, .cf-sistema span { font-size: var(--t-sm); line-height: 1.5; }
+.cf-actor span { color: var(--gris); }
+.cf-sistema span { color: #d9dbe0; }
+.cf-flecha { color: var(--gris); font-size: var(--t-xl); flex-shrink: 0; }
+.cf-externos { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 190px; }
+.cf-externos span {
+  border: 1px dashed var(--borde); border-radius: var(--radio-interno); padding: 9px 12px;
+  font-size: var(--t-sm); color: var(--tinta); background: var(--blanco);
+}
+
+/* C4 · nivel de piezas. Las tres que sostienen la garantía van marcadas: sin eso,
+   una lista de ocho cajas iguales no dice cuál decide. */
+.cf-piezas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.cf-pieza { border: 1px solid var(--borde); border-radius: var(--radio-interno); padding: 16px 18px; display: flex; flex-direction: column; gap: 5px; }
+.cf-pieza.acento { border-color: var(--azul); border-left-width: 4px; background: #f7fbff; }
+.cf-pieza b { font-size: var(--t-md); font-weight: var(--peso-fuerte); }
+.cf-pieza span { font-size: var(--t-sm); line-height: 1.55; color: var(--gris); }
+
+.cf-regla { margin-top: 22px; background: var(--gris-suave); border-radius: var(--radio-interno); padding: 18px 20px; font-size: var(--t-md); line-height: 1.65; color: var(--tinta); }
+.cf-regla b { font-weight: var(--peso-fuerte); }
+
+.cf-cierre { border-top: 1px solid var(--borde); padding-top: 40px; text-align: center; }
+.cf-cierre p { font-size: var(--t-xl); line-height: 1.5; font-weight: var(--peso-fuerte); letter-spacing: -.3px; max-width: 30ch; margin: 0 auto; }
+.cf-cta {
+  display: inline-block; margin-top: 24px; background: var(--amarillo); color: var(--tinta);
+  border-radius: 999px; padding: 14px 30px; font-weight: var(--peso-fuerte); font-size: var(--t-base);
+}
+.cf-cta:hover { background: #f5c400; }
+
+.cf-nota { margin-top: 48px; font-size: var(--t-sm); line-height: 1.6; color: #5c4300; }
+
+@media (max-width: 860px) {
+  .cf-hero h1 { font-size: 27px; }
+  .cf-tira { grid-template-columns: repeat(2, 1fr); }
+  .cf-piezas { grid-template-columns: 1fr; }
+  .cf-fila { grid-template-columns: 1fr; gap: 6px; }
+  /* Sin columnas, la tabla necesita decir de quién es cada línea. */
+  .cf-head { display: none; }
+  .cf-antes::before { content: "Hoy · "; font-weight: var(--peso-medio); }
+  .cf-ahora::before { content: "Con Amparito · "; font-weight: var(--peso-medio); }
+  .cf-flecha { display: none; }
+}
+@media (max-width: 520px) {
+  .cf-tira { grid-template-columns: 1fr; }
+  .cf-hero h1 { font-size: 24px; }
+}

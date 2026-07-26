@@ -6,6 +6,16 @@ determinista; el modelo de lenguaje conversa y redacta, no decide.
 
 Next.js 14 (App Router) · TypeScript · Claude Haiku vía Anthropic SDK · SQLite/Turso.
 
+### 👉 [Qué problema resuelve, explicado sin tecnicismos](https://amparito-zeta.vercel.app/como-funciona)
+
+Hoy, comprar un seguro por el canal digital termina en *"muy pronto te contactaremos"* y un correo
+que anuncia contacto en **máximo 3 días hábiles**. Esa página muestra el proceso actual con capturas
+reales, lo compara con lo que hace Amparito, y explica la arquitectura en palabras — pensada para
+quien no lee código. El código de la página está en
+[`app/como-funciona/page.tsx`](app/como-funciona/page.tsx).
+
+Lo que sigue es la documentación técnica: dónde están las compuertas y qué garantiza cada una.
+
 ---
 
 ## Correr
@@ -22,6 +32,7 @@ Sin `TURSO_DATABASE_URL`, el reconocimiento de afiliados usa un sample sintétic
 | Ruta / variable | Efecto |
 |---|---|
 | `/chat` | Flujo normal |
+| `/como-funciona` | El antes y el después del proceso, y la arquitectura sin tecnicismos |
 | `/chat?offline=1` | Reproduce 3 personas end-to-end sin red. Las frases son guionizadas; las tarjetas las produce el motor local |
 | `/chat?evento=credito_vivienda` | Apertura proactiva por evento de vida (también `?evento=bebe`) |
 | `NEXT_PUBLIC_VOICE_ENABLED=true` + `GEMINI_API_KEY` | Habilita voz (Gemini Live). Apagada por defecto; construida y **no validada en vivo** |
@@ -65,13 +76,23 @@ compuertas deterministas en servidor. Lo que sigue documenta dónde están y qu�
 donde vive la garantía.
 
 ```
-navegador ──► /api/chat ──► resolverIdentidad()   identidad, en código (no por tool-choice)
-                        ──► detectarEstado()      qué bloque de prompt viaja este turno
-                        ──► Claude Haiku + tools
-                              └─► executeTool() ──► sanearPerfil()        compuerta de entrada
-                                                ──► calcularPropension()  motor determinista
-                                                ──► registrar()           traza auditable
+navegador ──► /api/chat ──► ejecutarTurno()       lib/turno.ts · el turno entero, con el I/O inyectable
+                              ├─► iniciarTurno()      reducer puro: qué se pregunta y qué se consulta
+                              ├─► resolverIdentidad() identidad, en código (no por tool-choice)
+                              ├─► aplicarIdentidad()  reducer puro
+                              ├─► Claude Haiku + tools
+                              │     └─► executeTool() ──► sanearPerfil()       compuerta de entrada
+                              │                       ──► calcularPropension() motor determinista
+                              │                       ──► registrar()          traza auditable
+                              ├─► guardas del texto    doble cañón · afirmaciones sin respaldo ·
+                              │                        coberturas contradichas · pantallas que no existen
+                              └─► vistaDeEstado()     qué se pinta y en qué orden. El cliente no decide
 ```
+
+El estado de la conversación **no vive en el navegador ni en una base**: lo calcula el servidor, lo
+firma (`lib/estado/sello.ts`) y viaja opaco de ida y vuelta. Antes se re-derivaba cada turno desde
+`messages.length` y dos booleanos que mandaba el cliente, y ahí vivían siete de los bugs del
+inventario.
 
 ### Motor de propensión · `lib/engine/`
 
@@ -115,15 +136,22 @@ ingreso evita vender a quien no puede pagar.
 
 ### Prompt por estado · `lib/prompts.ts`
 
-El servidor calcula el estado y ensambla `BASE + un solo bloque`. Se deriva de lo observable
-(historial + marcador `RECOMENDACION:`) porque `/api/chat` es stateless.
+El servidor calcula la fase desde el estado sellado y ensambla `BASE + un solo bloque`. Los bloques
+son **excluyentes a propósito**: metidos en uno solo se contradecían entre sí — `RECONOCIDO` ordena
+llamar al motor en ese mismo turno y `CONFIRMANDO` ordena justo lo contrario.
 
-| Estado | Comportamiento |
+| Fase | Comportamiento |
 |---|---|
 | `SALUDO` | Pide nombre y motivo en una frase |
+| `VERIFICANDO` | La encontró en la base, pero todavía no puede hablarle de lo suyo: pide un dato que solo ella sabría |
+| `CONFIRMANDO` | Le devuelve lo que Colsubsidio tiene de ella, para que lo corrija. No llama al motor |
 | `RECONOCIDO` | Prohibido perfilar. Recomienda en el mismo turno con el segmento de la base |
 | `DESCUBRIENDO` | Máximo 2 preguntas antes de la primera tarjeta, una por turno |
 | `ASESORANDO` | Cotiza, responde por el producto, confirma, abre formulario |
+
+Mientras no esté verificada, el segmento **no viaja al prompt**. No es una regla pidiéndole discreción
+al modelo: es que el dato no está, y no se puede revelar lo que no se recibe. Sin eso, escribir un
+nombre bastaba para llevarse la edad, la categoría y la composición familiar de esa persona.
 
 La voz usa el prompt completo concatenado: abre sesión larga y no puede reinyectarlo por turno.
 
@@ -184,23 +212,35 @@ tiene, y entonces se responde que lo define la aseguradora. Una prima ≤ 0 lanz
 ## Verificación
 
 ```bash
-npm run gates    # 11 suites
+npm run gates    # 21 suites · 1.078 aserciones
 npm run eval     # solo el eval de conversación
 ```
 
+El runner corre las 21 **sin cortar en el primer fallo** —un rojo escondía el estado de las demás— y
+dice en qué modo corrió: contra Turso o contra el sample sintético de 6. Un verde contra 6 registros
+no significa lo mismo, y callarlo era la mitad del problema.
+
 | Suite | Qué protege |
 |---|---|
+| `test-estado` | El reducer del estado, la vista publicada y el tope de énfasis |
+| `test-orquestador` | El turno entero con el modelo doblado: rondas agotadas, tool que lanza, doble tarjeta |
+| `test-validador` | Las guardas del texto: afirmaciones sobre la base, coberturas contradichas, pantallas que no existen |
 | `test-sanear` | Reproduce una conversación real: los 4 campos fabricados se caen y el top-1 cambia |
 | `test-propension` | Las 3 personas · jerarquía de protección · obligatorios nunca en descartados |
-| `test-prompt-estados` | Aislamiento entre estados: `RECONOCIDO` no trae el presupuesto de preguntas |
+| `test-prompt-estados` | Aislamiento entre fases: `RECONOCIDO` no trae el presupuesto de preguntas |
 | `test-preguntas` | Doble cañón (incluido el caso con un solo `?`) y memoria de lo ya contado |
 | `test-no-venta` | Cero productos de pago sin ingreso; la obligación legal sí se advierte |
+| `test-los-cuatro-no` | Que en toda conversación quepa al menos un «no» honesto |
 | `test-auditoria` | Los pesos suman el score; la traza no contiene PII |
+| `test-tarjetas-del-motor` | Las tarjetas salen del motor, nunca del texto del modelo |
 | `test-primer-toque` | Los atajos llegan al reconocimiento y al `no_venta` |
+| `test-sello` | Toda superficie que promete una entrega carga el sello de simulación |
+| `test-pago` · `test-espera` | El paso de pago y el indicador de espera |
+| `test-traza` · `test-vocabulario` | Lectura de la traza y el vocabulario del copy |
 | `test-offline` | Flujo local completo, con prueba social y cierre rotulado |
 | `test-identidad` | La cascada, en Turso y en el sample |
 | `check-afiliados` | End-to-end base → gateway → motor |
-| `eval-conversacion` | 61 aserciones sobre 9 escenarios |
+| `eval-conversacion` | 69 aserciones sobre 9 escenarios |
 
 El eval alimenta al servidor con la salida que **el modelo mandaría** —deliberadamente adversarial— y
 verifica que las compuertas la neutralicen. Corre sin `ANTHROPIC_API_KEY`.
@@ -240,34 +280,42 @@ columnas del CSV.
 
 ```
 app/
-  api/chat/route.ts        orquestador: identidad, estado, tool-loop, guarda de doble cañón
+  como-funciona/page.tsx   el problema y la solución, para quien no lee código
+  api/chat/route.ts        adaptador HTTP: leer el body, validarlo y no devolver un 500
   api/issue/route.ts       emisión determinista, fuera del loop del LLM
   api/feedback/route.ts    CES + CSAT al cierre
   api/live-token · api/tool   voz (tras flag)
-components/Chat.tsx        UI del chat y todas las tarjetas
+components/Chat.tsx        UI del chat y todas las tarjetas. Pinta; no decide
 lib/
+  turno.ts                 el turno completo, con el I/O inyectable para poder doblarlo en un test
+  estado/                  reducer, contexto del prompt, guardas del texto, vista y sello
   engine/                  motor, compuerta de entrada, peer-group, impacto
   afiliados/               gateway, adaptadores local/Turso, detección, cascada
   insurer/                 contrato de aseguradora + adaptador mock
   demo/                    modo offline (guiones + player)
-  prompts.ts               base + bloque por estado
+  prompts.ts               base + bloque por fase
   tools.ts                 9 tools; punto único de ejecución y de registro
   auditoria.ts             traza de decisiones
 data/                      catálogo, pesos, estadísticas derivadas, sample sintético
-scripts/                   cargadores, 11 gates y el eval
+public/como-funciona/      capturas del proceso actual (el nombre de la persona va tapado)
+scripts/                   cargadores, 21 gates y el eval
 docs/reto/                 especificación, hallazgos, guion, C4
 ```
 
 ## Documentación
 
+- [**`/como-funciona`**](https://amparito-zeta.vercel.app/como-funciona) — el antes y el después del
+  proceso, con capturas reales, y la arquitectura en palabras. Empieza por aquí si no vas a leer código
 - [`15-especificacion-ejecucion.md`](docs/reto/15-especificacion-ejecucion.md) — el QUÉ y el CÓMO:
   capacidades definidas por conducta observable y los bloques que las construyeron
 - [`13-hallazgos-y-prioridades.md`](docs/reto/13-hallazgos-y-prioridades.md) — hallazgos con su
   evidencia y las decisiones tomadas
 - [`14-flujos-ideales.md`](docs/reto/14-flujos-ideales.md) — los dos flujos y la matriz de capacidades
   de asesor
-- [`08-prd.md`](docs/reto/08-prd.md) · [`07-guion-demo.md`](docs/reto/07-guion-demo.md) ·
-  [`arquitectura-c4.html`](docs/reto/arquitectura-c4.html)
+- [`08-prd.md`](docs/reto/08-prd.md) · [`07-guion-demo.md`](docs/reto/07-guion-demo.md)
+- Los `.html` de `docs/reto/` (C4 detallado, flujos) hay que **descargarlos y abrirlos en el
+  navegador**: GitHub no renderiza HTML, así que el enlace muestra el código fuente. Lo que sí se ve
+  con un clic es [`/como-funciona`](https://amparito-zeta.vercel.app/como-funciona)
 
 ---
 
