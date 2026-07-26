@@ -7,7 +7,8 @@
  * Cajamarca" en su primer mensaje y NO PASÓ NADA, porque no existía ningún camino del chat al
  * gateway — el lookup solo se disparaba desde un formulario.
  */
-import { detectarCiudad, detectarNombre } from "../lib/afiliados/deteccion";
+import { detectarNombre } from "../lib/afiliados/deteccion";
+import { soloCiudad } from "../lib/estado/reducir";
 import "./_env";
 import { identidadDe, nombreDePrueba } from "./_identidad";
 
@@ -47,8 +48,12 @@ async function main() {
     const got = detectarNombre(texto, false);
     check(`"${texto}" → ${esperado ?? "(nada)"}`, got === esperado);
   }
-  check('"Bogotá" se lee como ciudad', detectarCiudad("Bogotá") === "bogota");
-  check('"vivo en Cali" → cali', detectarCiudad("vivo en Cali") === "cali");
+  // La ciudad la lee el REDUCER, y solo en el turno siguiente a haberla pedido. Estas dos
+  // aserciones vivían sobre `detectarCiudad`, que ya no llamaba nadie: probaban código muerto.
+  check('"Bogotá" se lee como ciudad', soloCiudad("Bogotá") === "Bogotá");
+  check('"vivo en Cali" → Cali', soloCiudad("vivo en Cali") === "Cali");
+  check("y no se arrastra media frase", soloCiudad("en Santa Marta con mi familia y mis dos hijos")
+    .split(" ").length <= 4);
 
   /* ── 2 · el caso real: decir el nombre AHORA dispara la búsqueda ────────── */
   console.log("\n===== El caso que motivó el bloque =====");
