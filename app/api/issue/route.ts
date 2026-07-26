@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { executeTool, type UiEvent } from "@/lib/tools";
 import { copyCierre } from "@/lib/expedicion";
 import { logToSheets } from "@/lib/sheets";
+import { getInsurerGateway } from "@/lib/insurer/mock-adapter";
+import { getProduct } from "@/lib/catalog";
 
 export const maxDuration = 30;
 
@@ -13,7 +15,37 @@ export const maxDuration = 30;
  */
 export async function POST(req: NextRequest) {
   try {
-    const { quoteId, contacto, consentimiento } = await req.json();
+    const { quoteId, contacto, consentimiento, pagado } = await req.json();
+
+    /*
+     * ── El paso que faltaba: primero se paga ──────────────────────────────────
+     *
+     * El sistema iba del formulario a la emisión sin nada en medio, y el pitch del producto dice
+     * que Amparito "reemplaza el te contactaremos". Sin un pago, lo que reemplazaba el
+     * "te contactaremos" era un formulario — y quien lo llena sigue sin saber si quedó o no.
+     *
+     * El IMPORTE lo pone el servidor leyendo la cotización, no el navegador. El navegador lo tiene
+     * en pantalla, pero cobrar por lo que diga el cliente es de las cosas que no se hacen aunque
+     * hoy sea una simulación: el día que el pago sea real, esta ruta ya está bien.
+     */
+    if (pagado !== true) {
+      const cot = await getInsurerGateway().leerCotizacion?.(String(quoteId ?? ""));
+      const p = cot ? getProduct(cot.productId) : undefined;
+      return NextResponse.json({
+        evento: {
+          type: "pago",
+          data: {
+            quoteId,
+            producto: p?.nombre ?? null,
+            aseguradora: p?.aseguradora ?? null,
+            // Si el adaptador no sabe leer la cotización, se muestra el paso SIN importe en vez de
+            // inventarlo. Un número equivocado en una pantalla de pago es peor que ningún número.
+            prima: cot?.prima ?? null,
+            periodicidad: cot?.periodicidad ?? null,
+          },
+        },
+      });
+    }
 
     if (consentimiento !== true) {
       return NextResponse.json(

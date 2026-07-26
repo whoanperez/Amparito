@@ -26,6 +26,8 @@ export interface UiEvent {
     // "afiliado" vivía aquí: era el hallazgo de identidad que el cliente tenía que recordar y
     // reenviar. Murió con el estado sellado, que es ahora su único portador.
     | "propension" | "impacto" | "feedback"
+    /** El paso que faltaba entre el formulario y la póliza. La emisión la dispara el pago. */
+    | "pago"
     /** Quick-replies. Es ESTADO, no contenido: alimenta `ui.sugerencias`, no pinta tarjeta. */
     | "opciones";
   data: Record<string, unknown>;
