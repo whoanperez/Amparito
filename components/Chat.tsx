@@ -364,8 +364,10 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
   async function submitForm(contacto: Contacto) {
     contactoRef.current = contacto;
     setActiveForm(null);
-    setProcessing("emision");
-    const t0 = Date.now();
+    // Este paso ya NO emite: solo prepara el pago. Narrar "consultando con la aseguradora" y
+    // "generando tu certificado" aquí sería contar un trabajo que no ocurre — y encima cobrando
+    // tres segundos por contarlo. El teatro se mudó a `pagar`, que es donde sí pasa algo.
+    setBusy(true);
     let result: { event?: UiEvent; evento?: UiEvent; closing?: string; error?: string; feedback?: UiEvent } = {};
     try {
       const res = await fetch("/api/issue", {
@@ -375,8 +377,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       });
       result = await res.json();
     } catch { result = { error: "No pudimos emitir en este momento." }; }
-    await sleep(Math.max(0, 3000 - (Date.now() - t0)));
-    setProcessing(null);
+    setBusy(false);
     if (result.evento) {
       // Primero se paga. Antes esto iba directo a la póliza, así que lo que reemplazaba el
       // "te contactaremos" era un formulario — y quien lo llena sigue sin saber si quedó.
@@ -478,7 +479,11 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
               </div>
             </div>
           ) : (
-            <EventCard key={i} event={item.event!} onPagar={item.event!.type === "pago" ? pagar : undefined} />
+            /* Sin `onPagar` el botón queda deshabilitado, y eso es lo correcto en dos casos: mientras
+               hay algo en curso —dos clics serían dos pólizas y dos filas en la hoja— y en el demo
+               offline, donde la reproducción es guionizada y no hay a quién cobrarle. */
+            <EventCard key={i} event={item.event!}
+              onPagar={item.event!.type === "pago" && !locked && !offline ? pagar : undefined} />
           )
         )}
 

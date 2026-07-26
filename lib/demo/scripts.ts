@@ -13,6 +13,15 @@ export interface DemoBeat {
   role: "user" | "assistant";
   say?: string;
   tool?: { name: string; input: Record<string, unknown> };
+  /**
+   * Un evento que el guion pinta tal cual, sin pasar por una tool.
+   *
+   * Lo necesita el paso de pago (5f): en vivo lo produce `/api/issue`, y sin esto el demo offline
+   * volvería a contar una historia distinta de la del producto — el defecto que ya costó un commit
+   * entero. Aquí el botón queda deshabilitado a propósito: la reproducción es guionizada y no hay
+   * a quién cobrarle.
+   */
+  evento?: { type: string; data: Record<string, unknown> };
 }
 
 const contacto = (nombre: string, fechaNacimiento: string) => ({
@@ -34,7 +43,8 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
     { role: "assistant", say: "Aquí está tu cotización. Abajo puedes ver qué te cubre y qué no.", tool: { name: "quote_product", input: { productId: "accidentes_personales_metlife", perfil: { edad: 28, ciudad: "Bogotá" } } } },
     { role: "assistant", say: "¿Avanzamos y te dejo asegurado?" },
     { role: "user", say: "Sí, quiero." },
-    { role: "assistant", say: "Perfecto, con esto queda listo.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Andrés Gómez Ruiz", "15/03/1998") } } },
+    { role: "assistant", say: "Perfecto. Antes de emitir, el pago del primer mes.", evento: { type: "pago", data: { producto: "Seguro de Accidentes Personales", prima: 12900, periodicidad: "mensual" } } },
+    { role: "assistant", say: "Listo, pago recibido.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Andrés Gómez Ruiz", "15/03/1998") } } },
     { role: "assistant", say: `¡Listo, Andrés! Protegido para lo tuyo, sin pagar de más. ${AVISO_SIMULACION}` },
   ],
 
@@ -50,7 +60,8 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
     { role: "assistant", say: "Aquí está. Abajo ves en detalle qué te cubre y qué no.", tool: { name: "quote_product", input: { productId: "vida_panamerican", perfil: { edad: 39, ciudad: "Soacha" } } } },
     { role: "assistant", say: "¿Te gustaría quedar asegurada?" },
     { role: "user", say: "Sí, quiero." },
-    { role: "assistant", say: "Perfecto. Con estos datos queda listo al instante.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Carolina Ramírez López", "22/07/1987") } } },
+    { role: "assistant", say: "Perfecto. Antes de emitir, el pago del primer mes.", evento: { type: "pago", data: { producto: "Seguro de Vida", prima: 27000, periodicidad: "mensual" } } },
+    { role: "assistant", say: "Listo, pago recibido.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Carolina Ramírez López", "22/07/1987") } } },
     { role: "assistant", say: `¡Listo, Carolina! Tu solicitud queda completa. ${AVISO_SIMULACION}` },
   ],
 
@@ -63,7 +74,8 @@ export const DEMO_SCRIPTS: Record<string, DemoBeat[]> = {
     { role: "assistant", say: "Aquí lo tienes, con lo que cubre y lo que no.", tool: { name: "quote_product", input: { productId: "vida_panamerican", perfil: { edad: 58, ciudad: "Bogotá" } } } },
     { role: "assistant", say: "¿Avanzamos?" },
     { role: "user", say: "Sí." },
-    { role: "assistant", say: "Perfecto, Jaime.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Jaime Ortiz Vega", "10/05/1968") } } },
+    { role: "assistant", say: "Perfecto, Jaime. Antes de emitir, el pago del primer mes.", evento: { type: "pago", data: { producto: "Seguro de Vida", prima: 31500, periodicidad: "mensual" } } },
+    { role: "assistant", say: "Listo, pago recibido.", tool: { name: "issue_policy", input: { consentimiento: true, contacto: contacto("Jaime Ortiz Vega", "10/05/1968") } } },
     { role: "assistant", say: `Listo, Jaime. Quedaste con el respaldo que te faltaba. ${AVISO_SIMULACION}` },
   ],
 };
