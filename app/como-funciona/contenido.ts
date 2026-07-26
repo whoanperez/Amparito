@@ -165,3 +165,66 @@ export const PIEZAS = [
   },
 ];
 
+
+/* ── 5 · La solución, en pantallas reales ─────────────────────────────────────
+   ORDENADAS POR EL RECORRIDO, NO POR LA HORA DE CAPTURA. No es lo mismo: la
+   recomendación se capturó a las 8:17 y la portada a las 9:13, así que el orden
+   cronológico contaría la historia al revés. Quien lee necesita el orden en que
+   las cosas le pasan a una persona.
+   ────────────────────────────────────────────────────────────────────────── */
+export const SOLUCION = [
+  {
+    img: "sol-1-portada",
+    alt: "Portada de Amparito con el mensaje «Tus seguros a un clic. Ahora sí, de verdad»",
+    t: "La promesa, sin letra pequeña",
+    d: "«Sin formularios, sin te contactaremos, sin esperas». Lo que se promete arriba es exactamente lo que pasa abajo.",
+  },
+  {
+    img: "sol-2-abre-por-la-vida",
+    alt: "Chat de Amparito con el saludo inicial y botones de respuesta rápida",
+    t: "Abre por la vida, no por el catálogo",
+    d: "No hay menú de productos. Hay una invitación a contar qué cambió — y quien no quiera dar su nombre tiene su botón para seguir igual.",
+  },
+  {
+    img: "sol-3-verificacion",
+    alt: "Tarjeta de verificación de identidad pidiendo la fecha de expedición del documento",
+    t: "Reconoce al afiliado, y lo comprueba",
+    d: "Lo encuentra en la base y le pide un dato que solo él sabría antes de enseñarle nada suyo. Hasta que no lo confirma, sus datos no se usan.",
+  },
+  {
+    img: "sol-4-recomendacion",
+    alt: "Tarjeta «Así analicé tu protección» con el producto recomendado y sus razones",
+    t: "Recomienda con el porqué escrito",
+    d: "No es «te sugerimos esto». Es qué producto, en qué orden y por qué motivo — cada razón viene del motor, no del texto.",
+  },
+  {
+    img: "sol-5-traza",
+    alt: "Traza del cálculo con las señales, sus pesos y la procedencia de cada dato",
+    t: "Y se puede auditar en la misma pantalla",
+    d: "Qué supo de la persona y de dónde lo supo, qué regla aplicó y cuánto pesó cada una. Sin salir de la conversación.",
+  },
+  {
+    img: "sol-6-cotizacion",
+    alt: "Cotización con el precio mensual, qué cubre y qué no cubre",
+    t: "Cotiza con lo que cubre y lo que NO",
+    d: "El precio, el valor asegurado y las exclusiones antes de decidir — que es lo que exige el Art. 9 de la Ley 1328, y aquí llega sin pedirlo.",
+  },
+  {
+    img: "sol-7-pago",
+    alt: "Formulario listo y tarjeta de pago del primer mes",
+    t: "El formulario llega escrito, y se paga ahí",
+    d: "Lo que ya se sabe viene puesto; solo falta lo que nadie tiene. Y el pago va en el mismo hilo, rotulado como simulado.",
+  },
+  {
+    img: "sol-8-poliza",
+    alt: "Certificado simulado con el número de póliza y el cierre explicando los pasos siguientes",
+    t: "Termina con algo en la mano",
+    d: "Número, tomador, vigencia y qué pasa de aquí en adelante. Donde hoy había un «te contactaremos», aquí hay una solicitud completa.",
+  },
+];
+
+/** El video y la aplicación. Van juntos porque son las dos formas de comprobarlo sin leer nada. */
+export const VER_EN_VIVO = {
+  video: "https://www.loom.com/share/3a776d547fc347a8aef9760d202e106d",
+  app: "https://amparito-zeta.vercel.app/chat",
+};

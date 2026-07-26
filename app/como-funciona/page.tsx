@@ -1,6 +1,6 @@
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
-import { COMPARACION, HOY, LAURA, PIEZAS } from "./contenido";
+import { COMPARACION, HOY, LAURA, PIEZAS, SOLUCION, VER_EN_VIVO } from "./contenido";
 
 /**
  * La página que explica el problema y la solución SIN tecnicismos.
@@ -34,6 +34,16 @@ export default function ComoFunciona() {
             Esta página cuenta, sin tecnicismos, cómo se compra un seguro hoy y qué cambia con un
             asesor que conversa. Las capturas del proceso actual son reales.
           </p>
+          {/* Las dos formas de comprobarlo sin leer nada, arriba del todo: quien tenga tres minutos
+              ve el video, y quien tenga cinco lo usa. */}
+          <div className="cf-acciones">
+            <a className="cf-cta" href={VER_EN_VIVO.video} target="_blank" rel="noreferrer">
+              ▶ Ver el video
+            </a>
+            <a className="cf-cta sec" href={VER_EN_VIVO.app} target="_blank" rel="noreferrer">
+              Probarlo tú →
+            </a>
+          </div>
         </header>
 
         {/* ── 1 ─────────────────────────────────────────────────────────── */}
@@ -125,10 +135,46 @@ export default function ComoFunciona() {
           </ol>
         </section>
 
-        {/* ── 4 ─────────────────────────────────────────────────────────── */}
+        {/* ── 4 · La solución, en pantallas reales ──────────────────────── */}
         <section className="cf-sec">
           <h2>
-            <span className="cf-num">4</span> Qué hay por dentro
+            <span className="cf-num">4</span> Y así se ve
+          </h2>
+          <p className="cf-intro">
+            El mismo recorrido, en pantallas de la aplicación funcionando. Ocho pasos, una sola
+            conversación. ¿Prefieres verlo en movimiento?{" "}
+            <a href={VER_EN_VIVO.video} target="_blank" rel="noreferrer">
+              Está en video
+            </a>
+            , o puedes{" "}
+            <a href={VER_EN_VIVO.app} target="_blank" rel="noreferrer">
+              probarlo tú mismo
+            </a>
+            .
+          </p>
+
+          <ol className="cf-pasos">
+            {SOLUCION.map((p, i) => (
+              <li key={p.img}>
+                <div className="cf-paso-txt">
+                  <span className="cf-paso">Paso {i + 1}</span>
+                  <b>{p.t}</b>
+                  <span>{p.d}</span>
+                </div>
+                <a href={`/como-funciona/${p.img}.jpg`} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/como-funciona/${p.img}.jpg`} alt={p.alt} loading="lazy" />
+                  <span className="cf-lupa">Ver completa</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* ── 5 ─────────────────────────────────────────────────────────── */}
+        <section className="cf-sec">
+          <h2>
+            <span className="cf-num">5</span> Qué hay por dentro
           </h2>
           <p className="cf-intro">
             Un diagrama de arquitectura, contado sin tecnicismos. Primero quién habla con quién;
