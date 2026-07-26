@@ -7,6 +7,7 @@ import { UMBRAL_PASOS, esperaRestante, indicadorDeEspera } from "@/lib/ui/espera
 import {
   ETIQUETA_ORIGEN,
   ETIQUETA_RESULTADO,
+  SIN_PROCEDENCIA,
   etiquetaDeCampo,
   explicaGate,
   sumaDelPuntaje,
@@ -865,14 +866,14 @@ function TrazaDecision({ traza }: { traza: TrazaData }) {
             <li key={k}>
               <span className="tz-campo">{etiquetaDeCampo(k)}</span>
               <span className="tz-valor">{valorLegible(v)}</span>
-              <span className={`tz-org ${org}`}>{ETIQUETA_ORIGEN[org] ?? "sin procedencia"}</span>
+              <span className={`tz-org ${org}`}>{ETIQUETA_ORIGEN[org] ?? SIN_PROCEDENCIA}</span>
             </li>
           );
         })}
         {filas.length === 0 && <li>No tenía ningún dato tuyo.</li>}
       </ul>
       <p className="tz-nota">
-        Lo que vino <b>de la base</b> o <b>lo dijiste tú</b> está verificado. Lo que{" "}
+        Lo que vino <b>de la base</b> de Colsubsidio o <b>lo dijiste tú</b> está verificado. Lo que{" "}
         <b>se dedujo</b> puede mover el orden, pero no habilita ninguna afirmación sobre la base de
         afiliados — por eso la prueba social exige los cuatro ejes verificados.
       </p>

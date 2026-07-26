@@ -75,11 +75,21 @@ export function valorLegible(v: unknown): string {
   return String(v);
 }
 
+/**
+ * La procedencia va en una pastilla pequeña y en mayúsculas, así que tiene que caber: la frase
+ * larga vive en la nota de abajo, no repetida en cada fila.
+ *
+ * "sin procedencia" no es un caso decorativo: hoy `ya_cubierto` es el único campo del perfil que
+ * `sanearPerfil` acepta sin registrar de dónde salió. Que se vea es correcto — es un hueco real, y
+ * taparlo con un guion era lo que impedía notarlo.
+ */
 export const ETIQUETA_ORIGEN: Record<string, string> = {
-  base: "de la base de Colsubsidio",
+  base: "de la base",
   declarado: "lo dijiste tú",
   inferido: "se dedujo",
 };
+
+export const SIN_PROCEDENCIA = "sin procedencia";
 
 export const ETIQUETA_RESULTADO: Record<string, string> = {
   recomendado: "te lo recomendé",

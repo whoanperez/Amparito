@@ -146,8 +146,11 @@ check("un número se deja como está", valorLegible(2) === "2");
  *     nada a quien lee; "no entró, y te dije por qué" sí.
  */
 console.log("\n===== Procedencia y resultado, en español =====");
+// La procedencia se pinta en una pastilla de 10.5px EN MAYÚSCULAS: una frase ahí no cabe, parte la
+// fila y deja de leerse. La explicación larga va en la nota de abajo, una sola vez.
 for (const [k, v] of Object.entries(ETIQUETA_ORIGEN)) {
   check(`origen "${k}" → "${v}"`, v.length > 3 && !RASTRO_INTERNO.test(v));
+  check(`  …y cabe en la pastilla`, v.length <= 16, `→ ${v.length} caracteres`);
 }
 for (const [k, v] of Object.entries(ETIQUETA_RESULTADO)) {
   check(`resultado "${k}" → "${v}"`, v.length > 3 && !RASTRO_INTERNO.test(v));
