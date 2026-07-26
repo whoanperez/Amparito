@@ -103,6 +103,66 @@ const TERMINOS_MASCOTA: Record<string, string[]> = {
   gato: ["gato", "gata", "gatico", "michi", "mascota"],
 };
 
+/**
+ * ── `ya_cubierto`: la compuerta que faltaba ────────────────────────────────
+ *
+ * Era el ÚNICO campo del perfil que se aceptaba sin verificar contra el texto de la persona y sin
+ * registrar procedencia. Y es el de más consecuencia: el scorecard le resta 100 puntos al producto
+ * marcado, así que un modelo que escriba `ya_cubierto: ["vida"]` por su cuenta SUPRIME una
+ * recomendación — en silencio, sin que la persona vea nunca el producto que se le quitó. Es la
+ * imagen espejo del defecto que ya se cerró con `sin_ingresos`, donde el modelo podía inventar una
+ * no-venta; aquí puede inventar una supresión.
+ *
+ * EL RIESGO DE LA COMPUERTA INGENUA. Buscar la palabra "vida" en el texto sería peor que no tener
+ * compuerta: "quiero un seguro de vida" contiene "vida", y aceptarlo apagaría el producto que la
+ * persona acaba de pedir. Por eso se exige POSESIÓN y se descarta la INTENCIÓN, en la misma
+ * oración — la intención de comprar y el hecho de tener se escriben con las mismas palabras y solo
+ * las separa el verbo.
+ *
+ * DE QUÉ LADO FALLA. Si la compuerta no reconoce una forma de decirlo, Amparito recomienda algo que
+ * la persona ya tiene: incómodo, visible y corregible en la conversación siguiente. Al revés —lo de
+ * hoy— se le quita un producto sin que nadie se entere. Se prefiere el error que se ve.
+ */
+const COBERTURAS = ["exequial", "vida", "soat", "hogar", "accidentes", "mascota"];
+
+/** Tener, en las formas en que la gente lo dice. */
+const POSEE =
+  /\b(ya\s+)?(tengo|tenemos|tiene|cuento con|contamos con|contrat[eo]|adquiri|maneja|pago|estoy (asegurad|cubiert)|estamos (asegurad|cubiert)|me cubre|nos cubre|cubierto por|viene con|me lo da|me lo dio)\b/;
+
+/**
+ * Querer, buscar o NO tener. Manda sobre `POSEE` dentro de la misma oración: "no tengo exequial" y
+ * "quiero tener un seguro de vida" contienen ambos un verbo de posesión.
+ */
+const NO_POSEE =
+  /\b(no|quiero|queria|quisiera|necesito|busco|buscando|me interesa|me gustaria|cotizar|cotiza|averiguar|pensando en|deberia|deber[ií]a|me falta|sin)\b/;
+
+/** Cómo se nombra cada cobertura. Solo términos que no se confunden con otra cosa. */
+const TERMINOS_COBERTURA: Record<string, string[]> = {
+  exequial: ["exequial", "exequias", "funerario", "funeraria", "plan funerario"],
+  vida: ["seguro de vida", "poliza de vida", "de vida", "vida"],
+  soat: ["soat"],
+  hogar: ["seguro de hogar", "poliza de hogar", "hogar asegurad", "seguro para la casa", "asegurada la casa", "asegurado el apartamento", "contenidos"],
+  accidentes: ["accidentes personales", "accidentes"],
+  mascota: ["seguro de mascota", "seguro para el perro", "seguro para el gato", "poliza de mascota", "prepagada de mascota", "prepagada para el perro", "mascota asegurad"],
+};
+
+/** Trocea por oración: la posesión y la intención tienen que competir en el mismo tramo. */
+const oraciones = (t: string) => t.split(/[.?!;,\n]+/).map((s) => s.trim()).filter(Boolean);
+
+/**
+ * ¿La persona DIJO que ya tiene esta cobertura?
+ *
+ * Exige, en una misma oración: un término de la cobertura + un verbo de posesión + ninguna marca de
+ * intención o negación.
+ */
+export function declaroQueTiene(textoNormalizado: string, cobertura: string): boolean {
+  const terminos = TERMINOS_COBERTURA[cobertura];
+  if (!terminos) return false;
+  return oraciones(textoNormalizado).some(
+    (o) => terminos.some((t) => o.includes(t)) && POSEE.test(o) && !NO_POSEE.test(o)
+  );
+}
+
 export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   const src = (bruto ?? {}) as Record<string, unknown>;
   const texto = norm(ctx.textoUsuario ?? "");
@@ -296,12 +356,25 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
 
   /* ── ya_cubierto y marca ───────────────────────────────────────────────── */
 
-  const COBERTURAS = ["exequial", "vida", "soat", "hogar", "accidentes", "mascota"];
   if (Array.isArray(src.ya_cubierto)) {
-    const vals = (src.ya_cubierto as unknown[]).map(String).filter((v) => COBERTURAS.includes(v));
+    const vals = (src.ya_cubierto as unknown[])
+      .map(String)
+      .filter((v) => COBERTURAS.includes(v));
+    const conEvidencia: string[] = [];
+    for (const v of vals) {
+      // Ya venía de antes: la evidencia se dio en su momento y no se vuelve a pedir.
+      if (restoPrevio.ya_cubierto?.includes(v)) { conEvidencia.push(v); continue; }
+      if (declaroQueTiene(texto, v)) conEvidencia.push(v);
+      else descartes.push(`ya_cubierto.${v}: la persona no dijo que ya lo tiene, descartado`);
+    }
     // También se une: `ya_cubierto` dispara el anti-venta ("eso ya lo tienes"), así que perder
     // una cobertura mencionada tres turnos atrás es venderle algo que ya tiene.
-    if (vals.length) perfil.ya_cubierto = unir(restoPrevio.ya_cubierto, vals);
+    if (conEvidencia.length) {
+      perfil.ya_cubierto = unir(restoPrevio.ya_cubierto, conEvidencia);
+      // El único campo del perfil que se aceptaba SIN registrar de dónde salió. La traza lo
+      // mostraba como "sin procedencia", que era literalmente cierto.
+      origen.ya_cubierto = origen.ya_cubierto ?? "declarado";
+    }
   }
   // `marca.*` son datos de consumo de la base: el LLM no los puede conocer.
   if (src.marca && !ctx.segmentoBase) {

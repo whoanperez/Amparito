@@ -199,5 +199,64 @@ const conPerfil = resumenEvidencia("¿y eso qué cubre?", turno2.perfil) ?? "";
 check("un campo ya confirmado cuenta como sabido", conPerfil.includes("moto"));
 check("y por tanto no aparece como pendiente", !/Falta por saber:[^\n]*vehículo/.test(conPerfil));
 
+/* ── 6 · `ya_cubierto`: el campo que se aceptaba sin evidencia ─────────────── */
+/*
+ * POR QUÉ. Era el único campo del perfil que entraba sin verificarse contra el texto y sin
+ * registrar procedencia — y es el que más pesa: el scorecard le resta 100 puntos al producto
+ * marcado. Un modelo que escriba `ya_cubierto: ["vida"]` por su cuenta SUPRIME una recomendación
+ * sin que la persona vea nunca lo que se le quitó. Espejo exacto del defecto de `sin_ingresos`.
+ *
+ * El caso peligroso es el tercero: "quiero un seguro de vida" contiene la palabra "vida", así que
+ * una compuerta que solo busque el término apagaría justo el producto que la persona acaba de
+ * pedir. Se exige posesión y se descarta intención, en la misma oración.
+ */
+console.log("\n===== ya_cubierto exige que lo hayas dicho =====");
+
+const ACEPTA: Array<[string, string]> = [
+  ["vida", "ya tengo un seguro de vida con Colsubsidio"],
+  ["soat", "tengo el SOAT al día"],
+  ["exequial", "ya tengo exequial, mi mamá lo pagó"],
+  ["hogar", "tengo asegurada la casa"],
+  ["accidentes", "mi empresa me cubre con accidentes personales"],
+  ["mascota", "cuento con un seguro de mascota para mi perro"],
+];
+for (const [cob, texto] of ACEPTA) {
+  const s = sanearPerfil({ ya_cubierto: [cob] }, { textoUsuario: texto });
+  check(`"${texto}" → ${cob} entra`, (s.perfil.ya_cubierto ?? []).includes(cob));
+  check(`  …y queda registrado como declarado`, s.perfil._origen?.ya_cubierto === "declarado");
+}
+
+const RECHAZA: Array<[string, string]> = [
+  ["vida", "quiero un seguro de vida"],
+  ["vida", "no tengo seguro de vida"],
+  ["vida", "estoy buscando algo de vida para mi familia"],
+  ["exequial", "estoy pensando en un plan funerario"],
+  ["accidentes", "me interesa cotizar accidentes personales"],
+  ["soat", "necesito sacar el SOAT"],
+  ["hogar", "quiero proteger mi hogar"],
+];
+for (const [cob, texto] of RECHAZA) {
+  const s = sanearPerfil({ ya_cubierto: [cob] }, { textoUsuario: texto });
+  check(`"${texto}" → ${cob} NO entra`, !(s.perfil.ya_cubierto ?? []).includes(cob));
+  check(`  …y queda el descarte`, s.descartes.some((d) => d.includes(`ya_cubierto.${cob}`)));
+}
+
+// La consecuencia real, de punta a punta: sin la compuerta, el producto pedido desaparece.
+const inventado = sanearPerfil({ ya_cubierto: ["vida"] }, { textoUsuario: "quiero un seguro de vida para mi familia" });
+const rInventado = calcularPropension({ ...inventado.perfil, SEGMENTO_GRUPO_FAMILIAR: "Nuclear integral" });
+check("el modelo no puede apagar el producto que la persona acaba de pedir",
+  rInventado.recomendaciones.some((r) => /Vida/i.test(r.nombre)),
+  `→ ${rInventado.recomendaciones.map((r) => r.nombre).join(", ") || "ninguna"}`);
+
+// Lo ganado no se vuelve a pedir: la evidencia se dio en el turno en que se dio.
+const t1 = sanearPerfil({ ya_cubierto: ["exequial"] }, { textoUsuario: "ya tengo exequial" });
+const t2 = sanearPerfil(
+  { ya_cubierto: ["exequial"] },
+  { textoUsuario: "¿y eso qué cubre?", perfilPrevio: t1.perfil }
+);
+check("una cobertura ya aceptada sobrevive aunque este turno no la mencione",
+  (t2.perfil.ya_cubierto ?? []).includes("exequial"));
+check("y conserva su procedencia", t2.perfil._origen?.ya_cubierto === "declarado");
+
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);
