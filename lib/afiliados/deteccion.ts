@@ -1,3 +1,5 @@
+import { MASCOTAS, VEHICULOS, VIVIENDA, aplanar, menciona } from "../vocabulario";
+
 /**
  * Detección del nombre en lenguaje natural, EN CÓDIGO.
  *
@@ -44,7 +46,15 @@ const limpio = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const esTokenDeNombre = (t: string) => t.length >= 2 && !STOP.has(t);
+/*
+ * Las palabras del dominio tampoco son parte de un nombre, y se TOMAN del vocabulario compartido
+ * (#43) en vez de repetirse aquí. STOP tenía "moto", "carro" y "bici" pero no "camioneta",
+ * "scooter" ni "motocicleta": la tercera lista del mismo dominio, divergida de las otras dos.
+ */
+const DOMINIO = [...aplanar(VEHICULOS), ...aplanar(MASCOTAS), ...VIVIENDA].filter((t) => !t.includes(" "));
+
+const esTokenDeNombre = (t: string) =>
+  t.length >= 2 && !STOP.has(t) && !menciona(t, DOMINIO);
 
 /**
  * Extrae un nombre candidato del mensaje. Devuelve `null` si no parece haber uno.

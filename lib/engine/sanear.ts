@@ -19,6 +19,7 @@
  * el mensaje de Amparito, no en el del usuario — así que el chequeo lo rechaza correctamente.
  */
 import type { Perfil } from "./types";
+import { MASCOTAS, VEHICULOS, VIVIENDA, menciona as mencionaTermino } from "../vocabulario";
 
 export type Origen = "base" | "declarado" | "inferido";
 
@@ -70,16 +71,14 @@ export const ENUM: Record<string, readonly string[]> = {
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/** Términos que prueban que la persona habló de su VIVIENDA (no de otra cosa "propia"). */
-const TERMINOS_VIVIENDA = ["casa", "apartamento", "apto", "vivienda", "arriend", "inmueble", "finca", "propiedad", "vivo en"];
-
-/** Cada tipo de vehículo se acepta solo si la persona nombró ESE tipo. */
-const TERMINOS_VEHICULO: Record<string, string[]> = {
-  carro: ["carro", "automovil", "auto", "camioneta", "vehiculo"],
-  moto: ["moto", "motocicleta", "scooter"],
-  bici: ["bici", "bicicleta"],
-  patineta: ["patineta", "monopatin", "scooter electric"],
-};
+/*
+ * El vocabulario ya no vive aquí: `lib/vocabulario.ts` lo comparte con `prompts.ts` (temas de
+ * pregunta) y `deteccion.ts` (palabras que no son un nombre). Eran tres listas que ya habían
+ * divergido — y las tres comparaban con `includes` a secas, así que "sí, autorizo" probaba que la
+ * persona tiene carro. Ver el encabezado de ese archivo.
+ */
+const TERMINOS_VIVIENDA = VIVIENDA;
+const TERMINOS_VEHICULO = VEHICULOS;
 
 /**
  * Falta de ingreso HOY. Van con negación explícita a propósito: "trabajo en una empresa" y
@@ -98,10 +97,7 @@ const SIN_INGRESOS: RegExp[] = [
   /\bme sacaron del trabajo\b/,
 ];
 
-const TERMINOS_MASCOTA: Record<string, string[]> = {
-  perro: ["perro", "perra", "perrito", "cachorro", "mascota"],
-  gato: ["gato", "gata", "gatico", "michi", "mascota"],
-};
+const TERMINOS_MASCOTA = MASCOTAS;
 
 /**
  * ── `ya_cubierto`: la compuerta que faltaba ────────────────────────────────
@@ -175,7 +171,7 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   const origen: Record<string, Origen> = { ...(origenPrevio ?? {}) };
   const perfil: Record<string, unknown> = { ...restoPrevio };
 
-  const menciona = (terminos: string[]) => terminos.some((t) => texto.includes(t));
+  const menciona = (terminos: readonly string[]) => mencionaTermino(texto, terminos);
   const enEnum = (campo: string, v: unknown) =>
     typeof v === "string" && ENUM[campo].includes(v);
 
@@ -400,7 +396,7 @@ export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): s
   const enr = perfilPrevio?.enriquecido ?? {};
   const tienePerfil = Object.keys(enr).length > 0;
   if (!texto.trim() && !tienePerfil) return null;
-  const menciona = (t: string[]) => t.some((x) => texto.includes(x));
+  const menciona = (t: readonly string[]) => mencionaTermino(texto, t);
 
   // El TEXTO manda para decidir qué no volver a preguntar: recoge lo que la persona mencionó,
   // aunque el modelo no lo haya capturado en el perfil. El PERFIL suma lo que además ya está
@@ -416,12 +412,14 @@ export function resumenEvidencia(textoUsuario: string, perfilPrevio?: Perfil): s
   ]));
   const hablóDeVivienda = menciona(TERMINOS_VIVIENDA) || enr.vivienda !== undefined;
   const hablóDeDependientes =
+    // Los términos siguen la convención de lib/vocabulario.ts: `*` = prefijo, sin `*` = palabra
+    // exacta. Antes eran `includes` a secas, con el mismo riesgo que hundió a "auto"/"autorizo".
     menciona([
-      "hijo", "hija", "hijos", "esposa", "esposo", "pareja", "mama", "papa", "madre", "padre",
-      "depende", "dependen", "a cargo", "solo yo", "nadie",
+      "hijo*", "hija*", "esposa*", "esposo*", "pareja*", "mama", "papa", "madre", "padre",
+      "depend*", "a cargo", "solo yo", "nadie",
     ]) || enr.dependientes !== undefined;
   const hablóDeIngreso =
-    menciona(["ingreso", "gano", "sueldo", "salario", "trabajo", "empleo", "desemplead"]) ||
+    menciona(["ingreso*", "gano", "sueldo*", "salario*", "trabaj*", "emple*", "desemplead*"]) ||
     enr.sin_ingresos !== undefined;
 
   const sabe: string[] = [];

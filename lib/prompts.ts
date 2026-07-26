@@ -15,6 +15,7 @@
  * del motor. Este módulo solo ensambla el bloque que corresponde a la fase que le dan.
  */
 import type { Fase } from "./estado/tipos";
+import { MASCOTAS, VEHICULOS, VIVIENDA, aplanar, menciona } from "./vocabulario";
 
 /**
  * Es la `Fase` del estado, no un tipo aparte. Se declaraba con los mismos cuatro valores en dos
@@ -258,11 +259,14 @@ Recuerda: primero la compuerta (A, B o C), UNA sola pregunta por turno, texto pl
  * Se cuentan SUSTANTIVOS de tema, no cualquier "o": así "¿la usas para el diario, para trabajar,
  * o de vez en cuando?" sigue siendo una sola pregunta con tres opciones, que es válida y deseable.
  */
-const TEMAS: Record<string, string[]> = {
-  vehiculo: ["vehiculo", "carro", "moto", "bici", "patineta", "camioneta", "automovil"],
-  vivienda: ["vivienda", "casa", "apartamento", "apto", "arriendo", "inmueble"],
+const TEMAS: Record<string, readonly string[]> = {
+  // Vehículo, vivienda y mascota se TOMAN del vocabulario compartido en vez de copiarse (#43).
+  // Eran tres listas del mismo dominio y ya habían divergido: "scooter" estaba en una, "camioneta"
+  // en otra, "monopatín" en ninguna de las que decidían.
+  vehiculo: aplanar(VEHICULOS),
+  vivienda: VIVIENDA,
   familia: ["hijo", "hijos", "esposa", "esposo", "pareja", "familia", "dependen", "depende"],
-  mascota: ["mascota", "perro", "gato"],
+  mascota: aplanar(MASCOTAS),
   // "ingreso" NO va aquí: "¿alguien depende de tu ingreso?" es UNA pregunta (familia + ingreso van
   // juntos en este dominio), y es justo la de mayor valor informativo. Solo términos de monto.
   dinero: ["sueldo", "salario", "presupuesto", "cuanto ganas"],
@@ -289,7 +293,7 @@ export function esDobleCanon(texto: string): boolean {
     .filter((s) => s.includes("?"));
 
   return preguntas.some((p) => {
-    const tocados = Object.values(TEMAS).filter((terminos) => terminos.some((t) => p.includes(t)));
+    const tocados = Object.values(TEMAS).filter((terminos) => menciona(p, terminos));
     return tocados.length >= 2;
   });
 }
