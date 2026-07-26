@@ -29,6 +29,7 @@ const SUITES = [
   "test-prompt-estados.ts",
   "test-preguntas.ts",
   "test-no-venta.ts",
+  "test-los-cuatro-no.ts",
   "test-auditoria.ts",
   "test-tarjetas-del-motor.ts",
   "test-primer-toque.ts",

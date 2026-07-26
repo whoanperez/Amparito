@@ -5,6 +5,7 @@ import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
 import { sanearPerfil, declaroSinIngresos, normalizar, type SanearCtx } from "./engine/sanear";
+import { nosHonestos, instruccionDeNos } from "./engine/nos";
 import { registrar } from "./auditoria";
 import { Perfil } from "./engine/types";
 
@@ -324,11 +325,23 @@ async function ejecutar(
             ? "Estos campos NO se usaron porque no vinieron de la base ni la persona los dijo. No los " +
               "des por ciertos ni los menciones como si los supieras: si alguno importa, pregúntalo."
             : undefined,
+          /*
+           * Antes esto decía "NO la menciones ni la aproximes", y un modelo que obedece se CALLA.
+           * Ahí se perdía el tercero de los cuatro NO —"no te lo afirmo, no lo sé"—, que es de los
+           * momentos que más confianza ganan y el único que este camino puede mostrar.
+           *
+           * No afirmar y no hablar no son lo mismo. La instrucción ahora pide lo primero.
+           */
+          // El material del NO honesto, que hasta ahora el modelo tenía que deducir de mirar tres
+          // campos distintos. Ver `lib/engine/nos.ts`.
+          nos_honestos: nosHonestos(prop),
+          instruccion_nos: instruccionDeNos(nosHonestos(prop)),
           instruccion_peer: prop.peer
             ? undefined
-            : "No hay prueba social para este perfil. NO la menciones ni la aproximes. Si la persona " +
-              "no está identificada, puedes invitarla: con su nombre podrías decirle cuántos afiliados " +
-              "como ella hay en Colsubsidio.",
+            : "No hay prueba social verificada para este perfil: NO afirmes ni aproximes ningún " +
+              "número de personas parecidas. Si viene al caso, dilo — que no se lo puedes afirmar y " +
+              "por qué —, con tus palabras. Callarlo no es más prudente que decirlo. Si no está " +
+              "identificada, puedes invitarla: con su nombre podrías decírselo.",
         },
         event: { type: "propension", data: prop as unknown as Record<string, unknown> },
       };
