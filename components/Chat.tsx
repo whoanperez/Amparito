@@ -15,7 +15,7 @@ import {
 } from "@/lib/ui/traza";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
-import { SALUDO_INICIAL } from "@/lib/estado/vista";
+import { SALUDO_INICIAL, esVinieta, textoDeVinieta, trozosDe } from "@/lib/estado/vista";
 import type { Bloque, Rec, UiEvent, UiVista } from "@/lib/estado/tipos";
 
 // `UiEvent` y `Rec` se IMPORTAN, ya no se copian. La copia existía porque el tipo vivía en
@@ -461,7 +461,9 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       <div className="msgs">
         {items.map((item, i) =>
           item.kind === "msg" ? (
-            <div key={i} className={`msg ${item.role === "user" ? "user" : "bot"}`}>{item.text}</div>
+            <div key={i} className={`msg ${item.role === "user" ? "user" : "bot"}`}>
+              {item.role === "user" ? item.text : <TextoDeAmparito texto={item.text ?? ""} />}
+            </div>
           ) : item.kind === "recommend" ? (
             <RecommendCards key={i} recs={item.recs!} onPick={(n) => send(`Quiero el ${n}`)} />
           ) : item.kind === "video" ? (
@@ -592,6 +594,47 @@ function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * Lo que escribe Amparito, con la poca jerarquía que se le permite.
+ *
+ * Hasta ahora el texto salía como una cadena pelada: `{item.text}`. Y el servidor, además, borraba
+ * las negritas y las viñetas antes de mandarlo. Entre las dos cosas, cada mensaje era un bloque
+ * donde todo pesaba lo mismo — incluidos los que más peso tienen: por qué este seguro y no otro,
+ * qué NO cubre.
+ *
+ * Construye NODOS, no HTML: no hay `dangerouslySetInnerHTML` por ninguna parte. Lo que llega ya
+ * viene normalizado y con el énfasis topado en servidor (`MAX_ENFASIS`), así que aquí no se decide
+ * nada — se pinta.
+ */
+function TextoDeAmparito({ texto }: { texto: string }) {
+  const lineas = texto.split("\n");
+  const bloques: Array<{ tipo: "p" | "ul"; lineas: string[] }> = [];
+  for (const l of lineas) {
+    const tipo = esVinieta(l) ? "ul" : "p";
+    const ultimo = bloques[bloques.length - 1];
+    // Las viñetas seguidas se agrupan en una sola lista; los párrafos van sueltos.
+    if (ultimo && ultimo.tipo === "ul" && tipo === "ul") ultimo.lineas.push(l);
+    else bloques.push({ tipo, lineas: [l] });
+  }
+
+  const pinta = (l: string, k: number) =>
+    trozosDe(l).map((t, i) => (t.fuerte ? <strong key={i}>{t.texto}</strong> : <span key={i}>{t.texto}</span>));
+
+  return (
+    <>
+      {bloques.map((b, i) =>
+        b.tipo === "ul" ? (
+          <ul className="msg-lista" key={i}>
+            {b.lineas.map((l, j) => <li key={j}>{pinta(textoDeVinieta(l), j)}</li>)}
+          </ul>
+        ) : (
+          <p className="msg-p" key={i}>{b.lineas.map((l, j) => pinta(l, j))}</p>
+        )
+      )}
+    </>
   );
 }
 

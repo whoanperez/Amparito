@@ -46,20 +46,81 @@ export const SALUDO_INICIAL =
 const NO_PINTAN = new Set(["form", "opciones"]);
 
 /**
- * Quita el markdown que Amparito no debería estar escribiendo. Vive en el servidor porque el
- * servidor es quien produce el bloque de texto — y aquí sí lo cubre un gate, cosa que nunca pasó
- * mientras estuvo dentro del componente sin exportar.
+ * Cuánta énfasis se permite por mensaje.
+ *
+ * Es un TOPE EN SERVIDOR, no una petición al prompt. Si el modelo resalta seis cosas no resalta
+ * ninguna: la jerarquía se destruye por exceso, no por defecto. Las que sobran se quedan sin
+ * marcar, en vez de tirar el mensaje entero.
+ */
+export const MAX_ENFASIS = 2;
+
+/**
+ * Normaliza el texto que escribe Amparito.
+ *
+ * ── POR QUÉ CAMBIÓ ────────────────────────────────────────────────────────
+ *
+ * Esta función BORRABA las negritas, los títulos y las viñetas, y el prompt además le prohibía al
+ * modelo usarlas. Entre las dos cosas, el resultado era inevitable: párrafos de cuatro líneas
+ * donde todo pesa lo mismo, justo en los mensajes que más peso tienen — el que explica por qué un
+ * seguro y no otro, el que dice qué NO cubre.
+ *
+ * La regla se puso por un motivo real: se colaban asteriscos crudos en pantalla. El arreglo fue
+ * correcto y la consecuencia no se pensó. Se arregla al revés: en vez de BORRAR el markdown, se
+ * admite un subconjunto corto y CONTROLADO —negrita y viñetas, nada más— y se renderiza.
+ *
+ * Lo que sigue fuera: títulos, cursivas, comillas de énfasis, backticks. Un chat de seguros no
+ * necesita un `##`, y la cursiva se confunde con el asterisco suelto que empezó todo esto.
  */
 export function limpiarTexto(raw: string): string {
-  return raw
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
+  let t = (raw ?? "")
     .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^\s*[-•]\s+/gm, "")
     .replace(/`/g, "")
+    // Cursiva fuera: un asterisco suelto es lo que se colaba antes. `(?<!\*)` y `(?!\*)` evitan
+    // que este barrido se coma la negrita.
+    .replace(/(?<!\*)\*(?!\*)([^*\n]+)\*(?!\*)/g, "$1")
+    .replace(/^\s*[•]\s+/gm, "- ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  // El tope. Se quita la MARCA, no el texto: pasarse de énfasis no puede costarle una frase a nadie.
+  let n = 0;
+  t = t.replace(/\*\*(.+?)\*\*/g, (_, x) => (++n <= MAX_ENFASIS ? `**${x}**` : String(x)));
+  return t;
 }
+
+/** Un trozo de línea, con o sin énfasis. La UI lo pinta; aquí se decide qué es qué. */
+export interface Trozo {
+  texto: string;
+  fuerte?: boolean;
+}
+
+/**
+ * Parte una línea en trozos con y sin énfasis.
+ *
+ * Vive aquí y no en el componente por lo de siempre: dentro del componente no lo cubre ningún
+ * gate. Y devuelve datos, no HTML — el cliente construye nodos, así que no hace falta inyectar
+ * marcado en el DOM.
+ */
+export function trozosDe(linea: string): Trozo[] {
+  const out: Trozo[] = [];
+  let resto = linea;
+  const re = /\*\*(.+?)\*\*/;
+  let m = re.exec(resto);
+  while (m) {
+    if (m.index > 0) out.push({ texto: resto.slice(0, m.index) });
+    out.push({ texto: m[1], fuerte: true });
+    resto = resto.slice(m.index + m[0].length);
+    m = re.exec(resto);
+  }
+  if (resto) out.push({ texto: resto });
+  return out;
+}
+
+/** ¿Esta línea es una viñeta? `limpiarTexto` ya normalizó `•` a `- `. */
+export const esVinieta = (linea: string): boolean => /^\s*-\s+/.test(linea);
+
+/** El contenido de la viñeta, sin el guion. */
+export const textoDeVinieta = (linea: string): string => linea.replace(/^\s*-\s+/, "");
 
 /**
  * Construye las tarjetas seleccionables desde el evento del motor — nombre, orden y razón vienen

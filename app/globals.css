@@ -576,6 +576,17 @@ a { text-decoration: none; color: inherit; }
    identificador interno del motor ya no sale a pantalla. */
 /* De dónde salió lo que el formulario trae ya escrito. Pequeño y al lado de la etiqueta: informa
    sin competir con el campo. */
+/* Lo que escribe Amparito. El énfasis va como MARCADOR, no como negrita a secas: el amarillo es
+   el color de la marca y el ojo lo encuentra sin que el mensaje parezca un formulario. Está topado
+   en dos por mensaje desde el servidor, así que no puede convertirse en ruido. */
+.msg.bot strong { font-weight: 700; background: linear-gradient(transparent 62%, var(--amarillo) 62%); padding: 0 1px; }
+.msg-p { margin: 0; }
+.msg-p + .msg-p, .msg-p + .msg-lista, .msg-lista + .msg-p { margin-top: .6em; }
+.msg-lista { margin: 0; padding-left: 1.05em; list-style: none; }
+.msg-lista li { position: relative; margin-bottom: .25em; }
+.msg-lista li::before { content: "•"; position: absolute; left: -1.05em; color: var(--azul); font-weight: 700; }
+.msg-lista li:last-child { margin-bottom: 0; }
+
 /* Tarjeta de pago. El sello va ENCIMA del botón a propósito: nadie debe poder tocarlo creyendo
    que se le cobra de verdad. */
 .pagocard { align-self: stretch; width: 100%; background: var(--blanco); border: 2px solid var(--amarillo); border-radius: 14px; padding: 14px 16px; }
