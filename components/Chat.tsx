@@ -946,7 +946,7 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
       {peer && peer.n > 0 && (
         <div className="pp-peer">
           No es una corazonada: lo calculé sobre el perfil de <b>{peer.n.toLocaleString("es-CO")}</b>{" "}
-          afiliados en tu misma situación, con reglas que puedes ver aquí abajo.
+          afiliados en tu misma situación, con reglas que se pueden revisar.
         </div>
       )}
 

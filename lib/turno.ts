@@ -208,7 +208,13 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // cotiza, es decir donde de verdad preguntaba de más: a Carolina le pedía la edad, los
   // dependientes y el ingreso teniendo su segmento verificado en la mano. El bloque sabe adaptarse
   // (`puedePreguntar`): en ASESORANDO deja de invitar a preguntar y pasa a frenarlo.
-  const puedePreguntar = estado.fase === "DESCUBRIENDO" || estado.fase === "RECONOCIDO";
+  /*
+   * Solo DESCUBRIENDO invita a preguntar. El bloque CORRE en todas las fases —eso es 5b, y es lo
+   * que impide repreguntar—, pero invitar es otra cosa: RECONOCIDO dice "SALTA el descubrimiento
+   * por completo", así que un bloque diciéndole "empieza por el primero" lo contradecía dentro del
+   * mismo prompt. El punto 6 lo hizo más ruidoso al ordenar la lista y empujar a usarla.
+   */
+  const puedePreguntar = estado.fase === "DESCUBRIENDO";
   const evidencia = resumenEvidencia(textoUsuario, estado.perfil, {
     puedePreguntar,
     // El segmento verificado se resuelve al decir el nombre; el perfil solo lo recibe cuando el

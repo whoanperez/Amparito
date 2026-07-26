@@ -63,14 +63,11 @@ function primerTurnoReconocida(e: EstadoConversacion): string {
   ].filter(Boolean);
 
   return (
-    `## CONFIRMÓ QUE ES ELLA — DEVUÉLVELE LO QUE SABEMOS, ANTES DE RECOMENDAR\n` +
-    `Este turno NO es para recomendar y NO llames a calcular_propension todavía.\n` +
-    `Salúdala con "${saludo}, ${primerNombre}" y muéstrale, en TRES LÍNEAS CORTAS y en humano, lo ` +
-    `que Colsubsidio tiene de ella para no preguntárselo: ${lineas.join("; ")}.\n` +
+    `## LO QUE TIENES QUE DEVOLVERLE\n` +
+    `Saluda con "${saludo}, ${primerNombre}".\n` +
+    `Esto es lo que Colsubsidio tiene de ella: ${lineas.join("; ")}.\n` +
     `Tradúcelo a cómo vive, no a cómo está clasificada: "sostienes sola tu hogar" en vez de ` +
-    `"monoparental", "entre 36 y 45" en vez de "rango 36 a 45 años". NUNCA como ficha de datos.\n` +
-    `Cierra preguntando si está bien así o si algo cambió. Es una invitación a corregir, no un ` +
-    `permiso para avanzar: si dice que sí, o si simplemente sigue contándote algo, avanzas.`
+    `"monoparental", "entre 36 y 45" en vez de "rango 36 a 45 años". NUNCA como ficha de datos.`
   );
 }
 

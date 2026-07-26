@@ -84,7 +84,7 @@ async function main() {
      */
     const v = await identidadVerificada(`soy ${nombreReal}`);
     check("tras verificar, el turno es para devolverle lo que sabemos",
-      /DEVUÉLVELE LO QUE SABEMOS/.test(v.contexto));
+      /LO QUE TIENES QUE DEVOLVERLE/.test(v.contexto));
     check("y ahí todavía NO se llama al motor", !v.contexto.includes("SEGMENTO VERIFICADO"));
 
     const c = await identidadConfirmada(`soy ${nombreReal}`);

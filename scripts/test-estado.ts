@@ -24,6 +24,7 @@ import {
 } from "../lib/estado/vista";
 import { sellar, abrir, abrirOInicial } from "../lib/estado/sello";
 import { contextoDeEstado, AVISO_VERIFICACION } from "../lib/estado/contexto";
+import { buildSystemPrompt } from "../lib/prompts";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
@@ -217,15 +218,21 @@ titulo("La identidad reconocida se congela");
    * humano, para que pueda corregirlo — y solo después se recomienda.
    */
   const trasVerificar = { ...e, dichoUnaVez: { ...e.dichoUnaVez, mostroSegmento: false } };
+  checkEq("tras verificar, la fase es CONFIRMANDO", siguienteFase(trasVerificar), "CONFIRMANDO");
   const ctxConfirmar = contextoDeEstado(trasVerificar) ?? "";
-  check("tras verificar, el turno es para devolverle lo que sabemos",
-    /DEVUÉLVELE LO QUE SABEMOS/.test(ctxConfirmar));
+  check("y el contexto trae lo que hay que devolverle", /LO QUE TIENES QUE DEVOLVERLE/.test(ctxConfirmar));
   check("  …con sus datos, en humano y no como ficha", /grupo familiar \(Monoparental\)/.test(ctxConfirmar));
-  check("  …y le prohíbe llamar al motor todavía", /NO llames a calcular_propension/.test(ctxConfirmar));
-  check("  …y pide confirmación como invitación a corregir, no como permiso",
-    /invitación a corregir, no un/.test(ctxConfirmar));
-  check("  …así que el segmento aún no viaja como bloque del motor",
+  check("  …y sin el bloque que el motor consume",
     !ctxConfirmar.includes("SEGMENTO VERIFICADO"));
+  /*
+   * La prohibición de llamar al motor vive en la FASE, no en el contexto. Metida dentro de
+   * RECONOCIDO se contradecía con su propia primera línea —"en ESTE MISMO turno llama
+   * calcular_propension"—, que es el problema que la reescritura v4 vino a eliminar.
+   */
+  const pConf = buildSystemPrompt("CONFIRMANDO", ctxConfirmar);
+  check("la fase prohíbe llamar al motor", /NO llames a ninguna tool del motor/.test(pConf));
+  check("y NO se contradice con la orden de recomendar",
+    !/En ESTE MISMO turno llama calcular_propension/.test(pConf));
 
   /*
    * Se gasta al OCURRIR, no al aceptarse: si esperara un "sí" explícito, quien conteste otra cosa

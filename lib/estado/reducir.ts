@@ -102,7 +102,10 @@ export function pareceFecha(texto: string): boolean {
 export function siguienteFase(e: EstadoConversacion): Fase {
   if (e.veredicto?.entregado) return "ASESORANDO";
   if (e.identidad.resultado === "reconocido") {
-    if (e.identidad.verificada) return "RECONOCIDO";
+    // Confirmó que es ella, pero todavía no ha visto lo que sabemos de ella.
+    if (e.identidad.verificada) {
+      return e.dichoUnaVez.mostroSegmento ? "RECONOCIDO" : "CONFIRMANDO";
+    }
     // Se agotaron los intentos: se sigue por el camino genérico, sin arranque caliente y sin
     // volver a insistir. Nunca un callejón sin salida — quien no recuerde la fecha de expedición
     // de su cédula tiene que poder seguir usando el producto.
