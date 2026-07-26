@@ -230,6 +230,36 @@ async function main() {
     check("y la etiqueta que se pinta lo refleja", ETIQUETA_PRELLENO["declarado"] === "lo dijiste tú");
   }
 
+  titulo("Sin verificar, NO se escribe el nombre de la base (5e · repaso)");
+  {
+    /*
+     * Este es el agujero que 5e abrió en 5d y que encontró la revisión. La primera versión usaba
+     * `identidad.nombre` siempre, etiquetándolo "declarado" mientras no estuviera verificada:
+     *
+     *     ella escribe   "soy carolina ramirez"
+     *     la base tiene  "CAROLINA RAMÍREZ LÓPEZ"
+     *     el formulario  recibía el apellido que nunca tecleó, sin verificar, y encima
+     *                    atribuido a ella
+     *
+     * Dos faltas a la vez: revela un dato de la base antes de tiempo, y le atribuye a la persona
+     * algo que no dijo.
+     */
+    const resolver = async (): Promise<HallazgoIdentidad> => ({
+      estado: "reconocido",
+      nombre: "CAROLINA RAMÍREZ LÓPEZ",
+      segmento: { GENERO: "F" },
+    });
+    const { d } = deps(
+      [usaTool("collect_customer_data", { productId: "vida_panamerican" }), dice("Ahí lo tienes.")],
+      { resolver, ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "soy carolina ramirez" }] }, d);
+    check("encontrada sin verificar: el formulario NO trae nada escrito",
+      !r.ui.entrada.formulario?.conocido);
+    check("y el apellido de la base no aparece por ningún lado",
+      !JSON.stringify(r.ui).includes("LÓPEZ"));
+  }
+
   titulo("Lo verificado llega también a la fase que cotiza (5b)");
   {
     /*

@@ -123,6 +123,34 @@ const textoDe = (r: Anthropic.Message) =>
     .join("\n")
     .trim();
 
+/**
+ * Qué nombre puede traer ya escrito el formulario, y a quién atribuirlo.
+ *
+ * La primera versión de esto usaba `identidad.nombre` siempre, etiquetándolo "declarado" mientras
+ * no estuviera verificada. Eso abría por la puerta de atrás justo lo que cierra 5d:
+ *
+ *     ella escribe   "soy carolina ramirez"
+ *     la base tiene  "CAROLINA RAMÍREZ LÓPEZ"
+ *     el formulario  recibía el apellido que nunca tecleó, sin verificar,
+ *                    y encima etiquetado como algo que ella había dicho
+ *
+ * Son dos faltas a la vez: revela un dato de la base antes de la verificación, y le atribuye a la
+ * persona algo que no dijo. Las tres ramas de abajo son explícitas para que el caso del medio no
+ * pueda volver a colarse por descuido.
+ */
+function nombreQueSePuedeEscribir(
+  estado: EstadoConversacion
+): { nombre: string; origen: "base" | "declarado" } | undefined {
+  const id = estado.identidad;
+  if (!id.nombre) return undefined;
+  // Verificada: el nombre canónico de Colsubsidio, y se dice de dónde viene.
+  if (id.resultado === "reconocido" && id.verificada) return { nombre: id.nombre, origen: "base" };
+  // Encontrada pero SIN verificar: lo que tenemos es el nombre de la base. No se escribe.
+  if (id.resultado === "reconocido") return undefined;
+  // No está en la base: lo que tenemos es lo que ella escribió, y es suyo.
+  return { nombre: id.nombre, origen: "declarado" };
+}
+
 export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Promise<SalidaTurno> {
   const { messages } = entrada;
   const MODEL = deps.modeloId ?? MODELO_POR_DEFECTO;
@@ -192,16 +220,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
     textoUsuario,
     segmentoBase: estado.identidad.segmento,
     perfilPrevio: estado.perfil,
-    // El nombre que el formulario puede traer ya escrito. Si la persona está verificada es el
-    // canónico de la base; si no, es el que ella misma escribió — y se etiqueta distinto, porque
-    // decirle "de tu afiliación" a algo que no lo es sería atribuirle a Colsubsidio un dato que no
-    // puso.
-    conocido: estado.identidad.nombre
-      ? {
-          nombre: estado.identidad.nombre,
-          origen: estado.identidad.verificada ? "base" : "declarado",
-        }
-      : undefined,
+    conocido: nombreQueSePuedeEscribir(estado),
   };
 
   const convo: Anthropic.MessageParam[] = messages.map((m) => ({
