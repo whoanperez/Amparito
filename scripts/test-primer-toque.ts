@@ -14,7 +14,7 @@
  * llega al reconocimiento en vivo y al "hoy no te vendo nada".
  */
 import { detectarNombre } from "../lib/afiliados/deteccion";
-import { identidadDe } from "./_identidad";
+import { identidadDe, identidadVerificada } from "./_identidad";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
@@ -68,7 +68,9 @@ async function main() {
   }
 
   // Y el momento completo: segmento verificado → motor → prueba social, sin una sola pregunta.
-  const id0 = await identidadDe(PASTILLAS[0]);
+  // Desde 5d el arranque caliente son DOS turnos: encontrarla y que confirme que es ella. Antes
+  // bastaba escribir un nombre para llevarse los datos de esa persona.
+  const id0 = await identidadVerificada(PASTILLAS[0]);
   // El segmento ya viene con la forma que consume el motor: la conversión vive en el resolver,
   // en un solo sitio, en vez de repetida en cada llamador.
   const { perfil } = sanearPerfil({}, {
@@ -81,6 +83,12 @@ async function main() {
   check("y afirma la prueba social (4 ejes verificados)", r.peer !== null,
     r.peer ? `→ ${r.peer.n.toLocaleString("es-CO")}` : "");
   check("el saludo dice cómo tratarla", (id0.contexto ?? "").includes("Bienvenida"));
+
+  // Y el paso nuevo, que es el que cierra la fuga: antes de verificar, el segmento NO viaja.
+  const sinVerificar = await identidadDe(PASTILLAS[0]);
+  check("antes de verificar, la fase es VERIFICANDO", sinVerificar.estado.fase === "VERIFICANDO");
+  check("y el prompt NO lleva el segmento de esa persona",
+    !(sinVerificar.contexto ?? "").includes("SEGMENTO VERIFICADO"));
 
   /* ── 2 · un toque en el chip → el anti-venta ───────────────────────────── */
   console.log("\n===== Un toque → \"hoy no te vendo nada\" =====");

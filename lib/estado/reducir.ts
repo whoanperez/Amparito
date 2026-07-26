@@ -16,7 +16,7 @@
 import type {
   EstadoConversacion, ConsultaIdentidad, Fase, UiEvent, Veredicto,
 } from "./tipos";
-import { MAX_BUSQUEDAS } from "./tipos";
+import { MAX_BUSQUEDAS, MAX_VERIFICACION } from "./tipos";
 import type { Perfil, Recomendacion, Obligatorio, Peer, NoVenta } from "../engine/types";
 import type { SegmentoBase } from "../engine/sanear";
 
@@ -76,6 +76,20 @@ export function soloCiudad(texto: string): string {
   return sinPrefijo(texto, PREFIJOS_CIUDAD).split(" ").slice(0, 4).join(" ");
 }
 
+/**
+ * ¿La respuesta tiene forma de fecha?
+ *
+ * Acepta lo que la gente escribe de verdad: 12/03/2005, 12-3-05, "12 de marzo de 2005". No valida
+ * que la fecha exista ni que sea la suya —no tenemos ese dato y la pantalla lo dice—, valida que
+ * haya respondido a lo que se le preguntó.
+ */
+export function pareceFecha(texto: string): boolean {
+  const t = texto.toLowerCase();
+  if (/\b\d{1,2}\s*[\/\-.]\s*\d{1,2}\s*[\/\-.]\s*\d{2,4}\b/.test(t)) return true;
+  const MESES = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre";
+  return new RegExp(`\\b\\d{1,2}\\s+(de\\s+)?(${MESES})\\b`).test(t);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    La máquina de fases
    ────────────────────────────────────────────────────────────────────────── */
@@ -87,7 +101,13 @@ export function soloCiudad(texto: string): string {
  */
 export function siguienteFase(e: EstadoConversacion): Fase {
   if (e.veredicto?.entregado) return "ASESORANDO";
-  if (e.identidad.resultado === "reconocido") return "RECONOCIDO";
+  if (e.identidad.resultado === "reconocido") {
+    if (e.identidad.verificada) return "RECONOCIDO";
+    // Se agotaron los intentos: se sigue por el camino genérico, sin arranque caliente y sin
+    // volver a insistir. Nunca un callejón sin salida — quien no recuerde la fecha de expedición
+    // de su cédula tiene que poder seguir usando el producto.
+    return e.identidad.intentosVerificacion >= MAX_VERIFICACION ? "DESCUBRIENDO" : "VERIFICANDO";
+  }
   return e.turno <= 1 ? "SALUDO" : "DESCUBRIENDO";
 }
 
@@ -124,6 +144,28 @@ export function iniciarTurno(
       estado.identidad.ciudad = undefined;
       return { estado, consulta: { modo: "nombre", nombre } };
     }
+  }
+
+  /*
+   * ── La respuesta a la verificación ────────────────────────────────────────
+   *
+   * La validación es SIMULADA y el sistema lo dice en pantalla: no tenemos la fecha de expedición
+   * de nadie, así que no hay contra qué contrastarla. Lo que sí es real es la FORMA — se exige una
+   * fecha, no cualquier cosa, para que el paso no sea un teatro vacío.
+   *
+   * Si no responde una fecha (dice que no la recuerda, o cambia de tema), se gasta un intento. Al
+   * agotarlos, `siguienteFase` la manda al camino genérico: nunca un callejón sin salida.
+   */
+  if (esperaba === "verificacion" && texto) {
+    if (pareceFecha(texto)) {
+      estado.identidad.verificada = true;
+    } else {
+      estado.identidad.intentosVerificacion = previo.identidad.intentosVerificacion + 1;
+      if (estado.identidad.intentosVerificacion < MAX_VERIFICACION) {
+        estado.identidad.esperando = "verificacion";
+      }
+    }
+    return { estado, consulta: { modo: "ninguna" } };
   }
 
   if (esperaba === "ciudad" && texto && previo.identidad.nombre) {
@@ -180,7 +222,10 @@ export function aplicarIdentidad(
       id.nombre = hallazgo.nombre;
       if (hallazgo.ciudad) id.ciudad = hallazgo.ciudad;
       id.segmento = hallazgo.segmento; // congelado
-      id.esperando = null;
+      // Encontrarla no es reconocerla. El segmento queda guardado, pero `contextoDeEstado` no se
+      // lo pasa al modelo hasta que ella pruebe que es ella: escribir un nombre no puede bastar
+      // para llevarse los datos de esa persona.
+      id.esperando = id.verificada ? null : "verificacion";
       break;
 
     case "ambiguo":

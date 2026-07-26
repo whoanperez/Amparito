@@ -27,11 +27,17 @@ console.log("===== La fase sale del estado =====");
 const conEstado = (parcial: {
   turno?: number;
   reconocido?: boolean;
+  /** `false` = encontrada pero sin confirmar todavía. */
+  verificada?: boolean;
   veredicto?: boolean;
 }): EstadoConversacion => {
   const e = estadoInicial();
   e.turno = parcial.turno ?? 1;
-  if (parcial.reconocido) e.identidad.resultado = "reconocido";
+  // Desde 5d, "reconocido" tiene dos etapas: encontrada (VERIFICANDO) y confirmada (RECONOCIDO).
+  if (parcial.reconocido) {
+    e.identidad.resultado = "reconocido";
+    e.identidad.verificada = parcial.verificada !== false;
+  }
   if (parcial.veredicto) {
     e.veredicto = { entregado: true, tipo: "recomendacion", recomendaciones: [], obligatorios: [], peer: null };
   }
@@ -43,6 +49,8 @@ const casos: Array<[string, Estado, Parameters<typeof conEstado>[0]]> = [
   ["primer turno, afiliado reconocido", "RECONOCIDO", { turno: 1, reconocido: true }],
   ["varios turnos, sin identificar", "DESCUBRIENDO", { turno: 2 }],
   ["afiliado reconocido en el turno 3", "RECONOCIDO", { turno: 3, reconocido: true }],
+  // El estado nuevo: encontrada, pero sin confirmar todavía que es ella.
+  ["encontrada, sin verificar aún", "VERIFICANDO", { turno: 1, reconocido: true, verificada: false }],
   // Una vez el motor se pronunció manda ASESORANDO, aunque sea afiliado. Y da igual si hubo
   // tarjetas: decir que no también es pronunciarse.
   ["tras recomendar, siendo afiliado", "ASESORANDO", { turno: 3, reconocido: true, veredicto: true }],

@@ -20,7 +20,7 @@ import { estadoInicial } from "../lib/estado/tipos";
 import type { EstadoConversacion, UiEvent } from "../lib/estado/tipos";
 import { vistaDeEstado, limpiarTexto, SALUDO_INICIAL } from "../lib/estado/vista";
 import { sellar, abrir, abrirOInicial } from "../lib/estado/sello";
-import { contextoDeEstado } from "../lib/estado/contexto";
+import { contextoDeEstado, AVISO_VERIFICACION } from "../lib/estado/contexto";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
@@ -192,7 +192,50 @@ titulo("La identidad reconocida se congela");
     segmento: { GENERO: "F", RANGO_EDAD: "36 a 45 años", CATEGORIA: "B", SEGMENTO_GRUPO_FAMILIAR: "Monoparental" },
   });
 
-  checkEq("la fase es RECONOCIDO", e.fase, "RECONOCIDO");
+  /*
+   * Encontrarla no es reconocerla (5d). Escribir un nombre no puede bastar para llevarse la edad,
+   * la categoría y la composición familiar de esa persona: primero confirma que es ella.
+   */
+  checkEq("encontrada, la fase es VERIFICANDO", e.fase, "VERIFICANDO");
+  checkEq("y el sistema espera la verificación", e.identidad.esperando, "verificacion");
+  check("el segmento queda guardado, pero sin verificar", !!e.identidad.segmento && !e.identidad.verificada);
+
+  // Ella confirma: una fecha con forma de fecha. La validación es simulada y la pantalla lo dice.
+  e = iniciarTurno(e, "12/03/2005").estado;
+  e = aplicarIdentidad(e, { estado: "sin_intento" });
+  e = cerrarTurno(e, { eventos: [] });
+  check("tras confirmar, queda verificada", e.identidad.verificada);
+
+  /*
+   * La fuga que este paso cierra, comprobada sobre el contexto que de verdad viaja al modelo. No es
+   * una regla de prompt pidiéndole discreción: es que el dato NO ESTÁ. No se puede revelar lo que
+   * no se recibe.
+   */
+  const sinVerificar = { ...e, identidad: { ...e.identidad, verificada: false, intentosVerificacion: 0 } };
+  const ctxSin = contextoDeEstado(sinVerificar) ?? "";
+  check("sin verificar, el segmento NO viaja al prompt", !ctxSin.includes("SEGMENTO VERIFICADO"));
+  check("  …ni su categoría por ninguna vía", !/categoría B/i.test(ctxSin));
+  check("  …ni su grupo familiar", !/Monoparental/i.test(ctxSin));
+  check("y el sello de la validación simulada lo pone el SERVIDOR, no el modelo",
+    ctxSin.includes(AVISO_VERIFICACION));
+  check("tras verificar, el segmento sí viaja",
+    (contextoDeEstado(e) ?? "").includes("SEGMENTO VERIFICADO"));
+
+  // Se agota, y agotarse no es un callejón sin salida.
+  let agotada: EstadoConversacion = {
+    ...e,
+    identidad: { ...e.identidad, verificada: false, intentosVerificacion: 0, esperando: "verificacion" },
+  };
+  agotada = iniciarTurno(agotada, "no la recuerdo").estado;
+  checkEq("un intento fallido gasta uno", agotada.identidad.intentosVerificacion, 1);
+  checkEq("y vuelve a preguntar, una vez más", agotada.identidad.esperando, "verificacion");
+  agotada = iniciarTurno(agotada, "de verdad no me acuerdo").estado;
+  agotada = cerrarTurno(aplicarIdentidad(agotada, { estado: "sin_intento" }), { eventos: [] });
+  checkEq("al agotarse, sigue por el camino genérico", agotada.fase, "DESCUBRIENDO");
+  check("y ya no se le vuelve a pedir", agotada.identidad.esperando === null);
+  check("pero su segmento sigue sin viajar, para siempre",
+    !(contextoDeEstado(agotada) ?? "").includes("SEGMENTO VERIFICADO"));
+  checkEq("y ahora sí la fase es RECONOCIDO", e.fase, "RECONOCIDO");
   checkPresente("el segmento quedó guardado", e.identidad.segmento);
   checkEq("con la categoría verificada", e.identidad.segmento?.CATEGORIA, "B");
   checkEq("el turno siguiente NO vuelve a consultar la base", iniciarTurno(e, "tengo un carro").consulta.modo, "ninguna");

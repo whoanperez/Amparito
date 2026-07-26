@@ -61,7 +61,7 @@ export type ResultadoIdentidad =
  *
  * El arreglo no es mejorar el detector: es que el sistema sepa qué preguntó.
  */
-export type Esperando = null | "nombre_completo" | "ciudad";
+export type Esperando = null | "nombre_completo" | "ciudad" | "verificacion";
 
 /**
  * Tope de búsquedas por conversación. Bloqueo real de enumeración, en código y no en prompt.
@@ -70,6 +70,15 @@ export type Esperando = null | "nombre_completo" | "ciudad";
  * cambiar una no cambiaba la otra.
  */
 export const MAX_BUSQUEDAS = 3;
+
+/**
+ * Intentos de verificación antes de seguir sin arranque caliente.
+ *
+ * Dos, y después se sigue. Nunca un callejón sin salida: quien no recuerde la fecha de expedición
+ * de su cédula tiene que poder seguir usando el producto — solo que por el camino genérico, como
+ * cualquiera que no esté afiliado.
+ */
+export const MAX_VERIFICACION = 2;
 
 export interface IdentidadEstado {
   resultado: ResultadoIdentidad;
@@ -80,6 +89,21 @@ export interface IdentidadEstado {
   ciudad?: string;
   /** Segmento verificado. Se CONGELA al reconocer: se acabó el round-trip a Turso por turno. */
   segmento?: SegmentoBase;
+  /**
+   * ¿La persona probó que es ella?
+   *
+   * Sin esto, escribir un nombre bastaba para llevarse el género, el rango de edad, la categoría
+   * de afiliación y la composición familiar de esa persona. No es un riesgo de suplantación: es
+   * una consulta abierta sobre la base de afiliados de Colsubsidio, y cualquiera podía ir probando
+   * nombres.
+   *
+   * Mientras sea `false`, `contextoDeEstado` NO le pasa el segmento al modelo. No es una regla de
+   * prompt pidiéndole discreción: es que el dato no viaja. No se puede revelar lo que no se
+   * recibe.
+   */
+  verificada: boolean;
+  /** Intentos de verificación gastados. Se agota, y agotarse NO es un callejón sin salida. */
+  intentosVerificacion: number;
   /**
    * Cuántos homónimos hay, y en qué coinciden todos. Son HECHOS sobre la base, así que viven en
    * el estado y el copy se genera desde aquí. Pasarle el número al modelo como prosa para que lo
@@ -109,7 +133,12 @@ export type ConsultaIdentidad =
    El estado
    ────────────────────────────────────────────────────────────────────────── */
 
-export type Fase = "SALUDO" | "DESCUBRIENDO" | "RECONOCIDO" | "ASESORANDO";
+/**
+ * `VERIFICANDO` es la fase entre encontrarla y poder hablarle de lo suyo. Es una fase propia y no
+ * una bandera dentro de RECONOCIDO porque las reglas son incompatibles: RECONOCIDO ordena llamar
+ * al motor con el segmento EN ESE MISMO TURNO, y aquí justamente no hay segmento que pasar.
+ */
+export type Fase = "SALUDO" | "DESCUBRIENDO" | "VERIFICANDO" | "RECONOCIDO" | "ASESORANDO";
 
 /**
  * El veredicto del motor. Reemplaza al booleano `yaRecomendo`, que preguntaba "¿pintamos
@@ -175,7 +204,7 @@ export function estadoInicial(): EstadoConversacion {
     v: 1,
     turno: 0,
     fase: "SALUDO",
-    identidad: { resultado: "sin_intento", esperando: null, intentos: 0 },
+    identidad: { resultado: "sin_intento", esperando: null, intentos: 0, verificada: false, intentosVerificacion: 0 },
     perfil: {},
     descartes: [],
     veredicto: null,

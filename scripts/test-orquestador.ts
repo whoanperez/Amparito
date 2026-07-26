@@ -150,7 +150,21 @@ async function main() {
     checkEq("con su segmento verificado", abrir(r.estado)?.identidad.segmento?.CATEGORIA, "B");
     checkEq("y no se pinta como tarjeta", tarjetasDe(r).length, 0);
     const junto = (llamadas[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
-    check("el contexto verificado entra al prompt", junto.includes("## SEGMENTO VERIFICADO"));
+    /*
+     * 5d: encontrarla no es reconocerla. En este turno el prompt NO puede llevar su segmento —
+     * escribir un nombre no basta para llevarse los datos de esa persona— y sí tiene que pedirle
+     * que confirme.
+     */
+    check("el segmento NO viaja antes de verificar", !junto.includes("## SEGMENTO VERIFICADO"));
+    check("y el prompt le pide confirmar quién es", /fecha de expedición/i.test(junto));
+
+    // Y con la verificación resuelta, ahí sí.
+    const yaVerificado = abrir(r.estado)!;
+    yaVerificado.identidad.verificada = true;
+    const { d: dv, llamadas: lv } = deps([dice("Bienvenida, Carolina.")], { resolver });
+    await ejecutarTurno({ messages: [{ role: "user", content: "12/03/2005" }], estado: sellar(yaVerificado) }, dv);
+    const juntoV = (lv[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
+    check("tras confirmar, el contexto verificado sí entra", juntoV.includes("## SEGMENTO VERIFICADO"));
   }
 
   titulo("Lo verificado llega también a la fase que cotiza (5b)");
@@ -352,7 +366,14 @@ async function main() {
     );
     // Dos mensajes de la persona en el historial → este es su turno 2, no el 1.
     checkEq("se recupera el número de turno del historial", abrir(r.estado)?.turno, 2);
-    checkEq("así que NO se vuelve a la fase SALUDO", abrir(r.estado)?.fase, "RECONOCIDO");
+    /*
+     * La aserción es que NO se vuelve al saludo —que es lo que este bloque protege—, no un valor
+     * concreto. Al perderse el sello también se pierde la verificación, así que vuelve a pedirla:
+     * es el lado correcto en el que fallar. Un estado que no se puede autenticar no debería dar por
+     * buena una verificación que nadie puede comprobar que ocurrió.
+     */
+    check("así que NO se vuelve a la fase SALUDO", abrir(r.estado)?.fase !== "SALUDO");
+    checkEq("y la verificación se vuelve a exigir", abrir(r.estado)?.fase, "VERIFICANDO");
     checkEq("y se vuelve a resolver la identidad desde el mensaje", consultas[0]?.modo, "detectar");
   }
 

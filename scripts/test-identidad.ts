@@ -10,7 +10,7 @@
 import { detectarNombre } from "../lib/afiliados/deteccion";
 import { soloCiudad } from "../lib/estado/reducir";
 import "./_env";
-import { identidadDe, nombreDePrueba } from "./_identidad";
+import { identidadDe, identidadVerificada, nombreDePrueba } from "./_identidad";
 
 let ok = true;
 const check = (label: string, cond: boolean) => {
@@ -67,7 +67,19 @@ async function main() {
     check("trae el segmento verificado", !!r.estado.identidad.segmento?.CATEGORIA);
     check("queda en el estado para los siguientes turnos", !!r.estado.identidad.nombre);
     check("y el turno siguiente ya no consulta la base", r.estado.identidad.resultado === "reconocido");
-    check("el contexto dice cómo saludar", r.contexto.includes("Bienvenid"));
+    /*
+     * Desde 5d, encontrarla no es reconocerla. El segmento queda congelado en el estado —eso no
+     * cambia— pero no viaja al prompt hasta que ella confirme que es ella. Escribir un nombre no
+     * puede bastar para llevarse la edad, la categoría y la composición familiar de esa persona.
+     */
+    check("encontrada pero SIN verificar, el prompt no lleva su segmento",
+      !r.contexto.includes("SEGMENTO VERIFICADO") && r.estado.fase === "VERIFICANDO");
+    check("y le pide un dato que solo ella sabría",
+      /fecha de expedición/i.test(r.contexto));
+
+    const v = await identidadVerificada(`soy ${nombreReal}`);
+    check("tras confirmar, el contexto dice cómo saludar", v.contexto.includes("Bienvenid"));
+    check("y ahí sí llega el segmento verificado", v.contexto.includes("SEGMENTO VERIFICADO"));
   } else {
     check("se encontró un afiliado real para la prueba", false);
   }
