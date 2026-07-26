@@ -10,7 +10,7 @@
  */
 import { estadoInicial } from "../lib/estado/tipos";
 import type { EstadoConversacion } from "../lib/estado/tipos";
-import { iniciarTurno, aplicarIdentidad, type HallazgoIdentidad } from "../lib/estado/reducir";
+import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "../lib/estado/reducir";
 import { ejecutarConsulta } from "../lib/afiliados/resolver";
 import { getAffiliateGateway } from "../lib/afiliados";
 import { contextoDeEstado } from "../lib/estado/contexto";
@@ -73,6 +73,23 @@ export async function identidadVerificada(
   const hallazgo = await ejecutarConsulta(abierto.consulta);
   const estado = aplicarIdentidad(abierto.estado, hallazgo);
   return { hallazgo: primera.hallazgo, estado, contexto: contextoDeEstado(estado) ?? "" };
+}
+
+/**
+ * El camino caliente COMPLETO, hasta poder recomendar: verificar Y confirmar.
+ *
+ * Desde B15·8 hay un turno más — el que le devuelve lo que Colsubsidio tiene de ella para que lo
+ * corrija. Los gates que quieren probar la RECOMENDACIÓN tienen que llegar hasta aquí; si se
+ * quedaran en el anterior estarían midiendo el turno de la confirmación y llamándolo "reconocida".
+ */
+export async function identidadConfirmada(
+  texto: string,
+  respuesta = "12/03/2005"
+): Promise<ResueltaIdentidad> {
+  const v = await identidadVerificada(texto, respuesta);
+  if (!v.estado.identidad.verificada) return v;
+  const cerrado = cerrarTurno(v.estado, { eventos: [] });
+  return { hallazgo: v.hallazgo, estado: cerrado, contexto: contextoDeEstado(cerrado) ?? "" };
 }
 
 /** Un turno de identidad desde cero: lo que pasa cuando alguien escribe su primer mensaje. */

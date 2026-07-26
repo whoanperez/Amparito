@@ -18,7 +18,7 @@ import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "../lib/prompts
 import { estadoInicial } from "../lib/estado/tipos";
 import { siguienteFase } from "../lib/estado/reducir";
 import "./_env";
-import { identidadDe, identidadVerificada, nombreDePrueba } from "./_identidad";
+import { identidadDe, identidadVerificada, identidadConfirmada, nombreDePrueba } from "./_identidad";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { executeTool } from "../lib/tools";
@@ -64,7 +64,7 @@ async function main() {
      */
     check("encontrarla la deja en VERIFICANDO, no en RECONOCIDO", id.estado.fase === "VERIFICANDO");
     check("y ahí el prompt NO lleva su segmento", !(id.contexto ?? "").includes("SEGMENTO VERIFICADO"));
-    const idv = await identidadVerificada(`soy ${nombreReal}`);
+    const idv = await identidadConfirmada(`soy ${nombreReal}`);
     check("la fase que produce el reconocimiento es RECONOCIDO", idv.estado.fase === "RECONOCIDO");
 
     const prompt = buildSystemPrompt(idv.estado.fase, idv.contexto);

@@ -20,6 +20,7 @@
  */
 import type { Perfil } from "./types";
 import { MASCOTAS, VEHICULOS, VIVIENDA, menciona as mencionaTermino } from "../vocabulario";
+import { ordenarPorImpacto } from "./prioridad";
 
 export type Origen = "base" | "declarado" | "inferido";
 
@@ -98,6 +99,26 @@ const SIN_INGRESOS: RegExp[] = [
 ];
 
 const TERMINOS_MASCOTA = MASCOTAS;
+
+/**
+ * Ser ARRENDADOR, que en español coloquial se dice casi igual que ser inquilino.
+ *
+ * "Arriendo un apartamento" lo dice igual quien lo alquila para vivir que quien lo alquila a
+ * otros. Por eso se exige una marca de POSESIÓN o de inquilinos: sin ella no se asume nada, y el
+ * producto simplemente no se recomienda — que es lo correcto cuando no se sabe.
+ */
+const ARRIENDA_PROPIEDAD: RegExp[] = [
+  /\b(lo|la|los|las)\s+tengo\s+arrendad/,
+  /\barriendo\s+(un|una|mi|mis)\s+\w+\s+(que\s+)?(tengo|es\s+m[ií]o|m[ií]o)/,
+  /\bmis?\s+(inquilin|arrendatari)/,
+  /\btengo\s+(un|una|dos|tres)?\s*\w*\s*(apartamento|casa|local|inmueble|finca)s?\s+(arrendad|en\s+arriendo|para\s+arrendar)/,
+  /\bvivo\s+de\s+(los\s+)?arriendos?\b/,
+  /\b(soy|somos)\s+(el\s+|la\s+)?(due[nñ]|propietari|arrendador)/,
+];
+
+export function arriendaUnaPropiedad(textoNormalizado: string): boolean {
+  return ARRIENDA_PROPIEDAD.some((re) => re.test(textoNormalizado));
+}
 
 /**
  * ¿La persona declaró que HOY no tiene ingreso?
@@ -405,9 +426,46 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
     const v = enrBruto[k];
     if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 20) {
       enr[k] = Math.floor(v);
-      origen[`enriquecido.${k}`] = "inferido";
+      /*
+       * La procedencia deja de ser "inferido" a ciegas. En un flujo real la persona respondió
+       * "Solo yo" y la traza mostró "0 · se dedujo": la pantalla que existe para que la
+       * procedencia sea de fiar decía que se había supuesto algo que ella acababa de decir.
+       *
+       * Se mira la misma evidencia que ya se usa para no repreguntar. Si habló del tema, lo dijo.
+       */
+      /*
+       * La lista es DELIBERADAMENTE más corta que la de "no lo vuelvas a preguntar". Mencionar a
+       * la familia —"mi mamá vive en Cali"— basta para no repreguntar, pero NO es decir cuántas
+       * personas dependen de tu ingreso. Marcar eso como "lo dijiste tú" sería atribuirle a la
+       * persona un número que puso el modelo, en la pantalla que existe para que la procedencia
+       * sea de fiar.
+       *
+       * Aquí solo entran las respuestas que contestan la pregunta de verdad. Todo lo demás se
+       * queda en "se dedujo", que es el lado correcto en el que fallar.
+       */
+      origen[`enriquecido.${k}`] = menciona([
+        "depend*", "a cargo", "solo yo", "nadie", "ninguno", "sostengo", "mantengo", "respondo por",
+      ])
+        ? "declarado"
+        : "inferido";
     }
   }
+  /*
+   * `arrienda_propiedad` habilita un producto entero, así que exige evidencia como `vivienda` —y
+   * al revés que los BOOL de abajo, que solo mueven el score—. Y se ORIGINA en el servidor cuando
+   * la evidencia está, por la misma razón que `sin_ingresos`: si el modelo no lo transcribe, el
+   * producto correcto no se ofrece nunca.
+   */
+  if (arriendaUnaPropiedad(texto)) {
+    enr.arrienda_propiedad = true;
+    origen["enriquecido.arrienda_propiedad"] = "declarado";
+  } else if (enrBruto.arrienda_propiedad === true) {
+    descartes.push(
+      "enriquecido.arrienda_propiedad: la persona no dijo que arriende una propiedad suya. " +
+        "Ojo: vivir EN arriendo es lo contrario, y ese producto protege al dueño, no al inquilino."
+    );
+  }
+
   const BOOL = ["necesidad_salud", "viaja", "tiene_credito", "mascota_veterinario_frecuente"] as const;
   for (const k of BOOL) {
     if (typeof enrBruto[k] === "boolean") {
@@ -609,11 +667,21 @@ export function resumenEvidencia(
     enr.sin_ingresos !== undefined;
 
   const sabe: string[] = [];
-  const falta: string[] = [];
-  (vehiculos.length ? sabe : falta).push(vehiculos.length ? `vehículo = ${vehiculos.join(", ")}` : "vehículo");
+  /*
+   * Lo que falta va ORDENADO por cuánto puede mover el motor, no como una lista plana.
+   *
+   * En un flujo real Amparito gastó una de sus dos preguntas en "¿la bici es para pasear o para
+   * competir?", que no cambia el resultado en ningún caso. El prompt le pide preguntar "lo de
+   * mayor valor" y el modelo no tenía con qué saberlo: los pesos viven en un JSON que él no ve.
+   */
+  const falta: Array<{ etiqueta: string; feature: string }> = [];
+  if (vehiculos.length) sabe.push(`vehículo = ${vehiculos.join(", ")}`);
+  else falta.push({ etiqueta: "en qué se mueve", feature: "enriquecido.tiene_vehiculo" });
   if (contóDependientes) sabe.push("quién depende de su ingreso");
-  else if (!sabeDependientes) falta.push("quién depende de su ingreso");
-  (hablóDeVivienda ? sabe : falta).push("vivienda");
+  else if (!sabeDependientes) falta.push({ etiqueta: "quién depende de su ingreso", feature: "enriquecido.dependientes" });
+  if (hablóDeVivienda) sabe.push("vivienda");
+  else falta.push({ etiqueta: "su vivienda", feature: "enriquecido.vivienda" });
+  if (!mascotas.length) falta.push({ etiqueta: "si tiene mascota", feature: "enriquecido.tiene_mascota" });
   if (mascotas.length) sabe.push(`mascota = ${mascotas.join(", ")}`);
   if (hablóDeIngreso) sabe.push("su situación de ingreso");
 
@@ -625,6 +693,8 @@ export function resumenEvidencia(
    * conversacional a propósito — decir "tú me contaste que tienes 36 a 45" sería falso, y afirmar
    * de más sobre la base es justo lo que el validador existe para impedir.
    */
+  const ordenados = ordenarPorImpacto(falta, (f) => f.feature).map((f) => f.etiqueta);
+
   const org = perfilPrevio?._origen ?? {};
   const base = opciones.segmentoBase ?? {};
   const ETIQUETAS: Array<[keyof Perfil & keyof SegmentoBase, string]> = [
@@ -658,9 +728,11 @@ export function resumenEvidencia(
     lineaEdad,
     falta.length
       ? puedePreguntar
-        ? `Falta por saber: ${falta.join("; ")}. Pregunta solo lo de mayor valor y una cosa por turno.`
-        : `Falta por saber: ${falta.join("; ")} — pero NO abras preguntas de perfilamiento aquí: ya ` +
-          `hay recomendación en pantalla. Si algo falta de verdad, se afina cuando ella lo mencione.`
+        ? `Falta por saber, DE MÁS A MENOS DECISIVO para el motor: ${ordenados.join("; ")}.\n` +
+          `Empieza por el primero. Una cosa por turno, y nada que no esté en esa lista: preguntar ` +
+          `algo que no mueve el resultado gasta un turno y no decide nada.`
+        : `Falta por saber: ${ordenados.join("; ")} — pero NO abras preguntas de perfilamiento aquí: ` +
+          `ya hay recomendación en pantalla. Si algo falta de verdad, se afina cuando ella lo mencione.`
       : puedePreguntar
         ? `No necesitas preguntar nada más: recomienda ya.`
         : null,

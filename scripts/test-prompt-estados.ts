@@ -29,14 +29,19 @@ const conEstado = (parcial: {
   reconocido?: boolean;
   /** `false` = encontrada pero sin confirmar todavía. */
   verificada?: boolean;
+  /** `false` = confirmó que es ella, pero aún no ha visto lo que sabemos de ella. */
+  confirmada?: boolean;
   veredicto?: boolean;
 }): EstadoConversacion => {
   const e = estadoInicial();
   e.turno = parcial.turno ?? 1;
   // Desde 5d, "reconocido" tiene dos etapas: encontrada (VERIFICANDO) y confirmada (RECONOCIDO).
+  // Desde B15·8 hay TRES etapas: encontrada (VERIFICANDO), confirmada (CONFIRMANDO) y recomendable
+  // (RECONOCIDO). El turno de confirmación existe porque verificar tiene que devolverle algo.
   if (parcial.reconocido) {
     e.identidad.resultado = "reconocido";
     e.identidad.verificada = parcial.verificada !== false;
+    e.dichoUnaVez.mostroSegmento = parcial.confirmada !== false;
   }
   if (parcial.veredicto) {
     e.veredicto = { entregado: true, tipo: "recomendacion", recomendaciones: [], obligatorios: [], peer: null };
@@ -51,6 +56,8 @@ const casos: Array<[string, Estado, Parameters<typeof conEstado>[0]]> = [
   ["afiliado reconocido en el turno 3", "RECONOCIDO", { turno: 3, reconocido: true }],
   // El estado nuevo: encontrada, pero sin confirmar todavía que es ella.
   ["encontrada, sin verificar aún", "VERIFICANDO", { turno: 1, reconocido: true, verificada: false }],
+  // El turno que le devuelve lo que Colsubsidio tiene, antes de recomendar nada.
+  ["verificada, sin haberle devuelto nada", "CONFIRMANDO", { turno: 2, reconocido: true, confirmada: false }],
   // Una vez el motor se pronunció manda ASESORANDO, aunque sea afiliado. Y da igual si hubo
   // tarjetas: decir que no también es pronunciarse.
   ["tras recomendar, siendo afiliado", "ASESORANDO", { turno: 3, reconocido: true, veredicto: true }],

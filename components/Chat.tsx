@@ -15,7 +15,7 @@ import {
 } from "@/lib/ui/traza";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
-import { SALUDO_INICIAL } from "@/lib/estado/vista";
+import { SALUDO_INICIAL, esVinieta, textoDeVinieta, trozosDe } from "@/lib/estado/vista";
 import type { Bloque, Rec, UiEvent, UiVista } from "@/lib/estado/tipos";
 
 // `UiEvent` y `Rec` se IMPORTAN, ya no se copian. La copia existía porque el tipo vivía en
@@ -204,6 +204,13 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
    */
   const estadoRef = useRef<string | undefined>(undefined);
   const endRef = useRef<HTMLDivElement>(null);
+  /**
+   * La barra de entrada es fija y su alto CAMBIA: el aviso legal envuelve distinto en cada ancho.
+   * Se mide y se publica como variable CSS, en vez de reservarle un hueco fijo — que en móvil se
+   * quedaba corto y le cortaba a la persona la tercera pastilla por la mitad, justo la que lleva
+   * al arranque caliente.
+   */
+  const barraRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
@@ -431,6 +438,17 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     }
   }
 
+  useEffect(() => {
+    const el = barraRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const publica = () =>
+      document.documentElement.style.setProperty("--alto-barra", `${el.offsetHeight}px`);
+    publica();
+    const ro = new ResizeObserver(publica);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activeForm]);
+
   const locked = busy || !!processing || !!activeForm;
   const showStarters = items.length === 1 && !interes && !proactivo && !locked;
   // `showProteger` vivía aquí: seis condiciones, tres de ellas contando ítems del array. El
@@ -461,7 +479,9 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       <div className="msgs">
         {items.map((item, i) =>
           item.kind === "msg" ? (
-            <div key={i} className={`msg ${item.role === "user" ? "user" : "bot"}`}>{item.text}</div>
+            <div key={i} className={`msg ${item.role === "user" ? "user" : "bot"}`}>
+              {item.role === "user" ? item.text : <TextoDeAmparito texto={item.text ?? ""} />}
+            </div>
           ) : item.kind === "recommend" ? (
             <RecommendCards key={i} recs={item.recs!} onPick={(n) => send(`Quiero el ${n}`)} />
           ) : item.kind === "video" ? (
@@ -553,7 +573,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       </div>
 
       {!activeForm && (
-        <div className="inputbar">
+        <div className="inputbar" ref={barraRef}>
           <form onSubmit={(e) => { e.preventDefault(); send(input); }}>
             {voiceEnabled && voice.supported && (
               <button
@@ -592,6 +612,47 @@ function RecommendCards({ recs, onPick }: { recs: Rec[]; onPick: (nombre: string
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * Lo que escribe Amparito, con la poca jerarquía que se le permite.
+ *
+ * Hasta ahora el texto salía como una cadena pelada: `{item.text}`. Y el servidor, además, borraba
+ * las negritas y las viñetas antes de mandarlo. Entre las dos cosas, cada mensaje era un bloque
+ * donde todo pesaba lo mismo — incluidos los que más peso tienen: por qué este seguro y no otro,
+ * qué NO cubre.
+ *
+ * Construye NODOS, no HTML: no hay `dangerouslySetInnerHTML` por ninguna parte. Lo que llega ya
+ * viene normalizado y con el énfasis topado en servidor (`MAX_ENFASIS`), así que aquí no se decide
+ * nada — se pinta.
+ */
+function TextoDeAmparito({ texto }: { texto: string }) {
+  const lineas = texto.split("\n");
+  const bloques: Array<{ tipo: "p" | "ul"; lineas: string[] }> = [];
+  for (const l of lineas) {
+    const tipo = esVinieta(l) ? "ul" : "p";
+    const ultimo = bloques[bloques.length - 1];
+    // Las viñetas seguidas se agrupan en una sola lista; los párrafos van sueltos.
+    if (ultimo && ultimo.tipo === "ul" && tipo === "ul") ultimo.lineas.push(l);
+    else bloques.push({ tipo, lineas: [l] });
+  }
+
+  const pinta = (l: string, k: number) =>
+    trozosDe(l).map((t, i) => (t.fuerte ? <strong key={i}>{t.texto}</strong> : <span key={i}>{t.texto}</span>));
+
+  return (
+    <>
+      {bloques.map((b, i) =>
+        b.tipo === "ul" ? (
+          <ul className="msg-lista" key={i}>
+            {b.lineas.map((l, j) => <li key={j}>{pinta(textoDeVinieta(l), j)}</li>)}
+          </ul>
+        ) : (
+          <p className="msg-p" key={i}>{b.lineas.map((l, j) => pinta(l, j))}</p>
+        )
+      )}
+    </>
   );
 }
 
@@ -873,10 +934,19 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {/* PeerProof — tamaño REAL del segmento (honesto, sin fracción de compra inventada) */}
+      {/*
+        PeerProof — el mismo dato verificado, con otro destinatario.
+        Decía: "No estás solo: hay 62.459 afiliados en tu mismo segmento (mujeres, 36 a 45,
+        monoparental, categoría A)". Dos problemas a la vez. Uno, el prompt le PROHÍBE al modelo
+        recitar el segmento como ficha de datos —"nada de mujer, 36 a 45, categoría A"— y este copy,
+        quemado en el cliente, lo hacía igual: la regla se le exigía al LLM y la rompía el código.
+        Dos, a quien va a pagar no le consuela que le digan que es un renglón de una tabla.
+        El número sigue siendo oro, pero respalda el MÉTODO: que esto no es una corazonada.
+      */}
       {peer && peer.n > 0 && (
         <div className="pp-peer">
-          No estás solo: hay <b>{peer.n.toLocaleString("es-CO")}</b> afiliados en tu mismo segmento ({peer.descripcion}) dentro de Colsubsidio.
+          No es una corazonada: lo calculé sobre el perfil de <b>{peer.n.toLocaleString("es-CO")}</b>{" "}
+          afiliados en tu misma situación, con reglas que se pueden revisar.
         </div>
       )}
 
@@ -927,6 +997,21 @@ interface TrazaData {
  * `lib/ui/traza.ts`, que es puro y tiene gate: un campo nuevo del motor sale legible sin que nadie
  * tenga que acordarse de traducirlo, y `(vacío)` ya no puede llegar a la pantalla.
  */
+/**
+ * El orden de la traza es el de lo que PASÓ, no el del puntaje.
+ *
+ * Antes encabezaba el de mayor score, que muchas veces es un descarte: en un flujo real lo primero
+ * que veía quien auditaba era "Seguro de Arrendamiento · 30", un producto que no se recomendó y
+ * con una razón que a esa persona no le aplicaba.
+ */
+const ORDEN_RESULTADO: Record<string, number> = {
+  recomendado: 0,
+  obligatorio: 1,
+  ya_cubierto: 2,
+  descartado: 3,
+  fuera_del_top: 4,
+};
+
 function TrazaDecision({ traza }: { traza: TrazaData }) {
   const origen = (traza.perfil?._origen ?? {}) as Record<string, string>;
   const campos = Object.entries(traza.perfil ?? {}).filter(([k]) => k !== "_origen" && k !== "enriquecido");
@@ -938,7 +1023,15 @@ function TrazaDecision({ traza }: { traza: TrazaData }) {
 
   return (
     <details className="tz">
+      {/*
+        La traza no tenía destinatario declarado, así que caía en tierra de nadie: quien la abría no
+        sabía si era para él. Es instrumentación para evaluar el demo — en un producto real esto no
+        se le muestra a quien está comprando un seguro—, y decirlo cuesta una línea.
+      */}
       <summary>Ver cómo llegué a esto</summary>
+      <p className="tz-para-quien">
+        Datos para evaluar la demostración · en producción esto no se le muestra a la persona
+      </p>
 
       <div className="tz-lbl">Lo que supe de ti, y de dónde lo supe</div>
       <ul className="tz-perfil">
@@ -962,7 +1055,16 @@ function TrazaDecision({ traza }: { traza: TrazaData }) {
 
       <div className="tz-lbl">Las reglas que aplicaron, y cuánto pesó cada una</div>
       <div className="tz-tabla">
-        {traza.productos.filter((p) => p.senales.length > 0).map((p) => (
+        {/*
+          Ordenado por lo que PASÓ, no por puntaje. Antes encabezaba el de mayor score, que muchas
+          veces es un descarte: lo primero que veía quien auditaba era un producto que no se
+          recomendó, con una razón que no aplicaba.
+        */}
+        {traza.productos
+          .filter((p) => p.senales.length > 0)
+          .slice()
+          .sort((a, b) => (ORDEN_RESULTADO[a.resultado] ?? 9) - (ORDEN_RESULTADO[b.resultado] ?? 9))
+          .map((p) => (
           <div className="tz-prod" key={p.id}>
             <div className="tz-prod-top">
               <b>{p.nombre}</b>

@@ -11,7 +11,9 @@
  * justo lo que existe para impedir. De los dos errores, el primero se nota en cada conversación
  * y el segundo solo cuando ya hizo daño — así que el listón de "no dispares" tiene que ser alto.
  */
-import { afirmacionesSinRespaldo, coberturasContradichas, quitarFrases } from "../lib/estado/validar";
+import {
+  afirmacionesSinRespaldo, coberturasContradichas, describePantallaQueNoExiste, quitarFrases,
+} from "../lib/estado/validar";
 import { executeTool } from "../lib/tools";
 import { estadoInicial, type EstadoConversacion } from "../lib/estado/tipos";
 
@@ -180,6 +182,30 @@ async function coberturas() {
       coberturas: [...mascotas.coberturas, ...soat.coberturas],
       exclusiones: [...mascotas.exclusiones, ...soat.exclusiones],
     }).length === 0);
+
+  /*
+   * ── Describir una pantalla que no existe (B15 · 4) ────────────────────────
+   *
+   * En un flujo real: "Las tarjetas que ves abajo te muestran ambos, CON LOS PRECIOS EXACTOS". Las
+   * tarjetas de recomendación llevan nombre y razón; no llevan precio. La persona baja la vista a
+   * buscar un número que no está y concluye que algo se rompió.
+   */
+  console.log("\n===== No se describe una pantalla que no existe =====");
+  check("atrapa la promesa de precios que no están",
+    describePantallaQueNoExiste("Las tarjetas que ves abajo te muestran ambos, con los precios exactos.", false).length > 0);
+  // Y lo que NO puede atrapar: describir la pantalla es correcto y útil; lo que no vale es
+  // prometer un dato que no está ahí.
+  for (const [t, hayCot] of [
+    ["Abajo tienes las dos opciones, mira cuál te llama.", false],
+    ["¿Te cotizo el de Vida para que veas cuánto cuesta?", false],
+    ["Aquí está la cotización: 29 mil al mes.", true],
+    ["Aquí abajo ves el precio exacto.", true],
+    // "prima" es también una familiar, y el prompt le prohíbe a Amparito usarla para el precio:
+    // el patrón solo podía acertar en el significado equivocado.
+    ["Aquí abajo está lo que te contó tu prima.", false],
+  ] as Array<[string, boolean]>) {
+    check(`no se pasa de listo: "${t.slice(0, 46)}…"`, describePantallaQueNoExiste(t, hayCot).length === 0);
+  }
 
   const h = coberturasContradichas("Y también te cubre si hay una guerra civil.", c)[0];
   check("el hallazgo cita la exclusión concreta del clausulado", /EXCLUYE/.test(h?.motivo ?? ""));

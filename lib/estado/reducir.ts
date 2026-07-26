@@ -102,7 +102,10 @@ export function pareceFecha(texto: string): boolean {
 export function siguienteFase(e: EstadoConversacion): Fase {
   if (e.veredicto?.entregado) return "ASESORANDO";
   if (e.identidad.resultado === "reconocido") {
-    if (e.identidad.verificada) return "RECONOCIDO";
+    // Confirmó que es ella, pero todavía no ha visto lo que sabemos de ella.
+    if (e.identidad.verificada) {
+      return e.dichoUnaVez.mostroSegmento ? "RECONOCIDO" : "CONFIRMANDO";
+    }
     // Se agotaron los intentos: se sigue por el camino genérico, sin arranque caliente y sin
     // volver a insistir. Nunca un callejón sin salida — quien no recuerde la fecha de expedición
     // de su cédula tiene que poder seguir usando el producto.
@@ -298,6 +301,17 @@ export function cerrarTurno(
     identidad: { ...previo.identidad },
     dichoUnaVez: { ...previo.dichoUnaVez, saludo: previo.dichoUnaVez.saludo || previo.turno >= 1 },
   };
+
+  /*
+   * El turno de confirmación se gasta al ocurrir, no al aceptarse.
+   *
+   * Si esperara a un "sí" explícito, quien conteste con otra cosa —"vale, y tengo una moto"— se
+   * quedaría atrapado en el bucle de confirmar. Confirmar es una invitación a corregir, no un
+   * permiso para avanzar: mostrarlo una vez es lo que hace falta.
+   */
+  if (estado.identidad.verificada && !estado.dichoUnaVez.mostroSegmento) {
+    estado.dichoUnaVez.mostroSegmento = true;
+  }
 
   if (resultado.perfilUsado) estado.perfil = resultado.perfilUsado;
   if (resultado.descartes) estado.descartes = resultado.descartes;

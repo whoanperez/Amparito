@@ -22,6 +22,7 @@ import { contextoDeEstado } from "@/lib/estado/contexto";
 import {
   afirmacionesSinRespaldo,
   coberturasContradichas,
+  describePantallaQueNoExiste,
   instruccionDeCorreccion,
   quitarFrases,
   type Clausulado,
@@ -207,7 +208,13 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // cotiza, es decir donde de verdad preguntaba de más: a Carolina le pedía la edad, los
   // dependientes y el ingreso teniendo su segmento verificado en la mano. El bloque sabe adaptarse
   // (`puedePreguntar`): en ASESORANDO deja de invitar a preguntar y pasa a frenarlo.
-  const puedePreguntar = estado.fase === "DESCUBRIENDO" || estado.fase === "RECONOCIDO";
+  /*
+   * Solo DESCUBRIENDO invita a preguntar. El bloque CORRE en todas las fases —eso es 5b, y es lo
+   * que impide repreguntar—, pero invitar es otra cosa: RECONOCIDO dice "SALTA el descubrimiento
+   * por completo", así que un bloque diciéndole "empieza por el primero" lo contradecía dentro del
+   * mismo prompt. El punto 6 lo hizo más ruidoso al ordenar la lista y empujar a usarla.
+   */
+  const puedePreguntar = estado.fase === "DESCUBRIENDO";
   const evidencia = resumenEvidencia(textoUsuario, estado.perfil, {
     puedePreguntar,
     // El segmento verificado se resuelve al decir el nombre; el perfil solo lo recibe cuando el
@@ -434,9 +441,20 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
    * Se contrasta contra el clausulado que las tools devolvieron EN ESTE TURNO. Sin clausulado no se
    * mira nada: adivinar sería peor.
    */
+  /*
+   * Y la guarda de "describir una pantalla que no existe": las tarjetas de recomendación llevan
+   * nombre y razón, no precio.
+   *
+   * Mira el TURNO y el ESTADO. La primera versión solo miraba los eventos de este turno, y eso
+   * habría marcado como falsa una frase correcta: una cotización de un turno anterior sigue en
+   * pantalla, así que "aquí arriba tienes el precio" es cierto. Una guarda que poda texto tiene
+   * que fallar hacia no marcar.
+   */
+  const hayCotizacion = events.some((ev) => ev.type === "quote") || !!estado.quoteId;
   let sinRespaldo = [
     ...afirmacionesSinRespaldo(reply, estado),
     ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+    ...describePantallaQueNoExiste(reply, hayCotizacion),
   ];
   if (sinRespaldo.length) {
     try {
@@ -458,6 +476,7 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
         sinRespaldo = [
           ...afirmacionesSinRespaldo(reply, estado),
           ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+          ...describePantallaQueNoExiste(reply, hayCotizacion),
         ];
       }
     } catch {

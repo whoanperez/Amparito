@@ -49,6 +49,7 @@ const ETIQUETAS: Record<string, string> = {
   "enriquecido.tiene_credito": "Tienes un crédito",
   "enriquecido.mascota_veterinario_frecuente": "Vas seguido al veterinario",
   "enriquecido.sin_ingresos": "Hoy no tienes ingresos",
+  "enriquecido.arrienda_propiedad": "Arriendas una propiedad tuya",
   "prior.prob_mascota_hogar": "Dato de contexto (DANE)",
 };
 
@@ -95,21 +96,27 @@ export const ETIQUETA_RESULTADO: Record<string, string> = {
   recomendado: "te lo recomendé",
   obligatorio: "obligatorio por ley",
   ya_cubierto: "ya lo tienes",
-  descartado: "no entró, y te dije por qué",
+  /*
+   * Decía "no entró, y te dije por qué". La etiqueta NO PUEDE SABER si se lo dijo — en un flujo
+   * real el motivo estaba aquí y en la conversación no se mencionó nunca, así que afirmaba algo
+   * falso sobre lo que había pasado. Ahora señala dónde está el motivo, que es lo único que sí
+   * sabe.
+   */
+  descartado: "no entró · el motivo, aquí",
   fuera_del_top: "no entró",
 };
 
 /**
  * El gate de asequibilidad, en una frase.
  *
- * `categoria` llega como `"(vacío)"` cuando la persona no está identificada contra la base. No
+ * `categoria` llega como `"(vacío)"` cuando la persona no se identificó contra la base. No
  * saberla no es un hueco decorativo: cambia la decisión —se prefiere la prima más baja— y eso es
  * justo lo que hay que poder auditar.
  */
 export function explicaGate(g: { categoria: string; prioriza_prima_baja: boolean }): string {
   const sinDato = !g.categoria || g.categoria === "(vacío)";
   const quien = sinDato
-    ? "No sé tu categoría de afiliación (no estás identificada contra la base)"
+    ? "No sé tu categoría de afiliación (no te identificaste contra la base)"
     : `Tu categoría de afiliación es ${g.categoria}`;
   const efecto = g.prioriza_prima_baja
     ? "así que primero te muestro lo de prima más baja"

@@ -201,6 +201,47 @@ export function coberturasContradichas(texto: string, c: Clausulado): Afirmacion
   return hallazgos;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Describir una pantalla que no existe
+   ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * En un flujo real Amparito escribió: *"Las tarjetas que ves abajo te muestran ambos, **con los
+ * precios exactos**"*. Las tarjetas de recomendación llevan nombre y razón; **no llevan precio**.
+ *
+ * Es la misma falta del video que desmentía al sello de simulación —un texto afirmando algo sobre
+ * otra superficie que no es cierto— pero peor, porque la persona baja la vista a buscar un número
+ * que no está y concluye que algo se rompió.
+ *
+ * Se comprueba solo la contradicción concreta y verificable: decir que en pantalla hay PRECIOS
+ * cuando este turno no produjo ninguna cotización. No se mira nada más: describir la pantalla en
+ * general ("mira la tarjeta de abajo") es correcto y útil.
+ */
+const SEÑALA_LA_PANTALLA = /\b(abajo|arriba|aqu[ií]|en pantalla|las?\s+tarjetas?|ah[ií]\s+(mismo|abajo))\b/;
+/*
+ * "prima" NO va aquí, y es de las cosas que solo se ven probando: en español también es una
+ * familiar, y el prompt le PROHÍBE a Amparito usar esa palabra para el precio ("di lo que pagas al
+ * mes, no prima"). O sea que el patrón no podía acertar en el significado que buscaba y sí en el
+ * otro: "aquí abajo está lo que te contó tu prima" se marcaba como promesa falsa.
+ */
+const DICE_PRECIO = /\b(precio|precios|cu[aá]nto\s+(cuesta|vale|te\s+sale)|valor\s+mensual)\b/;
+
+export function describePantallaQueNoExiste(texto: string, hayCotizacion: boolean): AfirmacionSinRespaldo[] {
+  if (hayCotizacion) return [];
+  return frasesDe(texto)
+    .filter((f) => {
+      const n = norm(f);
+      return SEÑALA_LA_PANTALLA.test(n) && DICE_PRECIO.test(n);
+    })
+    .map((frase) => ({
+      frase,
+      motivo:
+        "dices que en pantalla hay precios, y las tarjetas de recomendación NO los llevan: solo " +
+        "nombre y razón. La persona va a bajar la vista a buscar un número que no está. Ofrécele " +
+        "cotizar el que le interese en vez de anunciar un precio que no aparece.",
+    }));
+}
+
 /** La instrucción de corrección que se le manda al modelo. */
 export function instruccionDeCorreccion(hallazgos: AfirmacionSinRespaldo[]): string {
   return (

@@ -435,16 +435,14 @@
       "requiere_asesoria": true,
       "señales": [
         {
-          "feature": "enriquecido.vivienda",
-          "en": [
-            "arriendo"
-          ],
+          "feature": "enriquecido.arrienda_propiedad",
+          "es": true,
           "peso": 30,
-          "razon": "Respaldo ante impagos si arriendas tu propiedad"
+          "razon": "Respaldo ante impagos de quien te arrienda"
         }
       ],
       "redundancia": [],
-      "nota": "Requiere asesoría → escala.",
+      "nota": "Requiere asesoría → escala. La señal es ARRENDAR UNA PROPIEDAD (ser el dueño), no vivir en arriendo: antes disparaba con `vivienda=arriendo`, que es el inquilino, y le ofrecía al inquilino un producto que protege al arrendador.",
       "motivo_descarte": "Requiere estudio y aprobación del arrendatario; lo ve un asesor."
     },
     "exequial_gea": {

@@ -140,7 +140,16 @@ export type ConsultaIdentidad =
  * una bandera dentro de RECONOCIDO porque las reglas son incompatibles: RECONOCIDO ordena llamar
  * al motor con el segmento EN ESE MISMO TURNO, y aquí justamente no hay segmento que pasar.
  */
-export type Fase = "SALUDO" | "DESCUBRIENDO" | "VERIFICANDO" | "RECONOCIDO" | "ASESORANDO";
+/**
+ * `CONFIRMANDO` es el turno que le devuelve a la persona lo que Colsubsidio tiene de ella.
+ *
+ * Es una fase propia por lo mismo que `VERIFICANDO`: las reglas son INCOMPATIBLES con las de
+ * RECONOCIDO. Esa fase ordena "en ESTE MISMO turno llama calcular_propension"; este turno ordena
+ * justo lo contrario. Metido dentro de RECONOCIDO, el prompt se contradecía a sí mismo — que es
+ * exactamente el problema que la reescritura v4 vino a eliminar.
+ */
+export type Fase =
+  | "SALUDO" | "DESCUBRIENDO" | "VERIFICANDO" | "CONFIRMANDO" | "RECONOCIDO" | "ASESORANDO";
 
 /**
  * El veredicto del motor. Reemplaza al booleano `yaRecomendo`, que preguntaba "¿pintamos
@@ -198,6 +207,14 @@ export interface EstadoConversacion {
     saludo: boolean;
     pidioCiudad: boolean;
     pidioNombreCompleto: boolean;
+    /**
+     * ¿Ya le devolvió lo que Colsubsidio tiene de ella, para que lo confirme?
+     *
+     * Sin esto, verificar la identidad no le devuelve NADA: pide un dato, ella lo da, y lo
+     * siguiente que ve es un panel de recomendaciones. El momento pide lo contrario — mostrarle lo
+     * que se sabe de ella y darle la oportunidad de corregirlo.
+     */
+    mostroSegmento: boolean;
   };
 }
 
@@ -210,7 +227,7 @@ export function estadoInicial(): EstadoConversacion {
     perfil: {},
     descartes: [],
     veredicto: null,
-    dichoUnaVez: { saludo: false, pidioCiudad: false, pidioNombreCompleto: false },
+    dichoUnaVez: { saludo: false, pidioCiudad: false, pidioNombreCompleto: false, mostroSegmento: false },
   };
 }
 

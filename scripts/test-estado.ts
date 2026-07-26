@@ -18,9 +18,13 @@ import {
 } from "../lib/estado/reducir";
 import { estadoInicial } from "../lib/estado/tipos";
 import type { EstadoConversacion, UiEvent } from "../lib/estado/tipos";
-import { vistaDeEstado, limpiarTexto, SALUDO_INICIAL } from "../lib/estado/vista";
+import {
+  vistaDeEstado, limpiarTexto, SALUDO_INICIAL,
+  MAX_ENFASIS, trozosDe, esVinieta, textoDeVinieta,
+} from "../lib/estado/vista";
 import { sellar, abrir, abrirOInicial } from "../lib/estado/sello";
 import { contextoDeEstado, AVISO_VERIFICACION } from "../lib/estado/contexto";
+import { buildSystemPrompt } from "../lib/prompts";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 import { PERSONAS } from "../lib/engine/fixtures";
@@ -207,6 +211,37 @@ titulo("La identidad reconocida se congela");
   check("tras confirmar, queda verificada", e.identidad.verificada);
 
   /*
+   * ── El turno que faltaba (B15 · 8) ────────────────────────────────────────
+   *
+   * Verificar no le devolvía NADA: pedía un dato, ella lo daba, y lo siguiente que veía era un
+   * panel de recomendaciones. Ahora el turno siguiente le devuelve lo que Colsubsidio tiene, en
+   * humano, para que pueda corregirlo — y solo después se recomienda.
+   */
+  const trasVerificar = { ...e, dichoUnaVez: { ...e.dichoUnaVez, mostroSegmento: false } };
+  checkEq("tras verificar, la fase es CONFIRMANDO", siguienteFase(trasVerificar), "CONFIRMANDO");
+  const ctxConfirmar = contextoDeEstado(trasVerificar) ?? "";
+  check("y el contexto trae lo que hay que devolverle", /LO QUE TIENES QUE DEVOLVERLE/.test(ctxConfirmar));
+  check("  …con sus datos, en humano y no como ficha", /grupo familiar \(Monoparental\)/.test(ctxConfirmar));
+  check("  …y sin el bloque que el motor consume",
+    !ctxConfirmar.includes("SEGMENTO VERIFICADO"));
+  /*
+   * La prohibición de llamar al motor vive en la FASE, no en el contexto. Metida dentro de
+   * RECONOCIDO se contradecía con su propia primera línea —"en ESTE MISMO turno llama
+   * calcular_propension"—, que es el problema que la reescritura v4 vino a eliminar.
+   */
+  const pConf = buildSystemPrompt("CONFIRMANDO", ctxConfirmar);
+  check("la fase prohíbe llamar al motor", /NO llames a ninguna tool del motor/.test(pConf));
+  check("y NO se contradice con la orden de recomendar",
+    !/En ESTE MISMO turno llama calcular_propension/.test(pConf));
+
+  /*
+   * Se gasta al OCURRIR, no al aceptarse: si esperara un "sí" explícito, quien conteste otra cosa
+   * —"vale, y tengo una moto"— se quedaría atrapado confirmando.
+   */
+  check("y el turno de confirmación se gasta solo", e.dichoUnaVez.mostroSegmento);
+  check("después ya llega el segmento", (contextoDeEstado(e) ?? "").includes("SEGMENTO VERIFICADO"));
+
+  /*
    * La fuga que este paso cierra, comprobada sobre el contexto que de verdad viaja al modelo. No es
    * una regla de prompt pidiéndole discreción: es que el dato NO ESTÁ. No se puede revelar lo que
    * no se recibe.
@@ -321,7 +356,47 @@ titulo("La vista no compite con una pregunta abierta");
   const iTexto = dosLlamadas.bloques.findIndex((b) => b.t === "texto");
   check("la tarjeta va antes que el texto", iTarjetas >= 0 && iTexto >= 0 && iTarjetas < iTexto, `→ tarjetas@${iTarjetas} texto@${iTexto}`);
 
-  checkEq("el markdown se limpia", limpiarTexto("**Hola** y `esto`"), "Hola y esto");
+  /*
+   * ── El texto de Amparito deja de ser plano (B15) ──────────────────────────
+   *
+   * Esta aserción decía que la negrita SE BORRA, y era cierto: `limpiarTexto` la quitaba y el
+   * prompt además se la prohibía al modelo. Entre las dos cosas, cada mensaje quedaba como un
+   * bloque donde todo pesa lo mismo — incluidos los que más peso tienen: por qué este seguro y no
+   * otro, qué NO cubre.
+   *
+   * Ahora se admite un subconjunto corto —énfasis y viñetas— y se renderiza. Lo que sigue fuera:
+   * títulos, cursivas y backticks.
+   */
+  checkEq("los backticks siguen fuera", limpiarTexto("Hola y `esto`"), "Hola y esto");
+  check("pero la negrita ya no se borra", limpiarTexto("esto es **importante**").includes("**importante**"));
+  check("los títulos siguen fuera", !limpiarTexto("## Hola\nqué tal").includes("#"));
+  check("y las cursivas también, que son las que se colaban sueltas",
+    !limpiarTexto("esto es *importante* de verdad").includes("*"));
+
+  /*
+   * El TOPE vive en el servidor, no en el prompt: si el modelo resalta seis cosas no resalta
+   * ninguna, y eso no se puede dejar a una petición probabilística.
+   */
+  const conExceso = limpiarTexto("Importa **tu ingreso**, y **tu familia**, y **esto**, y **esto otro**.");
+  checkEq("se admiten dos énfasis por mensaje", (conExceso.match(/\*\*/g) ?? []).length / 2, MAX_ENFASIS);
+  // Lo que sobra pierde la MARCA, no el texto: pasarse de énfasis no puede costarle una frase a
+  // nadie. Misma asimetría que todas las guardas de este proyecto.
+  check("y lo que sobra conserva su texto", conExceso.includes("esto otro"));
+  check("las viñetas se normalizan en vez de perderse",
+    limpiarTexto("• uno\n• dos").split("\n").every(esVinieta));
+
+  // Lo que la UI necesita para pintar, decidido aquí y no dentro del componente —donde no lo
+  // cubriría ningún gate—, y como DATOS, no como HTML.
+  const trozos = trozosDe("Si te faltas, **nadie cubre ese ingreso**.");
+  // Por PROPIEDAD y no por número de trozos: lo que importa es que no se pierda ni se duplique una
+  // sola letra, y que resalte exactamente lo que venía marcado.
+  checkEq("no se pierde ni se duplica texto al partir la línea",
+    trozos.map((t) => t.texto).join(""), "Si te faltas, nadie cubre ese ingreso.");
+  checkEq("y resalta exactamente lo que venía marcado",
+    trozos.filter((t) => t.fuerte).map((t) => t.texto).join("|"), "nadie cubre ese ingreso");
+  checkEq("una viñeta entrega su contenido sin el guion",
+    textoDeVinieta("- Vida: te reemplaza el ingreso"), "Vida: te reemplaza el ingreso");
+  check("y una línea normal no es viñeta", !esVinieta("Lo que importa es tu ingreso."));
 
   // Las sugerencias son del turno en que la recomendación aterriza, no permanentes: colgarlas del
   // veredicto —que no se limpia nunca— las dejaba fijas compitiendo con lo que se pregunte después.
