@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetrasDeCamaras } from "./FlowVideo";
 import { AVISO_SIMULACION } from "@/lib/expedicion";
+import { UMBRAL_PASOS, esperaRestante, indicadorDeEspera } from "@/lib/ui/espera";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 import { SALUDO_INICIAL } from "@/lib/estado/vista";
@@ -246,15 +247,22 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     setItems(next);
     setBusy(true);
 
+    // Fuera del `try` a propósito: si la llamada revienta, el `finally` tiene que poder cancelar el
+    // temporizador. Antes el camino de error no limpiaba `processing` y la tarjeta de pasos se
+    // quedaba puesta encima de una conversación muerta.
+    let escalar: ReturnType<typeof setTimeout> | undefined;
+
     try {
       const history = next.filter((i) => i.kind === "msg").map((i) => ({ role: i.role!, content: i.text! }));
 
-      // El teatro de explicabilidad (los pasos reales del motor) arranca ANTES de la llamada, para
-      // CUBRIR la latencia. Antes corría después de que la respuesta ya había llegado, así que le
-      // sumaba 2,5 s: el momento de más valor del producto aterrizaba detrás del silencio más
-      // largo de la demo. No hay streaming (decisión registrada), así que esto es la mitigación.
-      const esperaMinima = sleep(2200);
-      setProcessing("reco");
+      // Los pasos del motor aparecen solo si el turno se está demorando de verdad: no hay piso, hay
+      // umbral (ver lib/ui/espera.ts). Un turno que solo pregunta la ciudad no ejecuta el motor y
+      // ya no paga 2,2 s por narrar un trabajo que no hizo.
+      let pasosDesde: number | null = null;
+      escalar = setTimeout(() => {
+        pasosDesde = Date.now();
+        setProcessing("reco");
+      }, UMBRAL_PASOS);
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -271,9 +279,9 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       });
       const data = (await res.json()) as { ui: UiVista; estado: string };
       if (!data?.ui) throw new Error("respuesta sin vista");
-      // Si la respuesta llegó antes de que se alcancen a leer los pasos, se completa la espera; si
-      // tardó más, no se suma nada.
-      await esperaMinima;
+      clearTimeout(escalar);
+      // Si los pasos nunca aparecieron, esto es 0: la respuesta sale apenas llega.
+      await sleep(esperaRestante(pasosDesde, Date.now()));
       setProcessing(null);
       // El estado viaja opaco: se guarda y se reenvía, nunca se interpreta.
       estadoRef.current = data.estado;
@@ -301,6 +309,8 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
       }
       return false;
     } finally {
+      clearTimeout(escalar);
+      setProcessing(null);
       setBusy(false);
     }
   }
@@ -472,8 +482,14 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
         )}
 
         {activeForm && <DataForm data={activeForm} onSubmit={submitForm} />}
-        {processing && <ProcessingCard variant={processing} />}
-        {busy && <div className="typing">Amparito está escribiendo…</div>}
+        {/*
+          UN indicador, no dos. `busy` y `processing` eran verdaderos a la vez, así que se veían
+          simultáneamente la tarjeta de pasos y el "Amparito está escribiendo…" (#32).
+        */}
+        {indicadorDeEspera(busy, !!processing) === "pasos" && <ProcessingCard variant={processing!} />}
+        {indicadorDeEspera(busy, !!processing) === "escribiendo" && (
+          <div className="typing">Amparito está escribiendo…</div>
+        )}
         <div ref={endRef} />
       </div>
 

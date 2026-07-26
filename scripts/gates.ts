@@ -33,6 +33,7 @@ const SUITES = [
   "test-tarjetas-del-motor.ts",
   "test-primer-toque.ts",
   "test-sello.ts",
+  "test-espera.ts",
   "test-offline.ts",
   "test-identidad.ts",
   "check-afiliados.ts",
