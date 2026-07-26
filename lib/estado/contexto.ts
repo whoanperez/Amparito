@@ -31,11 +31,15 @@ function describirComun(s: SegmentoBase): string {
 function reconocido(e: EstadoConversacion): string {
   const seg = e.identidad.segmento ?? {};
   const primerNombre = (e.identidad.nombre ?? "").split(" ")[0];
-  const saludo =
-    seg.GENERO === "F" ? "Bienvenida" : seg.GENERO === "M" ? "Bienvenido" : "Bienvenido(a)";
+  // El saludo ya no se decide aquí: vive en CONFIRMANDO, que es el único turno que saluda.
   return (
     `## SEGMENTO VERIFICADO DE ESTE AFILIADO (viene de la base de Colsubsidio, no lo preguntes)\n` +
-    `Primer nombre: ${primerNombre}. Saluda con "${saludo}, ${primerNombre}".\n` +
+    /*
+     * Ya NO ordena saludar. Este bloque solo llega DESPUÉS de CONFIRMANDO, que ya la saludó — y
+     * antes de eso la verificación también. En un flujo real Carolina recibió tres saludos
+     * seguidos: "¡Hola Carolina!", "Perfecto, Carolina" y "Bienvenida, Carolina 👋".
+     */
+    `Primer nombre: ${primerNombre} (ya la saludaste: NO vuelvas a saludarla).\n` +
     // Los 4 ejes del peer-group van COMPLETOS: `lookupPeer` los exige para ubicar la celda.
     `Género = ${seg.GENERO ?? "?"}; grupo familiar = ${seg.SEGMENTO_GRUPO_FAMILIAR ?? "?"}; ` +
     `rango de edad = ${seg.RANGO_EDAD ?? "?"}; categoría = ${seg.CATEGORIA ?? "?"}; ` +

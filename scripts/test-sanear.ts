@@ -7,7 +7,7 @@
  * pregunta de doble cañón) y eso decidió la venta. Y mandó `CATEGORIA:"B"` para alguien que
  * acababa de decir que no tiene ingresos, apagando `prioriza_prima_baja`.
  */
-import { sanearPerfil, resumenEvidencia, edadDicha } from "../lib/engine/sanear";
+import { sanearPerfil, resumenEvidencia, edadDicha, edadCabeEnRango } from "../lib/engine/sanear";
 import { calcularPropension } from "../lib/engine/scorecard";
 
 let ok = true;
@@ -510,6 +510,46 @@ for (const [texto, esperado] of [
   const s3 = sanearPerfil({ enriquecido: { dependientes: 1 } }, { textoUsuario: texto });
   checkEqStr(`"${texto}" → ${esperado}`, s3.perfil._origen?.["enriquecido.dependientes"], esperado);
 }
+
+/* ── 11 · la edad que choca con el rango verificado ───────────────────────── */
+/*
+ * En un flujo real la base situaba a Carolina en "36 a 45" y ella contestó "35" a la pregunta de
+ * la edad exacta. Dos hechos incompatibles en el mismo turno, y el sistema cotizó sin decir nada.
+ *
+ * No se le discute —lo que la persona dice manda sobre el segmento, y la base puede estar
+ * desactualizada— pero tampoco se calla: la prima sale de SU número.
+ */
+console.log("\n===== Una edad que no cuadra con la base no pasa en silencio =====");
+const SEG_36_45 = { RANGO_EDAD: "36 a 45 años" };
+const choca = resumenEvidencia("tengo 35 anos", undefined, { puedePreguntar: false, segmentoBase: SEG_36_45 }) ?? "";
+check("se avisa de la contradicción", /no cuadra con 35/.test(choca));
+check("y se resuelve a favor de lo que ella dice", /MANDA lo que ella dice/.test(choca));
+check("pero sin convertirlo en un problema", /sin discutírselo/.test(choca));
+
+const cuadra = resumenEvidencia("tengo 40 anos", undefined, { puedePreguntar: false, segmentoBase: SEG_36_45 }) ?? "";
+check("y cuando sí cuadra, no se dice nada", !/no cuadra/.test(cuadra));
+
+/*
+ * Y SOLO si el rango vino de la BASE. El perfil también puede traerlo porque ella lo declaró en un
+ * turno anterior, y ahí decir "la base la sitúa en X" sería atribuirle a Colsubsidio un dato que
+ * puso ella. Además no habría contradicción que avisar: comparar lo que dijo consigo misma no es
+ * un choque, es que cambió de idea.
+ */
+const rangoDeclarado = resumenEvidencia(
+  "tengo 35 anos",
+  { RANGO_EDAD: "36 a 45 años", _origen: { RANGO_EDAD: "declarado" } },
+  { puedePreguntar: false }
+) ?? "";
+check("un rango que declaró ELLA no se le atribuye a la base",
+  !/la base la sitúa/.test(rangoDeclarado));
+
+// Los tres formatos de rango del enum, incluidos los abiertos.
+check("«mayor de 55» acepta 60 y rechaza 40",
+  edadCabeEnRango(60, "Mayor de 55 años") && !edadCabeEnRango(40, "Mayor de 55 años"));
+check("«menor de 19» acepta 18 y rechaza 30",
+  edadCabeEnRango(18, "Menor de 19 años") && !edadCabeEnRango(30, "Menor de 19 años"));
+// Y un rango que no se sabe leer NO inventa una contradicción.
+check("un rango desconocido no inventa un choque", edadCabeEnRango(35, "cualquier cosa"));
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

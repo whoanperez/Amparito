@@ -535,7 +535,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
               (#27). Ahora se enmarcan como lo que de verdad son — una demostración honesta del
               producto con alguien que sí está afiliado.
             */}
-            <div className="pf-ejemplo">
+            <div className="pf-ejemplo demo">
               <span className="pf-ejemplo-lbl">{INVITACION_EJEMPLO}</span>
               <div className="pf-ejemplo-row">
                 {PERSONAS_DEMO.map((p) => (
@@ -833,7 +833,6 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   const obligatorios = (data.obligatorios ?? []) as Array<{
     nombre: string; aseguradora: string; razon: string; consecuencia: string;
   }>;
-  const descartados = (data.descartados ?? []) as Array<{ nombre: string; motivo: string }>;
   const riesgos = (data.ledger?.riesgos_hoy ?? []) as string[];
   const yaCubierto = (data.ledger?.ya_cubierto ?? []) as Array<{ producto: string; razon: string }>;
   const peer = data.peer as { descripcion: string; n: number; pct: number } | null;
@@ -841,6 +840,7 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
   const jerarquia = data.jerarquia as string | undefined;
   const traza = data.traza as TrazaData | undefined;
   const top = recs[0];
+  const resto = recs.slice(1);
 
   // El segundo NO: "hoy no te sirve". Reemplaza la tarjeta entera — no tiene sentido mostrar un
   // ranking de productos de pago a quien acaba de decir que no tiene con qué.
@@ -915,6 +915,16 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
           </ul>
           {/* Explicabilidad del orden: si la jerarquía movió el ranking, se dice. */}
           {jerarquia && <p className="pp-jerarquia">↑ {jerarquia}</p>}
+          {/*
+            El panel explicaba SOLO el #1 y abajo aparecían dos tarjetas: se leía como si hubiera
+            una recomendación y luego salieran dos. Nombrar la segunda cuesta una línea y cierra la
+            distancia entre lo que el panel dice y lo que la pantalla muestra.
+          */}
+          {resto.length > 0 && (
+            <p className="pp-tambien">
+              Y también, en segundo lugar: <b>{resto.map((r) => r.nombre).join(", ")}</b>.
+            </p>
+          )}
         </div>
       )}
 
@@ -955,17 +965,15 @@ function PropensionCard({ data }: { data: Record<string, any> }) {
           reglas que aplicaron con su peso, y la versión del scorecard con la que se decidió. */}
       {traza && <TrazaDecision traza={traza} />}
 
-      {/* Descartados — la pregunta de segundo orden: por qué NO lo otro */}
-      {descartados.length > 0 && (
-        <details className="pp-disc" open>
-          <summary>Por qué NO te recomendé lo demás</summary>
-          <ul>
-            {descartados.map((x, i) => (
-              <li key={i}><b>{x.nombre}:</b> {x.motivo}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      {/*
+        Aquí vivía "Por qué NO te recomendé lo demás", abierta por defecto. Era la TERCERA copia del
+        mismo motivo en la misma pantalla: está en la traza (para auditar) y tiene que estar en lo
+        que Amparito DICE (es uno de los cuatro NO, y el material se lo entrega el motor desde 5g).
+        Una tercera en la UI no añadía nada y encima quedaba fuera del rótulo de demo, así que un
+        bloque claramente técnico se leía como parte del producto.
+
+        El NO honesto no es una sección de pantalla: es algo que se dice.
+      */}
     </div>
   );
 }
@@ -1022,15 +1030,18 @@ function TrazaDecision({ traza }: { traza: TrazaData }) {
   ];
 
   return (
-    <details className="tz">
+    <details className="tz demo">
       {/*
-        La traza no tenía destinatario declarado, así que caía en tierra de nadie: quien la abría no
-        sabía si era para él. Es instrumentación para evaluar el demo — en un producto real esto no
-        se le muestra a quien está comprando un seguro—, y decirlo cuesta una línea.
+        EL RÓTULO VA EN EL RESUMEN, no dentro.
+        Primero lo puse debajo del summary, y eso lo hacía inútil: solo se leía DESPUÉS de abrirlo,
+        que es justo cuando ya no hace falta. Plegado se leía "Ver cómo llegué a esto", que suena a
+        función del producto — exactamente lo contrario de lo que hay que decir. Quien mira la
+        pantalla tiene que saber que esto es instrumentación de la demo SIN tener que abrirla.
       */}
-      <summary>Ver cómo llegué a esto</summary>
+      <summary className="tz-sum">Cómo llegué a esto · el detalle del cálculo</summary>
       <p className="tz-para-quien">
-        Datos para evaluar la demostración · en producción esto no se le muestra a la persona
+        Instrumentación para evaluar la demostración. En producción esto no se le muestra a la
+        persona: quien compra un seguro no necesita ver los pesos del motor.
       </p>
 
       <div className="tz-lbl">Lo que supe de ti, y de dónde lo supe</div>

@@ -92,7 +92,7 @@ export default function FlowVideo() {
   const marca = marcaDeEscena(sc);
 
   return (
-    <div className="flowvid">
+    <div className="flowvid demo">
       <div className="fv-head">
         <span className="fv-tag">▶ Detrás de cámaras · técnico</span>
         <span className="fv-cnt">{i + 1}/{SCENES.length}</span>

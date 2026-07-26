@@ -71,7 +71,54 @@ export const MAX_ENFASIS = 2;
  * Lo que sigue fuera: títulos, cursivas, comillas de énfasis, backticks. Un chat de seguros no
  * necesita un `##`, y la cursiva se confunde con el asterisco suelto que empezó todo esto.
  */
-export function limpiarTexto(raw: string): string {
+/**
+ * Dónde NO puede caer el énfasis.
+ *
+ * El prompt ya lo pedía y el modelo hizo justo lo contrario: en un flujo real las SEIS marcas
+ * cayeron sobre lo prohibido — dos preguntas ("¿cuántos años tienes?"), tres nombres de producto
+ * y un precio. Cero aciertos.
+ *
+ * Y el efecto es peor que no tener énfasis: subraya lo que ya está en las tarjetas y deja sin
+ * marcar lo único que importa —"si algo te pasara, tu familia se queda sin ingreso"—, así que la
+ * jerarquía queda al revés.
+ *
+ * Igual que el tope: el prompt pide, el servidor garantiza.
+ */
+function enfasisProhibido(texto: string, oracion: string, productos: readonly string[]): boolean {
+  const t = texto.trim();
+
+  /*
+   * Una pregunta no es lo que hay que recordar: es lo que hay que contestar.
+   *
+   * Se mira la ORACIÓN, no solo el trozo marcado. Con solo el trozo, "¿**cuántos años tienes**?"
+   * se colaba: los signos quedaban fuera de la marca y la guarda no veía la pregunta.
+   */
+  if (/[¿?]/.test(oracion)) return true;
+
+  // Una cifra suelta. El precio ya va en su tarjeta, con su rótulo y su letra grande.
+  if (/\d/.test(t) && /\b(pesos|mil|millon|\$|mensual|al mes)\b/i.test(t)) return true;
+
+  /*
+   * El nombre de un producto, cuando el énfasis es ESO y poco más: ya está en la tarjeta, a dos
+   * centímetros. Se mide por proporción y no por `includes`, porque con `includes` se caía
+   * "**sin SOAT te pueden inmovilizar la moto**" — que es una advertencia legal y de las frases
+   * que más valen. Ahí el nombre es parte de la idea, no la idea.
+   */
+  const n = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const limpio = n(t).replace(/^(el|la|los|las|un|una|tu|su)\s+/, "");
+  return productos.some((prod) => {
+    if (!prod) return false;
+    const i = limpio.indexOf(n(prod));
+    return i >= 0 && n(prod).length / limpio.length >= 0.6;
+  });
+}
+
+export interface OpcionesTexto {
+  /** Nombres de los productos que YA están en pantalla, para no resaltarlos otra vez. */
+  productos?: readonly string[];
+}
+
+export function limpiarTexto(raw: string, opciones: OpcionesTexto = {}): string {
   let t = (raw ?? "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/`/g, "")
@@ -81,6 +128,20 @@ export function limpiarTexto(raw: string): string {
     .replace(/^\s*[•]\s+/gm, "- ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  // Primero se cae lo que NO puede llevar énfasis, y solo después se aplica el tope: si no, dos
+  // marcas prohibidas gastarían el cupo y la buena se quedaría fuera.
+  const productos = opciones.productos ?? [];
+  t = t.replace(/\*\*(.+?)\*\*/g, (m, x, desplazamiento: number) => {
+    // La oración que rodea a la marca, para poder ver un "¿…?" que quede fuera de ella.
+    const antes = t.slice(0, desplazamiento);
+    const despues = t.slice(desplazamiento + m.length);
+    // Se corta por el CIERRE de oración, nunca por la apertura: partir también por "¿" borraba el
+    // signo que se está buscando, así que "¿**cuántos años tienes**?" se colaba entera.
+    const oracion =
+      (antes.split(/[.!?\n]/).pop() ?? "") + String(x) + (despues.split(/[.!?\n]/)[0] ?? "");
+    return enfasisProhibido(String(x), oracion, productos) ? String(x) : `**${x}**`;
+  });
 
   // El tope. Se quita la MARCA, no el texto: pasarse de énfasis no puede costarle una frase a nadie.
   let n = 0;
@@ -167,7 +228,18 @@ export function vistaDeEstado(
   textoDelModelo: string,
   eventos: UiEvent[]
 ): UiVista {
-  const texto = limpiarTexto(textoDelModelo ?? "");
+  /*
+   * Los nombres que YA están en pantalla salen del veredicto y de los eventos del turno — no de una
+   * lista escrita a mano ni del catálogo, que arrastraría el JSON entero al bundle del cliente.
+   */
+  const productosEnPantalla = [
+    ...(estado.veredicto?.recomendaciones ?? []).map((r) => r.nombre),
+    ...eventos.flatMap((ev) =>
+      ((ev.data?.recomendaciones ?? []) as Array<{ nombre?: string }>).map((r) => r?.nombre ?? "")
+    ),
+  ].filter(Boolean);
+
+  const texto = limpiarTexto(textoDelModelo ?? "", { productos: productosEnPantalla });
   const bloques: Bloque[] = [];
 
   // GANA EL ÚLTIMO evento de propensión: si el modelo llamó la tool dos veces —cosa que el prompt
