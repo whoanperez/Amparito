@@ -7,7 +7,8 @@
  * que cada turno reciba SOLO su bloque, y en particular que un turno RECONOCIDO no lleve encima
  * las instrucciones de descubrimiento.
  */
-import { buildSystemPrompt, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
+import { buildSystemPrompt, bloquesDeSystem, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
+import { toolDefinitions } from "../lib/tools";
 import { estadoInicial, type EstadoConversacion } from "../lib/estado/tipos";
 import { siguienteFase } from "../lib/estado/reducir";
 
@@ -107,6 +108,32 @@ for (const e of ESTADOS_TODOS) {
 }
 console.log(`   ${"completo (voz)".padEnd(14)} ${String(full).padStart(6)} chars`);
 check("todos los estados pesan menos que el prompt completo", ESTADOS_TODOS.every((e) => p(e).length < full));
+
+/* ── 6 · el prefijo cacheable (#39) ──────────────────────────────────────── */
+/*
+ * Partir el system en bloques es una optimización, y una optimización que cambia lo que el modelo
+ * lee no es una optimización: es un cambio de producto disfrazado. Se afirma lo contrario —que el
+ * texto es IDÉNTICO— comparándolo, no prometiéndolo en un comentario.
+ *
+ * Y se afirma la propiedad que hace que el caching sirva de algo: el bloque marcado no puede
+ * contener nada del turno. Un prefijo que cambia cada turno no se cachea nunca, por grande que sea,
+ * y `cache_control` no avisa: devuelve cache_creation_input_tokens = 0 y se queda callado.
+ */
+console.log("\n===== El prefijo cacheable =====");
+const CTX = "## SEGMENTO VERIFICADO\nGénero = F; categoría = A.";
+for (const e of ESTADOS_TODOS) {
+  const bloques = bloquesDeSystem(e, CTX);
+  check(`${e}: los bloques dan el MISMO texto que siempre`,
+    bloques.map((b) => b.text).join("\n\n") === buildSystemPrompt(e, CTX));
+  const cacheado = bloques.filter((b) => b.cache_control);
+  check(`${e}: hay exactamente un punto de corte`, cacheado.length === 1);
+  check(`${e}: lo cacheado NO trae nada del turno`, !cacheado[0]?.text.includes("SEGMENTO VERIFICADO"));
+  // El mínimo de haiku-4-5 son 4.096 tokens. A 4 caracteres por token —el extremo conservador para
+  // español— hacen falta ~16.400 caracteres SUMANDO las tools, que van antes en el prefijo.
+  const chars = cacheado[0]!.text.length + JSON.stringify(toolDefinitions).length;
+  check(`${e}: el prefijo supera el mínimo (${chars} chars ≈ ${Math.round(chars / 4)}–${Math.round(chars / 3)} tokens)`,
+    chars >= 16_400);
+}
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);

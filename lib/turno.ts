@@ -13,7 +13,7 @@
  * son el bloque 2, y su diff debe verse contra una conducta ya capturada.
  */
 import type Anthropic from "@anthropic-ai/sdk";
-import { buildSystemPrompt, contarPreguntas, esDobleCanon } from "@/lib/prompts";
+import { bloquesDeSystem, contarPreguntas, esDobleCanon } from "@/lib/prompts";
 import { toolDefinitions, executeTool, type ToolCtx } from "@/lib/tools";
 import type { ConsultaIdentidad, EstadoConversacion, UiEvent, UiVista } from "@/lib/estado/tipos";
 import { estadoInicial } from "@/lib/estado/tipos";
@@ -165,7 +165,9 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // veces por los dependientes y dos por el uso del carro, con las mismas palabras.
   const puedePreguntar = estado.fase === "DESCUBRIENDO" || estado.fase === "RECONOCIDO";
   const evidencia = puedePreguntar ? resumenEvidencia(textoUsuario, estado.perfil) : null;
-  const system = buildSystemPrompt(
+  // Dos bloques en vez de un string: el primero es invariable y lleva el punto de corte de caché
+  // (#39). El texto que ve el modelo es el mismo de siempre — ver `bloquesDeSystem`.
+  const system = bloquesDeSystem(
     estado.fase,
     [contextoDeEstado(estado), evidencia].filter(Boolean).join("\n\n")
   );

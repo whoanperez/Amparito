@@ -319,6 +319,62 @@ export function buildSystemPrompt(estado: Estado, contexto?: string): string {
 }
 
 /**
+ * El mismo prompt, partido en dos bloques para que el prefijo se pueda cachear (#39).
+ *
+ * ── QUÉ HABÍA QUE ENTENDER ANTES DE TOCAR NADA ────────────────────────────
+ *
+ * El caching de Anthropic exige un prefijo mínimo por modelo —4.096 tokens en haiku-4-5— y por
+ * debajo de ese mínimo `cache_control` NO FALLA: no hace nada, en silencio. Yo había supuesto en
+ * el diagnóstico que no llegábamos. La medición dice lo contrario, y la diferencia está en algo
+ * que la suposición no contaba: las `tools` son ~7.000 caracteres de esquema JSON, y van ANTES del
+ * system en el orden canónico del prefijo. Con ellas, el prefijo invariable ronda los 20.000
+ * caracteres — cómodamente por encima. Medir sale barato; suponer salió mal.
+ *
+ * ── POR QUÉ HACÍA FALTA PARTIRLO ──────────────────────────────────────────
+ *
+ * El tamaño no era el único problema: `contexto` —identidad, veredicto— cambia CADA TURNO y va
+ * dentro del mismo string. Un prefijo que cambia cada turno no se cachea nunca, por grande que
+ * sea. Así que aunque el mínimo se cumpliera, hoy el ahorro habría sido exactamente cero.
+ *
+ * ── LO QUE NO CAMBIA ──────────────────────────────────────────────────────
+ *
+ * El texto que le llega al modelo es IDÉNTICO, carácter por carácter: el corte cae justo donde
+ * empieza `contexto`, así que los dos bloques concatenados dan el mismo string de siempre. No es
+ * una reescritura del prompt disfrazada de optimización — y `scripts/test-prompt-estados.ts` lo
+ * comprueba en vez de confiar en esta frase.
+ */
+export interface BloqueSystem {
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+}
+
+/**
+ * Interruptor de emergencia. El SDK instalado (0.32.x) trae `cache_control` solo en sus tipos beta,
+ * así que el campo viaja al endpoint estable sin que el compilador lo respalde. No pude verificarlo
+ * contra la API —la key local está vacía— y si la API lo rechazara, se caería CADA turno.
+ *
+ * Con esto, arreglarlo no necesita un deploy de código: `AMPARITO_SIN_CACHE=1` y listo. Es la
+ * diferencia entre un riesgo que se apaga en treinta segundos y uno que hay que compilar.
+ */
+const cacheApagada = process.env.AMPARITO_SIN_CACHE === "1";
+
+export function bloquesDeSystem(estado: Estado, contexto?: string): BloqueSystem[] {
+  const invariable = [BASE, ESTADOS[estado]].join("\n\n");
+  const delTurno = [contexto?.trim(), CIERRE].filter(Boolean).join("\n\n");
+  return [
+    // El punto de corte. Cachea todo lo anterior en el orden canónico del prefijo: `tools` primero
+    // y este bloque después. Hay cuatro variantes (una por fase), no una sola entrada de caché.
+    {
+      type: "text",
+      text: invariable,
+      ...(cacheApagada ? {} : { cache_control: { type: "ephemeral" as const } }),
+    },
+    { type: "text", text: delTurno },
+  ];
+}
+
+/**
  * Prompt completo (todos los estados). Lo usa SOLO la voz (Gemini Live), que abre una sesión
  * larga y no puede reinyectar el prompt turno por turno.
  */

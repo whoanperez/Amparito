@@ -110,7 +110,14 @@ async function main() {
     checkEq("devuelve el texto del modelo", textoDe(r), "Soy Amparito, de amparar.");
     checkEq("sin tarjetas", tarjetasDe(r).length, 0);
     checkEq("con una sola llamada al modelo", llamadas.length, 1);
-    check("y el system prompt viaja", typeof llamadas[0].system === "string" && llamadas[0].system.length > 100);
+    // El system viaja en BLOQUES desde el #39 (prefijo cacheable). Se comprueba lo que importa —que
+    // llegue el prompt entero— sin volver a atarse a que sea un string.
+    const textoSystem = (s: unknown) =>
+      typeof s === "string" ? s : (s as Array<{ text: string }>).map((b) => b.text).join("\n\n");
+    check("y el system prompt viaja", textoSystem(llamadas[0].system).length > 100);
+    check("y va partido para que el prefijo se pueda cachear (#39)",
+      Array.isArray(llamadas[0].system) &&
+      (llamadas[0].system as Array<{ cache_control?: unknown }>).filter((b) => b.cache_control).length === 1);
   }
 
   titulo("El loop de tools");
@@ -142,7 +149,8 @@ async function main() {
     checkEq("la identidad queda en el estado", abrir(r.estado)?.identidad.nombre, "Carolina Ramírez López");
     checkEq("con su segmento verificado", abrir(r.estado)?.identidad.segmento?.CATEGORIA, "B");
     checkEq("y no se pinta como tarjeta", tarjetasDe(r).length, 0);
-    check("el contexto verificado entra al prompt", String(llamadas[0].system).includes("## SEGMENTO VERIFICADO"));
+    const junto = (llamadas[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");
+    check("el contexto verificado entra al prompt", junto.includes("## SEGMENTO VERIFICADO"));
   }
 
   titulo("La guarda del doble cañón");
@@ -542,7 +550,10 @@ async function main() {
     // Y la corrección va en el TURNO, no concatenada al system: editar el system a mitad de
     // conversación rompe cualquier prefijo cacheable.
     // Se compara como booleano: `checkEq` imprime los valores, y aquí son dos prompts enteros.
-    check("el system del reintento es idéntico al del turno", llamadas[1].system === llamadas[0].system);
+    // Por CONTENIDO, no por referencia: hoy es el mismo objeto y un `===` pasaría siempre, incluso
+    // el día que alguien vuelva a concatenar algo al system del reintento.
+    check("el system del reintento es idéntico al del turno",
+      JSON.stringify(llamadas[1].system) === JSON.stringify(llamadas[0].system));
     check("la corrección viaja como mensaje", String((llamadas[1].messages.at(-1) as { content: string }).content).includes("UNA SOLA pregunta"));
   }
 
