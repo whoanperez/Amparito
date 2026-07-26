@@ -535,7 +535,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
               (#27). Ahora se enmarcan como lo que de verdad son — una demostración honesta del
               producto con alguien que sí está afiliado.
             */}
-            <div className="pf-ejemplo">
+            <div className="pf-ejemplo demo">
               <span className="pf-ejemplo-lbl">{INVITACION_EJEMPLO}</span>
               <div className="pf-ejemplo-row">
                 {PERSONAS_DEMO.map((p) => (
@@ -1022,15 +1022,18 @@ function TrazaDecision({ traza }: { traza: TrazaData }) {
   ];
 
   return (
-    <details className="tz">
+    <details className="tz demo">
       {/*
-        La traza no tenía destinatario declarado, así que caía en tierra de nadie: quien la abría no
-        sabía si era para él. Es instrumentación para evaluar el demo — en un producto real esto no
-        se le muestra a quien está comprando un seguro—, y decirlo cuesta una línea.
+        EL RÓTULO VA EN EL RESUMEN, no dentro.
+        Primero lo puse debajo del summary, y eso lo hacía inútil: solo se leía DESPUÉS de abrirlo,
+        que es justo cuando ya no hace falta. Plegado se leía "Ver cómo llegué a esto", que suena a
+        función del producto — exactamente lo contrario de lo que hay que decir. Quien mira la
+        pantalla tiene que saber que esto es instrumentación de la demo SIN tener que abrirla.
       */}
-      <summary>Ver cómo llegué a esto</summary>
+      <summary className="tz-sum">Cómo llegué a esto · el detalle del cálculo</summary>
       <p className="tz-para-quien">
-        Datos para evaluar la demostración · en producción esto no se le muestra a la persona
+        Instrumentación para evaluar la demostración. En producción esto no se le muestra a la
+        persona: quien compra un seguro no necesita ver los pesos del motor.
       </p>
 
       <div className="tz-lbl">Lo que supe de ti, y de dónde lo supe</div>
