@@ -168,6 +168,30 @@ async function main() {
     check("tras confirmar, el contexto verificado sí entra", juntoV.includes("## SEGMENTO VERIFICADO"));
   }
 
+  titulo("El turno atrapa una cobertura que el clausulado excluye (5h)");
+  {
+    /*
+     * De punta a punta: el modelo pide el detalle del producto, y en el mismo turno afirma algo que
+     * el clausulado EXCLUYE. Antes salía a pantalla tal cual — los precios estaban atados a una
+     * tool, las coberturas no tenían nada, y es el terreno del Art. 9 de la Ley 1328.
+     */
+    const { d } = deps(
+      [
+        usaTool("get_product_details", { productId: "vida_panamerican" }),
+        dice("Claro que sí: y también te cubre si hay una guerra civil."),
+        // El reintento, ya corregido.
+        dice("Claro que sí. Eso sí, la guerra queda fuera."),
+      ],
+      { ejecutarTool: executeTool }
+    );
+    const r = await ejecutarTurno({ messages: [{ role: "user", content: "¿qué cubre?" }] }, d);
+    const texto = textoDe(r);
+    check("la afirmación contra el clausulado NO llega a pantalla",
+      !/te cubre si hay una guerra/i.test(texto), `→ "${texto.slice(0, 60)}"`);
+    // De PRESENCIA: no basta con que desaparezca la frase mala, tiene que quedar una respuesta.
+    check("y el turno no se queda mudo por eso", texto.trim().length > 0);
+  }
+
   titulo("El formulario nace con lo que ya se sabe (5e)");
   {
     /*

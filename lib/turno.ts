@@ -19,7 +19,13 @@ import type { ConsultaIdentidad, EstadoConversacion, UiEvent, UiVista } from "@/
 import { estadoInicial } from "@/lib/estado/tipos";
 import { iniciarTurno, aplicarIdentidad, cerrarTurno, type HallazgoIdentidad } from "@/lib/estado/reducir";
 import { contextoDeEstado } from "@/lib/estado/contexto";
-import { afirmacionesSinRespaldo, instruccionDeCorreccion, quitarFrases } from "@/lib/estado/validar";
+import {
+  afirmacionesSinRespaldo,
+  coberturasContradichas,
+  instruccionDeCorreccion,
+  quitarFrases,
+  type Clausulado,
+} from "@/lib/estado/validar";
 import { SALUDO_INICIAL, SIN_RESPUESTA, vistaDeEstado } from "@/lib/estado/vista";
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
@@ -157,6 +163,8 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   const maxRondas = deps.maxRondas ?? MAX_TOOL_ROUNDS;
 
   const events: UiEvent[] = [];
+  /** El clausulado real que devolvieron las tools de este turno. Es la única verdad disponible. */
+  let clausulado: Clausulado | undefined;
   let perfilUsado: Perfil | undefined;
   let descartes: string[] | undefined;
 
@@ -313,6 +321,16 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
         perfilUsado = conPerfil.perfil_usado;
         descartes = conPerfil.descartado_por_falta_de_evidencia ?? [];
       }
+
+      // El clausulado, por el mismo criterio: se lee por los CAMPOS y no por el nombre de la tool,
+      // para que no haya que acordarse de añadir la siguiente que lo devuelva.
+      const conClausulado = result as { coberturas?: unknown; exclusiones?: unknown };
+      if (Array.isArray(conClausulado?.coberturas) && Array.isArray(conClausulado?.exclusiones)) {
+        clausulado = {
+          coberturas: conClausulado.coberturas.map(String),
+          exclusiones: conClausulado.exclusiones.map(String),
+        };
+      }
       return {
         type: "tool_result" as const,
         tool_use_id: block.id,
@@ -399,7 +417,19 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
   // y Amparito dijo "hay varios Carolinas": una afirmación fabricada sobre la base de datos de
   // Colsubsidio, dicha con la autoridad de quien acaba de consultarla. El prompt ya lo prohíbe,
   // pero una regla de prompt es una petición probabilística.
-  let sinRespaldo = afirmacionesSinRespaldo(reply, estado);
+  /*
+   * Y la guarda de COBERTURAS (5h). `lib/tools.ts` afirmaba que "el modelo nunca inventa precios,
+   * coberturas ni razones": los precios sí salen de una tool y no hay otra vía, pero las coberturas
+   * no tenían nada. El modelo podía decir "y además te cubre X" con una X que el clausulado
+   * excluye, en el terreno que regula el Art. 9 de la Ley 1328.
+   *
+   * Se contrasta contra el clausulado que las tools devolvieron EN ESTE TURNO. Sin clausulado no se
+   * mira nada: adivinar sería peor.
+   */
+  let sinRespaldo = [
+    ...afirmacionesSinRespaldo(reply, estado),
+    ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+  ];
   if (sinRespaldo.length) {
     try {
       const corregida = await deps.modelo.crear({
@@ -417,7 +447,10 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
       const texto = textoDe(corregida);
       if (texto) {
         reply = texto;
-        sinRespaldo = afirmacionesSinRespaldo(reply, estado);
+        sinRespaldo = [
+          ...afirmacionesSinRespaldo(reply, estado),
+          ...(clausulado ? coberturasContradichas(reply, clausulado) : []),
+        ];
       }
     } catch {
       /* si el reintento falla, queda la poda de abajo */

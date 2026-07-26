@@ -12,7 +12,10 @@ import { Perfil } from "./engine/types";
 /**
  * Definición de las tools que el orquestador expone a Claude Haiku.
  * Los handlers son la ÚNICA fuente de verdad de datos de producto y de
- * propensión: el modelo nunca inventa precios, coberturas ni razones.
+ * propensión: el modelo nunca inventa precios ni razones — esos salen de una tool y no hay otra
+ * vía— y desde 5h tampoco puede afirmar como cubierto algo que el clausulado excluye: el validador
+ * de salida lo contrasta contra las coberturas y exclusiones que devolvió la tool en ese turno.
+ * Antes esta línea era una aspiración: las coberturas no tenían nada que las respaldara.
  */
 export const toolDefinitions: Anthropic.Tool[] = [
   {
