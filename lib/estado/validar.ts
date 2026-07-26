@@ -218,7 +218,13 @@ export function coberturasContradichas(texto: string, c: Clausulado): Afirmacion
  * general ("mira la tarjeta de abajo") es correcto y útil.
  */
 const SEÑALA_LA_PANTALLA = /\b(abajo|arriba|aqu[ií]|en pantalla|las?\s+tarjetas?|ah[ií]\s+(mismo|abajo))\b/;
-const DICE_PRECIO = /\b(precio|precios|cu[aá]nto\s+(cuesta|vale|te\s+sale)|valor\s+mensual|prima)\b/;
+/*
+ * "prima" NO va aquí, y es de las cosas que solo se ven probando: en español también es una
+ * familiar, y el prompt le PROHÍBE a Amparito usar esa palabra para el precio ("di lo que pagas al
+ * mes, no prima"). O sea que el patrón no podía acertar en el significado que buscaba y sí en el
+ * otro: "aquí abajo está lo que te contó tu prima" se marcaba como promesa falsa.
+ */
+const DICE_PRECIO = /\b(precio|precios|cu[aá]nto\s+(cuesta|vale|te\s+sale)|valor\s+mensual)\b/;
 
 export function describePantallaQueNoExiste(texto: string, hayCotizacion: boolean): AfirmacionSinRespaldo[] {
   if (hayCotizacion) return [];

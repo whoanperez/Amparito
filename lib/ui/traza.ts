@@ -49,6 +49,7 @@ const ETIQUETAS: Record<string, string> = {
   "enriquecido.tiene_credito": "Tienes un crédito",
   "enriquecido.mascota_veterinario_frecuente": "Vas seguido al veterinario",
   "enriquecido.sin_ingresos": "Hoy no tienes ingresos",
+  "enriquecido.arrienda_propiedad": "Arriendas una propiedad tuya",
   "prior.prob_mascota_hogar": "Dato de contexto (DANE)",
 };
 

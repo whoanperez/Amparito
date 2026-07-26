@@ -200,6 +200,9 @@ async function coberturas() {
     ["¿Te cotizo el de Vida para que veas cuánto cuesta?", false],
     ["Aquí está la cotización: 29 mil al mes.", true],
     ["Aquí abajo ves el precio exacto.", true],
+    // "prima" es también una familiar, y el prompt le prohíbe a Amparito usarla para el precio:
+    // el patrón solo podía acertar en el significado equivocado.
+    ["Aquí abajo está lo que te contó tu prima.", false],
   ] as Array<[string, boolean]>) {
     check(`no se pasa de listo: "${t.slice(0, 46)}…"`, describePantallaQueNoExiste(t, hayCot).length === 0);
   }
