@@ -7,7 +7,7 @@
  * que cada turno reciba SOLO su bloque, y en particular que un turno RECONOCIDO no lleve encima
  * las instrucciones de descubrimiento.
  */
-import { buildSystemPrompt, bloquesDeSystem, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
+import { buildSystemPrompt, bloquesDeSystem, PIEZAS, SYSTEM_PROMPT, type Estado } from "../lib/prompts";
 import { toolDefinitions } from "../lib/tools";
 import { estadoInicial, type EstadoConversacion } from "../lib/estado/tipos";
 import { siguienteFase } from "../lib/estado/reducir";
@@ -123,8 +123,15 @@ console.log("\n===== El prefijo cacheable =====");
 const CTX = "## SEGMENTO VERIFICADO\nGénero = F; categoría = A.";
 for (const e of ESTADOS_TODOS) {
   const bloques = bloquesDeSystem(e, CTX);
-  check(`${e}: los bloques dan el MISMO texto que siempre`,
-    bloques.map((b) => b.text).join("\n\n") === buildSystemPrompt(e, CTX));
+  /*
+   * El ORDEN, no la identidad. Comparar los bloques contra `buildSystemPrompt` sería tautológico
+   * desde que ese string se DERIVA de estos bloques: pasaría siempre, incluso reordenándolo todo.
+   * Lo que hay que poder afirmar es que el modelo lee las piezas en la secuencia de siempre.
+   */
+  const texto = bloques.map((b) => b.text).join("\n\n");
+  const pos = [PIEZAS.BASE, PIEZAS.ESTADOS[e], CTX, PIEZAS.CIERRE].map((x) => texto.indexOf(x.trim()));
+  check(`${e}: el modelo lee las piezas en el orden de siempre (${pos.join(" < ")})`,
+    pos.every((x) => x >= 0) && pos.every((x, i) => i === 0 || x > pos[i - 1]));
   const cacheado = bloques.filter((b) => b.cache_control);
   check(`${e}: hay exactamente un punto de corte`, cacheado.length === 1);
   check(`${e}: lo cacheado NO trae nada del turno`, !cacheado[0]?.text.includes("SEGMENTO VERIFICADO"));

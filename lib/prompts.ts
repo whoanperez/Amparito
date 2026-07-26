@@ -313,9 +313,21 @@ export function contarPreguntas(texto: string): number {
   );
 }
 
-/** Ensambla el prompt del turno: base + un solo bloque de estado (+ contexto del servidor). */
+/**
+ * El prompt del turno como lo LEE el modelo, en un string.
+ *
+ * Ya no lo llama nadie en producción —`ejecutarTurno` manda bloques—, y por eso está DERIVADO de
+ * `bloquesDeSystem` en vez de componer por su cuenta. Si tuviera su propia copia de la
+ * composición sería lo mismo que acabo de borrar de `deteccion.ts`: código que nadie ejecuta con
+ * un test verde encima, haciendo creer que ese camino está cubierto.
+ *
+ * Derivado sí tiene un trabajo: es la vista sobre la que los gates y `medir-tokens` afirman cosas
+ * del texto sin tener que recomponerlo cada uno a su manera.
+ */
 export function buildSystemPrompt(estado: Estado, contexto?: string): string {
-  return [BASE, ESTADOS[estado], contexto?.trim(), CIERRE].filter(Boolean).join("\n\n");
+  return bloquesDeSystem(estado, contexto)
+    .map((b) => b.text)
+    .join("\n\n");
 }
 
 /**
@@ -358,6 +370,8 @@ export interface BloqueSystem {
  * diferencia entre un riesgo que se apaga en treinta segundos y uno que hay que compilar.
  */
 const cacheApagada = process.env.AMPARITO_SIN_CACHE === "1";
+
+export const PIEZAS = { BASE, ESTADOS, CIERRE } as const;
 
 export function bloquesDeSystem(estado: Estado, contexto?: string): BloqueSystem[] {
   const invariable = [BASE, ESTADOS[estado]].join("\n\n");
