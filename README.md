@@ -27,6 +27,32 @@ Sin `TURSO_DATABASE_URL`, el reconocimiento de afiliados usa un sample sintétic
 | `NEXT_PUBLIC_VOICE_ENABLED=true` + `GEMINI_API_KEY` | Habilita voz (Gemini Live). Apagada por defecto; construida y **no validada en vivo** |
 | `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` | Base de afiliados completa. Server-only |
 | `SHEETS_WEBHOOK_URL` | Destino de emisiones y feedback. Sin ella se omite y queda solo en logs |
+| `AMPARITO_ESTADO_SECRET` | Firma el estado de la conversación. **Obligatoria en el deploy** (ver abajo) |
+| `AMPARITO_SIN_CACHE=1` | Apaga el `cache_control` del prefijo del prompt sin recompilar |
+
+### `AMPARITO_ESTADO_SECRET` — obligatoria en producción
+
+El estado de la conversación no se guarda en ninguna base: viaja al navegador y vuelve firmado en
+cada mensaje. Esta variable es la llave de esa firma. **No cifra** —el contenido es legible— sino
+que impide que se MODIFIQUE: dentro va el segmento verificado que habilita la prueba social, y un
+cliente manipulado podría fabricar una cifra falsa en un producto cuya tesis es que sus
+afirmaciones se auditan.
+
+Si falta, `lib/estado/sello.ts` genera una aleatoria **por proceso**. En local da igual. En Vercel
+cada lambda es un proceso distinto y hay varias vivas a la vez:
+
+```
+turno 1 → instancia A → firma con el secreto A
+turno 2 → instancia B → comprueba con el secreto B → no cuadra → estado inicial
+```
+
+En pantalla eso se ve como que **Amparito vuelve a saludar** y olvida el nombre. No sale ningún
+error: falla cerrado y elegante, que es lo correcto, pero indistinguible de que el producto no
+sirva. Genera una y ponla igual en todos los entornos:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
 ---
 
