@@ -101,6 +101,9 @@ function estadoRecuperado(messages: Msg[]): EstadoConversacion {
  * avería.
  */
 const DECISIONES_NO_FALLOS = new Set([
+  // La compuerta del anti-venta: marcarla como error invitaría al modelo a reintentar hasta
+  // saltársela, que es justo lo contrario de lo que hace.
+  "SIN_INGRESO_HOY",
   "PRODUCTO_REQUIERE_ASESORIA",
   "PRIMA_NO_COTIZABLE",
   "CONSENTIMIENTO_REQUERIDO",

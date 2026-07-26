@@ -4,7 +4,7 @@ import { getInsurerGateway } from "./insurer/mock-adapter";
 import { Contacto } from "./insurer/gateway";
 import { calcularPropension } from "./engine/scorecard";
 import { calcularImpacto } from "./engine/impacto";
-import { sanearPerfil, type SanearCtx } from "./engine/sanear";
+import { sanearPerfil, declaroSinIngresos, normalizar, type SanearCtx } from "./engine/sanear";
 import { registrar } from "./auditoria";
 import { Perfil } from "./engine/types";
 
@@ -386,6 +386,39 @@ async function ejecutar(
     case "quote_product": {
       const p = getProduct(String(input.productId));
       if (!p) return { result: { error: "Producto no encontrado" } };
+
+      /*
+       * COMPUERTA 0 · sin ingreso hoy, no hay precio.
+       *
+       * Es la garantía más importante del producto —"hoy no te vendo nada"— y hasta ahora lo único
+       * que la sostenía era UNA FRASE DEL PROMPT. El motor devolvía `no_venta`, sí, pero nada
+       * impedía que el modelo llamara igual a esta tool y pusiera una cifra en pantalla. Una regla
+       * de prompt es una petición probabilística; esto es una compuerta.
+       *
+       * Y al cerrarla aquí, la conversación puede abrirse: el modelo YA PUEDE hablar de lo que
+       * existe (`informativo`) sin que eso pueda convertirse en una venta por descuido. Es el mismo
+       * intercambio de todo el sistema — el servidor garantiza, el agente conversa.
+       *
+       * Se lee del TEXTO de la persona, no del perfil acumulado: si dice "me quedé sin trabajo" y
+       * pregunta el precio en el mismo turno, el perfil del turno anterior todavía no lo sabe.
+       */
+      const sinIngresoHoy =
+        declaroSinIngresos(normalizar(ctx.textoUsuario ?? "")) ||
+        ctx.perfilPrevio?.enriquecido?.sin_ingresos === true;
+      if (sinIngresoHoy) {
+        return {
+          result: {
+            error: "SIN_INGRESO_HOY",
+            instruccion:
+              "La persona dijo que hoy no tiene ingreso, así que NO hay precio: un seguro que no " +
+              "se pueda pagar el mes entrante no protege. No des ninguna cifra ni la aproximes. " +
+              "Puedes explicar qué es el producto y para qué sirve, y decir que cuando vuelva a " +
+              "tener entrada lo tomamos en tres minutos. Si quien pagaría es otra persona, " +
+              "ofrécele preparárselo para mostrárselo.",
+          },
+        };
+      }
+
       // Compuerta: productos que requieren asesoría NO se cotizan por el bot.
       if (p.requiere_asesoria) {
         return {

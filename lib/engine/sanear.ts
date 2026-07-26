@@ -100,6 +100,43 @@ const SIN_INGRESOS: RegExp[] = [
 const TERMINOS_MASCOTA = MASCOTAS;
 
 /**
+ * ¿La persona declaró que HOY no tiene ingreso?
+ *
+ * Se exporta porque la garantía del anti-venta necesita vivir donde se puede hacer cumplir. Hasta
+ * ahora esto solo lo sabía `sanearPerfil`, y lo único que impedía cotizarle a alguien sin ingreso
+ * era una frase del prompt — es decir, una petición probabilística sobre la decisión más delicada
+ * del producto.
+ */
+const SIN_INGRESOS_DE_UN_TERCERO =
+  /\b(mi|su)\s+(hij|espos|herman|mam|pap|madre|padre|pareja|nieto|sobrin|amig|vecin|cunad|suegr|yern|nuer)|\bpara\s+(mi|su)\s+\w+|\b(ella|el|ellos|ellas)\s+(esta|estan|se\s+qued|qued)/;
+
+export function declaroSinIngresos(textoNormalizado: string): boolean {
+  /*
+   * ── También aquí el SUJETO importa ────────────────────────────────────────
+   *
+   * Encontrado al revisar la compuerta de precio de 5c. `/\bsin (trabajo|empleo)\b/` no mira de
+   * QUIÉN se habla, así que estas tres disparaban el anti-venta:
+   *
+   *     "mi hijo se quedó sin trabajo y quiero ayudarlo"
+   *     "mi hermana está sin empleo, yo la mantengo"
+   *     "quiero un seguro para mi esposa que está desempleada"
+   *
+   * Son personas que SÍ tienen con qué pagar y vienen a proteger a alguien. Decirles "hoy no te
+   * vendo nada" es el anti-venta disparándose contra justo la persona a la que debería atender — y
+   * desde 5c, además, les cierra el precio por compuerta.
+   *
+   * Se evalúa por ORACIÓN: "me quedé sin trabajo, mi hijo me ayuda" sigue disparando por la
+   * primera, que es de ella.
+   */
+  return textoNormalizado
+    .split(/[.?!;,\n]+/)
+    .some((o) => SIN_INGRESOS.some((re) => re.test(o)) && !SIN_INGRESOS_DE_UN_TERCERO.test(o));
+}
+
+/** Normaliza igual que la compuerta, para que quien consulte de fuera compare lo mismo. */
+export const normalizar = norm;
+
+/**
  * ── La dependencia tiene DIRECCIÓN ─────────────────────────────────────────
  *
  * "Tengo dos hijos que dependen de mí" y "yo dependo de mi hija" comparten casi todas las
@@ -390,7 +427,9 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   // es el que hace daño. Así que el servidor decide, en las dos direcciones:
   //   · si el modelo lo manda sin evidencia → se cae
   //   · si hay evidencia y el modelo no lo mandó → se FIJA
-  const evidenciaSinIngresos = SIN_INGRESOS.some((re) => re.test(texto));
+  // Una sola fuente con la compuerta de precio de `quote_product`: si divergieran, el motor
+  // podría negar la venta y la tool cotizar igual, o al revés.
+  const evidenciaSinIngresos = declaroSinIngresos(texto);
   if (evidenciaSinIngresos) {
     enr.sin_ingresos = true;
     origen["enriquecido.sin_ingresos"] = "declarado";
