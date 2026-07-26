@@ -248,7 +248,16 @@ export interface ToolCtx extends SanearCtx {
    * la persona, también. Etiquetar de "tu afiliación" algo que no lo es sería la misma falsa
    * atribución que ya apareció dos veces en este bloque.
    */
-  conocido?: { nombre?: string; origen?: "base" | "declarado" };
+  conocido?: {
+    nombre?: string;
+    origen?: "base" | "declarado";
+    /**
+     * Contacto DE EJEMPLO para la demostración: la base no tiene documento, fecha de nacimiento,
+     * celular ni correo. Va aparte de `nombre` a propósito, para que el formulario pueda etiquetar
+     * cada campo con su procedencia real en vez de presentarlos todos como verificados.
+     */
+    ejemplo?: { numeroDocumento: string; fechaNacimiento: string; celular: string; correo: string };
+  };
 }
 
 /**
@@ -553,7 +562,11 @@ async function ejecutar(
       // Lo que ya se sabe viaja al formulario. Antes solo iba el producto, así que la pantalla no
       // tenía forma de saber el nombre de alguien a quien acababa de reconocer.
       const conocido = ctx.conocido?.nombre
-        ? { nombre: ctx.conocido.nombre, origen: ctx.conocido.origen ?? "declarado" }
+        ? {
+            nombre: ctx.conocido.nombre,
+            origen: ctx.conocido.origen ?? "declarado",
+            ejemplo: ctx.conocido.ejemplo,
+          }
         : undefined;
       return {
         result: {

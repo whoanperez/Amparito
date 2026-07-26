@@ -714,8 +714,32 @@ function ProcessingCard({ variant }: { variant: "emision" | "reco" }) {
  * celular, ni correo. Prellenar esos cuatro sería inventarse una capacidad que Colsubsidio no nos
  * ha dado — la misma disciplina del sello de simulación.
  */
-export function prellenado(conocido?: { nombre?: string; origen?: string }): Partial<Contacto> {
-  return conocido?.nombre ? { nombre: conocido.nombre } : {};
+export interface Conocido {
+  nombre?: string;
+  origen?: string;
+  /** Contacto de ejemplo para la demo: la base no tiene estos campos. */
+  ejemplo?: { numeroDocumento: string; fechaNacimiento: string; celular: string; correo: string };
+}
+
+export function prellenado(conocido?: Conocido): Partial<Contacto> {
+  return {
+    ...(conocido?.nombre ? { nombre: conocido.nombre } : {}),
+    ...(conocido?.ejemplo ?? {}),
+  };
+}
+
+/**
+ * De dónde salió CADA campo. Es lo que impide que el formulario diga una mentira.
+ *
+ * El nombre viene de Colsubsidio de verdad. El documento, la fecha, el celular y el correo NO — la
+ * base no los tiene, y para la demostración se rellenan con datos de ejemplo. Presentarlos todos
+ * como verificados sería la misma falsa atribución que este proyecto lleva media sesión
+ * persiguiendo, y encima en el formulario que la persona va a firmar.
+ */
+export function procedenciaDe(campo: keyof Contacto, conocido?: Conocido): string | null {
+  if (campo === "nombre" && conocido?.nombre) return ETIQUETA_PRELLENO[conocido.origen ?? "declarado"];
+  if (conocido?.ejemplo && campo in conocido.ejemplo) return "dato de ejemplo";
+  return null;
 }
 
 /** De dónde salió lo que ya está escrito, para no atribuirle a Colsubsidio lo que dijo la persona. */
@@ -725,7 +749,7 @@ export const ETIQUETA_PRELLENO: Record<string, string> = {
 };
 
 function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => void }) {
-  const conocido = data?.conocido as { nombre?: string; origen?: string } | undefined;
+  const conocido = data?.conocido as Conocido | undefined;
   const [f, setF] = useState<Contacto>({
     nombre: "", tipoDocumento: "CC", numeroDocumento: "", fechaNacimiento: "", celular: "", correo: "",
     ...prellenado(conocido),
@@ -760,14 +784,36 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
       <div className="df-head">
         <span className="badge">Últimos datos</span>
         <h4>Completa tus datos para {String(data.producto)}</h4>
-        <p>{conocido?.nombre ? "Ya escribí lo que sabía de ti. Falta lo demás." : "Es rápido. Con esto emitimos tu póliza al instante."}</p>
+        <p>
+          {conocido?.ejemplo
+            ? "Ya está todo escrito. Revísalo y corrige lo que haga falta."
+            : conocido?.nombre
+              ? "Ya escribí lo que sabía de ti. Falta lo demás."
+              : "Es rápido. Con esto emitimos tu póliza al instante."}
+        </p>
+        {/*
+          El aviso va ARRIBA, antes de que empiece a leer los campos: si estuviera debajo del botón
+          lo leería después de haber dado por buenos unos datos que no son suyos.
+
+          Y usa la tarjeta `.demo` que ya existe, que trae el rótulo "Solo para la demo" en su
+          `::before`: repetir el texto aquí sería una segunda fuente de verdad de la misma etiqueta.
+
+          Y no enumera los cuatro campos: cada uno ya lleva su propia etiqueta, y una lista escrita
+          a mano aquí quedaría mintiendo el día que `ContactoDeEjemplo` gane o pierda un campo.
+        */}
+        {conocido?.ejemplo && (
+          <p className="demo df-aviso">
+            Solo el nombre viene de Colsubsidio. Lo demás son datos de ejemplo: la base de
+            afiliados no los tiene.
+          </p>
+        )}
       </div>
       <label>
         Nombres y apellidos completos
         {/* Prellenado pero EDITABLE: el nombre de la base puede venir en mayúsculas o con una tilde
             distinta, y este dato acaba en un documento legal. Se ofrece hecho, no impuesto. */}
-        {conocido?.nombre && (
-          <span className="df-origen">{ETIQUETA_PRELLENO[conocido.origen ?? "declarado"]}</span>
+        {procedenciaDe("nombre", conocido) && (
+          <span className="df-origen">{procedenciaDe("nombre", conocido)}</span>
         )}
         <input value={f.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej: Juan Camilo Pérez Cuervo" />
       </label>
@@ -780,18 +826,30 @@ function DataForm({ data, onSubmit }: { data: any; onSubmit: (c: Contacto) => vo
           </select>
         </label>
         <label>Número de documento
+          {procedenciaDe("numeroDocumento", conocido) && (
+            <span className="df-origen ejemplo">{procedenciaDe("numeroDocumento", conocido)}</span>
+          )}
           <input value={f.numeroDocumento} onChange={(e) => set("numeroDocumento", e.target.value)} placeholder="Sin puntos" />
         </label>
       </div>
       <div className="df-row">
         <label>Fecha de nacimiento
+          {procedenciaDe("fechaNacimiento", conocido) && (
+            <span className="df-origen ejemplo">{procedenciaDe("fechaNacimiento", conocido)}</span>
+          )}
           <input value={f.fechaNacimiento} onChange={(e) => set("fechaNacimiento", fechaMask(e.target.value))} placeholder="DD/MM/AAAA" inputMode="numeric" maxLength={10} />
         </label>
         <label>Celular
+          {procedenciaDe("celular", conocido) && (
+            <span className="df-origen ejemplo">{procedenciaDe("celular", conocido)}</span>
+          )}
           <input value={f.celular} onChange={(e) => set("celular", e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="10 dígitos" inputMode="numeric" />
         </label>
       </div>
       <label>Correo electrónico
+          {procedenciaDe("correo", conocido) && (
+            <span className="df-origen ejemplo">{procedenciaDe("correo", conocido)}</span>
+          )}
         <input value={f.correo} onChange={(e) => set("correo", e.target.value)} placeholder="tucorreo@ejemplo.com" />
       </label>
       <label className="df-check">

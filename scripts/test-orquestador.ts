@@ -20,7 +20,7 @@ import type { HallazgoIdentidad } from "../lib/estado/reducir";
 import { abrir, sellar } from "../lib/estado/sello";
 import { estadoInicial } from "../lib/estado/tipos";
 import { vistaDeEstado, opcionesDeEventos } from "../lib/estado/vista";
-import { prellenado, ETIQUETA_PRELLENO } from "../components/Chat";
+import { prellenado, procedenciaDe, ETIQUETA_PRELLENO, type Conocido } from "../components/Chat";
 import { executeTool } from "../lib/tools";
 import { sanearPerfil } from "../lib/engine/sanear";
 import { SALUDO_INICIAL, SIN_RESPUESTA } from "../lib/estado/vista";
@@ -218,10 +218,13 @@ async function main() {
      * saludar por su nombre. El pitch dice que "lo acompaña hasta completar el proceso" y ahí le
      * entregaba una hoja en blanco.
      */
+    // El rango de edad va en el fixture a propósito: sin él, la fecha de ejemplo cae al valor por
+    // defecto y la comprobación de coherencia de más abajo no estaría midiendo nada.
+    const RANGO = "36 a 45 años";
     const resolver = async (): Promise<HallazgoIdentidad> => ({
       estado: "reconocido",
       nombre: "Carolina Ramírez López",
-      segmento: { GENERO: "F", CATEGORIA: "A" },
+      segmento: { GENERO: "F", CATEGORIA: "A", RANGO_EDAD: RANGO },
     });
     const base = abrir((await ejecutarTurno({ messages: [{ role: "user", content: "Soy Carolina Ramírez López" }] },
       deps([dice("Hola.")], { resolver }).d)).estado)!;
@@ -240,20 +243,43 @@ async function main() {
     // El formulario no es un bloque del hilo: `vistaDeEstado` lo pone en `entrada`, porque
     // mientras está abierto la casilla de texto se deshabilita.
     check("el formulario se abre", !!r.ui.entrada.formulario);
-    const conocido = r.ui.entrada.formulario?.conocido as
-      | { nombre?: string; origen?: string }
-      | undefined;
+    const conocido = r.ui.entrada.formulario?.conocido as Conocido | undefined;
     check("y llega con el nombre ya escrito", conocido?.nombre === "Carolina Ramírez López");
     check("  …etiquetado como venido de la base, porque está verificada", conocido?.origen === "base");
     check("  …y el componente lo pinta en el campo", prellenado(conocido).nombre === "Carolina Ramírez López");
 
     /*
-     * SOLO el nombre, y hay que decirlo sin adornos: la base tiene nombre, género, rango de edad,
-     * categoría, grupo familiar y ciudad. NO tiene documento, fecha de nacimiento, celular ni
-     * correo. Prellenar esos cuatro sería inventarse una capacidad que Colsubsidio no nos dio.
+     * Los otros cuatro campos SÍ se prellenan, y son de ejemplo. Decisión tomada para la demo:
+     * la base tiene nombre, género, rango de edad, categoría, grupo familiar y ciudad — NO tiene
+     * documento, fecha de nacimiento, celular ni correo.
+     *
+     * Lo que esta compuerta protege no es que se prellenen, es que NO SE MIENTA sobre su origen.
+     * El día que alguien "simplifique" etiquetándolos todos igual, el formulario estaría afirmando
+     * que Colsubsidio tiene cuatro datos que no tiene, en la pantalla que la persona va a firmar.
      */
-    const campos = Object.keys(prellenado(conocido));
-    check("y NO se inventa lo que la base no tiene", campos.join() === "nombre", `→ ${campos.join(", ") || "nada"}`);
+    const f = prellenado(conocido);
+    check("y con los cuatro campos de ejemplo ya escritos", Object.keys(f).length === 5, `→ ${Object.keys(f).join(", ")}`);
+    check("  …el nombre dice que viene de la afiliación", procedenciaDe("nombre", conocido) === "de tu afiliación");
+    const deEjemplo = ["numeroDocumento", "fechaNacimiento", "celular", "correo"] as const;
+    check(
+      "  …y los otros cuatro se declaran de ejemplo, NUNCA venidos de Colsubsidio",
+      deEjemplo.every((c) => procedenciaDe(c, conocido) === "dato de ejemplo")
+    );
+    /*
+     * Coherencia con lo verificado: el rango de edad de la base manda sobre el dato inventado.
+     *
+     * La primera versión de esta línea comprobaba una banda ancha de años, y el valor POR DEFECTO
+     * de `anioDeNacimiento` —35 años, cuando no hay rango— caía dentro. Un check que el fallback ya
+     * cumple no puede dar rojo. Ahora se afirma la propiedad: la edad que implica la fecha cabe
+     * DENTRO del rango que la base verificó, sea cual sea ese rango.
+     */
+    const [desde, hasta] = (RANGO.match(/\d{2}/g) ?? []).map(Number);
+    const edad = new Date().getFullYear() - Number(String(f.fechaNacimiento).slice(-4));
+    check(
+      `  …y la fecha de ejemplo cae dentro del rango verificado (${RANGO})`,
+      edad >= desde && edad <= hasta,
+      `→ ${f.fechaNacimiento}, o sea ${edad} años`
+    );
   }
 
   titulo("Sin verificar, lo que se escribe es lo que ella dijo (5e)");
@@ -268,9 +294,19 @@ async function main() {
       { resolver, ejecutarTool: executeTool }
     );
     const r = await ejecutarTurno({ messages: [{ role: "user", content: "Soy Andrés Gómez Ruiz" }] }, d);
-    const conocido = r.ui.entrada.formulario?.conocido as { origen?: string } | undefined;
+    const conocido = r.ui.entrada.formulario?.conocido as Conocido | undefined;
     check("el origen dice que lo dijo él, no la base", conocido?.origen === "declarado");
     check("y la etiqueta que se pinta lo refleja", ETIQUETA_PRELLENO["declarado"] === "lo dijiste tú");
+
+    /*
+     * Y a quien NO está afiliado no se le simula un expediente: escribe él sus datos.
+     *
+     * No es una distinción cosmética. El precargado dice "esto ya lo sabíamos de ti", y de Andrés
+     * no sabemos nada — Colsubsidio no lo tiene. Rellenarle el documento sería la misma falsa
+     * atribución, pero contra la persona a la que además hay que decirle que no es afiliada.
+     */
+    const suyos = Object.keys(prellenado(conocido));
+    check("y a quien no está en la base solo se le escribe su nombre", suyos.join() === "nombre", `→ ${suyos.join(", ") || "nada"}`);
   }
 
   titulo("Sin verificar, NO se escribe el nombre de la base (5e · repaso)");

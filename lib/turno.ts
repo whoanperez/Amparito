@@ -31,6 +31,7 @@ import { SALUDO_INICIAL, SIN_RESPUESTA, vistaDeEstado } from "@/lib/estado/vista
 import { sellar, abrir } from "@/lib/estado/sello";
 import { ejecutarConsulta } from "@/lib/afiliados/resolver";
 import { resumenEvidencia } from "@/lib/engine/sanear";
+import { contactoDeEjemplo } from "@/lib/demo/datos-de-contacto";
 import type { Perfil } from "@/lib/engine/types";
 
 export const MODELO_POR_DEFECTO = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
@@ -145,16 +146,29 @@ const textoDe = (r: Anthropic.Message) =>
  * persona algo que no dijo. Las tres ramas de abajo son explícitas para que el caso del medio no
  * pueda volver a colarse por descuido.
  */
-function nombreQueSePuedeEscribir(
-  estado: EstadoConversacion
-): { nombre: string; origen: "base" | "declarado" } | undefined {
+function nombreQueSePuedeEscribir(estado: EstadoConversacion): ToolCtx["conocido"] {
   const id = estado.identidad;
   if (!id.nombre) return undefined;
-  // Verificada: el nombre canónico de Colsubsidio, y se dice de dónde viene.
-  if (id.resultado === "reconocido" && id.verificada) return { nombre: id.nombre, origen: "base" };
+
+  /*
+   * Verificada: el nombre canónico de Colsubsidio, y además los datos de contacto DE EJEMPLO.
+   *
+   * La base no tiene documento, fecha de nacimiento, celular ni correo, así que el momento
+   * completo —"no escribiste nada"— hay que simularlo. Decisión tomada para la demostración, y se
+   * sostiene con la regla de siempre: el formulario dice cuáles vienen de Colsubsidio y cuáles son
+   * de ejemplo. Presentarlos todos como verificados sería la falsa atribución de siempre.
+   */
+  if (id.resultado === "reconocido" && id.verificada) {
+    return {
+      nombre: id.nombre,
+      origen: "base",
+      ejemplo: contactoDeEjemplo(id.nombre, id.segmento, new Date().getFullYear()),
+    };
+  }
   // Encontrada pero SIN verificar: lo que tenemos es el nombre de la base. No se escribe.
   if (id.resultado === "reconocido") return undefined;
-  // No está en la base: lo que tenemos es lo que ella escribió, y es suyo.
+  // No está en la base: lo que tenemos es lo que ella escribió, y es suyo. Y nada más — a quien no
+  // está afiliado no se le puede simular un expediente que Colsubsidio no tendría.
   return { nombre: id.nombre, origen: "declarado" };
 }
 
