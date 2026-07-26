@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import FlowVideo from "./FlowVideo";
+import { DetrasDeCamaras } from "./FlowVideo";
+import { AVISO_SIMULACION } from "@/lib/expedicion";
 import { voiceEnabled } from "@/lib/flags";
 import { useGeminiLive } from "@/lib/voice/useGeminiLive";
 import { SALUDO_INICIAL } from "@/lib/estado/vista";
@@ -356,7 +357,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
     setProcessing(null);
     if (result.event) {
       setItems((cur) => [...cur, { kind: "event", event: result.event },
-        { kind: "msg", role: "assistant", text: result.closing ?? "Tu solicitud queda completa. Recuerda que esto es una simulación: no se emitió ninguna póliza." },
+        { kind: "msg", role: "assistant", text: result.closing ?? `Tu solicitud queda completa. ${AVISO_SIMULACION}` },
         { kind: "video" },
         // Medición al cierre (pedido del equipo de seguros): esfuerzo y satisfacción.
         ...(result.feedback ? [{ kind: "event" as const, event: result.feedback }] : [])]);
@@ -399,7 +400,7 @@ export default function Chat({ interes, evento, offline }: { interes?: string | 
           ) : item.kind === "recommend" ? (
             <RecommendCards key={i} recs={item.recs!} onPick={(n) => send(`Quiero el ${n}`)} />
           ) : item.kind === "video" ? (
-            <FlowVideo key={i} />
+            <DetrasDeCamaras key={i} />
           ) : item.kind === "proteger" ? (
             <div key={i} className="pullfirst">
               <div className="pf-q">¿Qué te gustaría proteger?</div>
@@ -1076,10 +1077,9 @@ function EventCard({ event }: { event: UiEvent }) {
         <div className="pc-cert-label">{simulada ? "Certificado simulado" : "Certificado digital"}</div>
         <div className="cert">{String(d.certificado)}</div>
         {simulada && (
-          <p className="pc-sim-note">
-            Esta es una simulación del proceso completo. <b>No se emitió ninguna póliza</b> y no vas a
-            recibir ningún correo.
-          </p>
+          // Una sola fuente: el mismo sello que firma el cierre y contra el que se contrasta el
+          // video. Estaba escrito aquí a mano y no tenía forma de enterarse si el otro cambiaba.
+          <p className="pc-sim-note">{AVISO_SIMULACION}</p>
         )}
       </div>
     );
