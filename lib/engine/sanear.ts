@@ -100,6 +100,49 @@ const SIN_INGRESOS: RegExp[] = [
 const TERMINOS_MASCOTA = MASCOTAS;
 
 /**
+ * ── La dependencia tiene DIRECCIÓN ─────────────────────────────────────────
+ *
+ * "Tengo dos hijos que dependen de mí" y "yo dependo de mi hija" comparten casi todas las
+ * palabras y significan lo contrario. Hasta ahora `dependientes` entraba sin mirar ninguna de las
+ * dos: era un número que el modelo infería y el servidor solo comprobaba que estuviera entre 0 y
+ * 20. Comprobado contra el código:
+ *
+ *     "yo dependo de mi hija, ella me mantiene"  →  dependientes = 1
+ *
+ * No es un matiz. `dependientes` vale +25 hacia el Seguro de Vida y enciende la jerarquía de
+ * protección del ingreso, así que invertirlo hace que el motor recomiende exactamente lo
+ * contrario de lo que la persona necesita: le ofrece proteger un ingreso que no tiene, a alguien
+ * a quien su familia mantiene.
+ *
+ * LA FORMA DEL ARREGLO. No se exige evidencia positiva: que el modelo infiera "dos" de "tengo dos
+ * hijos" está bien y es lo que debe hacer. Lo que se añade es un VETO — si la persona dijo que es
+ * ELLA la sostenida, el campo se cae. Es la asimetría barata: cero falsos negativos en el camino
+ * normal, y atrapa el caso que hace daño.
+ *
+ * El objeto tiene que ser una PERSONA. "Dependo de mi trabajo" y "dependo de mi pensión" hablan de
+ * su ingreso, no de quién lo sostiene, y no pueden vetar nada.
+ *
+ * COSTE ACEPTADO. `textoUsuario` es el join de TODOS los mensajes, así que el veto no caduca: si
+ * alguien dice "dependo de mi hija" en el turno 2 y en el turno 9 cuenta que ahora mantiene a un
+ * nieto, el campo sigue cayéndose. Es el mismo comportamiento que `sin_ingresos`, y falla del lado
+ * correcto — dejar de recomendar Vida es recuperable en la conversación; recomendársela a quien
+ * mantienen sus hijos, no.
+ */
+const DEPENDENCIA_INVERTIDA: RegExp[] = [
+  /\b(yo\s+)?dependo\s+(economicamente\s+)?de\s+(mi|mis|la|el|los|las)?\s*(hij|espos|pareja|mam|pap|madre|padre|famili|herman|nieto|sobrin|suegr|cunad)/,
+  /\b(yo\s+)?dependo\s+de\s+(ella|el|ellos|ellas)\b/,
+  /\bme\s+(mantiene|mantienen|sostiene|sostienen)\b/,
+  /\bme\s+(cubre|cubren)\s+(los\s+|el\s+)?(gasto|todo)/,
+  /\bresponden?\s+por\s+mi\b/,
+  /\bvivo\s+de\s+(lo\s+que\s+)?(me\s+dan?|mi\s+hij)/,
+];
+
+/** ¿La persona dijo que es ELLA quien depende de otros? */
+export function invierteLaDependencia(textoNormalizado: string): boolean {
+  return DEPENDENCIA_INVERTIDA.some((re) => re.test(textoNormalizado));
+}
+
+/**
  * ── `ya_cubierto`: la compuerta que faltaba ────────────────────────────────
  *
  * Era el ÚNICO campo del perfil que se aceptaba sin verificar contra el texto de la persona y sin
@@ -241,6 +284,15 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   // SEGMENTO_GRUPO_FAMILIAR · sí se admite inferido: sale de lo que la persona contó ("mi esposa",
   // "mi hijo"). Alimenta el scoring, pero al quedar marcado como `inferido` NO habilita la prueba
   // social, que exige los 4 ejes verificados.
+  //
+  // CON UNA EXCEPCIÓN, encontrada al revisar el veto de `dependientes`: los valores de este enum no
+  // son etiquetas neutras, IMPLICAN quién sostiene a quién. "Monoparental" hace que el scorecard
+  // diga, literal, "eres el sostén de un hogar monoparental: si te faltas, nadie más cubre el
+  // ingreso" — y vale +35. Vetar solo `dependientes` dejaba el agujero abierto por aquí: Vida
+  // volvía con score 45, recomendado, a quien acababa de decir que la mantienen.
+  //
+  // Lo que vino de la BASE no se toca: es dato verificado y manda. Lo que se veta es que el modelo
+  // lo PROPONGA contradiciendo lo que la persona acaba de declarar.
   if (!origen.SEGMENTO_GRUPO_FAMILIAR) {
     const v = propuesto("SEGMENTO_GRUPO_FAMILIAR");
     if (v) {
@@ -307,6 +359,10 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
 
   // Campos conversacionales sin gate: se aceptan como inferidos (no habilitan productos que la
   // persona no pueda tener, solo mueven el score).
+  //
+  // `dependientes` es la excepción y tiene VETO por dirección: ver `DEPENDENCIA_INVERTIDA`. El
+  // argumento de "solo mueve el score" no le aplica — mueve +25 hacia Vida Y enciende la jerarquía
+  // de protección del ingreso, así que invertido recomienda lo contrario de lo que hace falta.
   const NUM = ["dependientes"] as const;
   for (const k of NUM) {
     const v = enrBruto[k];
@@ -346,6 +402,41 @@ export function sanearPerfil(bruto: unknown, ctx: SanearCtx = {}): Saneado {
   } else if (enrBruto.sin_ingresos === false) {
     enr.sin_ingresos = false;
     origen["enriquecido.sin_ingresos"] = "inferido";
+  }
+
+  /*
+   * ── La corrección por DIRECCIÓN, en un solo sitio y al final ──────────────
+   *
+   * Va aquí, después de armar el perfil entero, y no como filtro de entrada. La primera versión
+   * de esto vetaba solo lo que el modelo proponía en el turno, y eso dejaba pasar el caso REAL:
+   *
+   *     turno 1  "vivo con mi hija y mi nieto"   → Monoparental, dependientes 2  (razonable)
+   *     turno 2  "…yo dependo de mi hija"        → el piso los conservaba intactos
+   *                                              → y el motor recomendaba Seguro de Vida
+   *
+   * Nadie abre diciendo "yo dependo de mi hija": lo aclara después. Así que la inversión no es un
+   * filtro de entrada, es una CORRECCIÓN DEL EXPEDIENTE — alcanza a lo que ya estaba.
+   *
+   * Lo verificado por la base no se toca: el servidor no sobrescribe a Colsubsidio, solo impide
+   * que el modelo lo contradiga.
+   */
+  if (invierteLaDependencia(texto)) {
+    if (enr.dependientes !== undefined) {
+      delete enr.dependientes;
+      delete origen["enriquecido.dependientes"];
+      descartes.push(
+        "dependientes: la persona dice que ELLA depende de otros, no al revés. No asumas que " +
+          "alguien depende de su ingreso, y no se lo vuelvas a preguntar como si lo fuera."
+      );
+    }
+    if (perfil.SEGMENTO_GRUPO_FAMILIAR !== undefined && origen.SEGMENTO_GRUPO_FAMILIAR !== "base") {
+      delete perfil.SEGMENTO_GRUPO_FAMILIAR;
+      delete origen.SEGMENTO_GRUPO_FAMILIAR;
+      descartes.push(
+        "SEGMENTO_GRUPO_FAMILIAR: implica que la persona sostiene el hogar, y ella dijo que es " +
+          "al revés. Descartado — no le ofrezcas proteger un ingreso que no tiene."
+      );
+    }
   }
 
   if (Object.keys(enr).length) perfil.enriquecido = enr;

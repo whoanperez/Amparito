@@ -258,5 +258,114 @@ check("una cobertura ya aceptada sobrevive aunque este turno no la mencione",
   (t2.perfil.ya_cubierto ?? []).includes("exequial"));
 check("y conserva su procedencia", t2.perfil._origen?.ya_cubierto === "declarado");
 
+/* ── 7 · la dependencia tiene DIRECCIÓN (B14 · 5a) ────────────────────────── */
+/*
+ * POR QUÉ. "Tengo dos hijos que dependen de mí" y "yo dependo de mi hija" comparten casi todas las
+ * palabras y significan lo contrario. `dependientes` entraba sin mirar ninguna de las dos.
+ *
+ * Y no es un matiz: vale +25 hacia el Seguro de Vida y enciende la jerarquía de protección del
+ * ingreso. Invertido, el motor le ofrece proteger un ingreso que no tiene a alguien a quien su
+ * familia mantiene — que es exactamente el caso de Rosa.
+ */
+console.log("\n===== La dependencia tiene dirección =====");
+
+const INVIERTE = [
+  "yo dependo de mi hija, ella me mantiene",
+  "vivo con mi hija y ella responde por mí",
+  "mi hijo me mantiene",
+  "dependo de mis papás",
+  "ellos me sostienen",
+  "mi esposa me cubre los gastos",
+  "vivo de lo que me dan mis hijos",
+];
+for (const t of INVIERTE) {
+  const s = sanearPerfil({ enriquecido: { dependientes: 1 } }, { textoUsuario: t });
+  check(`"${t}" → se cae`, s.perfil.enriquecido?.dependientes === undefined);
+  check("  …y el descarte le dice al modelo qué pasó",
+    s.descartes.some((d) => d.startsWith("dependientes") && /ELLA depende de otros/.test(d)));
+}
+
+/*
+ * El otro lado, que es donde una compuerta mal hecha haría más daño que el bug: si esto se pasa de
+ * estricto, deja de reconocer a quien SÍ sostiene a alguien — y ese es el caso de Carolina, el
+ * corazón del producto. Los dos últimos son los que casi lo rompen: hablan de depender, pero de
+ * algo, no de alguien.
+ */
+const NO_INVIERTE = [
+  "tengo dos hijos que dependen de mí",
+  "soy el único ingreso de mi casa",
+  "mis hijos dependen de mí",
+  "vivo con mi esposa y dos hijos",
+  "tengo familia y respondo por ellos",
+  "dependo de mi trabajo",
+  "dependo de mi pensión",
+];
+for (const t of NO_INVIERTE) {
+  const s = sanearPerfil({ enriquecido: { dependientes: 2 } }, { textoUsuario: t });
+  check(`"${t}" → sigue entrando`, s.perfil.enriquecido?.dependientes === 2);
+}
+
+/*
+ * El otro camino hacia Vida, encontrado al revisar el veto: `SEGMENTO_GRUPO_FAMILIAR` no es una
+ * etiqueta neutra. "Monoparental" hace que el scorecard diga "eres el sostén de un hogar
+ * monoparental" y vale +35. Con solo vetar `dependientes`, Vida volvía con score 45 — recomendado.
+ */
+const conGrupo = sanearPerfil(
+  { SEGMENTO_GRUPO_FAMILIAR: "Monoparental", enriquecido: { dependientes: 1 } },
+  { textoUsuario: "yo dependo de mi hija, ella me mantiene" }
+);
+check("el grupo familiar PROPUESTO también se cae si contradice lo declarado",
+  conGrupo.perfil.SEGMENTO_GRUPO_FAMILIAR === undefined);
+
+// Pero lo VERIFICADO manda: el servidor no sobrescribe la base, solo impide que el modelo la
+// contradiga. Si Colsubsidio dice que es cabeza de hogar, eso se respeta y se conversa.
+const deLaBase = sanearPerfil({}, {
+  textoUsuario: "yo dependo de mi hija, ella me mantiene",
+  segmentoBase: { SEGMENTO_GRUPO_FAMILIAR: "Monoparental" },
+});
+check("y lo que vino de la base NO se toca",
+  deLaBase.perfil.SEGMENTO_GRUPO_FAMILIAR === "Monoparental" &&
+  deLaBase.perfil._origen?.SEGMENTO_GRUPO_FAMILIAR === "base");
+
+/*
+ * EL CAMINO REAL, y el que casi se me escapa. Nadie abre diciendo "yo dependo de mi hija": dice
+ * "vivo con mi hija" y lo aclara un turno después. Con el veto puesto solo a la ENTRADA, lo que ya
+ * estaba en el perfil acumulado sobrevivía y el motor seguía recomendando Vida. La inversión no es
+ * un filtro de entrada: es una corrección del expediente.
+ */
+const antes = sanearPerfil(
+  { SEGMENTO_GRUPO_FAMILIAR: "Monoparental", enriquecido: { dependientes: 2 } },
+  { textoUsuario: "vivo con mi hija y mi nieto" }
+);
+check("turno 1 · el modelo infiere algo razonable y entra",
+  antes.perfil.SEGMENTO_GRUPO_FAMILIAR === "Monoparental" && antes.perfil.enriquecido?.dependientes === 2);
+
+const despues = sanearPerfil(
+  { SEGMENTO_GRUPO_FAMILIAR: "Monoparental", enriquecido: { dependientes: 2 } },
+  {
+    textoUsuario: "vivo con mi hija y mi nieto\nen realidad yo dependo de mi hija, ella me mantiene",
+    perfilPrevio: antes.perfil,
+  }
+);
+check("turno 2 · la aclaración BORRA lo que el piso traía (dependientes)",
+  despues.perfil.enriquecido?.dependientes === undefined);
+check("turno 2 · y también el grupo familiar que ya estaba",
+  despues.perfil.SEGMENTO_GRUPO_FAMILIAR === undefined);
+check("turno 2 · con sus dos descartes, para que el modelo sepa por qué",
+  despues.descartes.some((d) => d.startsWith("dependientes")) &&
+  despues.descartes.some((d) => d.startsWith("SEGMENTO_GRUPO_FAMILIAR")));
+
+// La consecuencia, de punta a punta: al motor, no al campo.
+const rosa = sanearPerfil(
+  { RANGO_EDAD: "Mayor de 55 años", SEGMENTO_GRUPO_FAMILIAR: "Monoparental", enriquecido: { dependientes: 1 } },
+  { textoUsuario: "tengo 62 años, yo dependo de mi hija, ella me mantiene" }
+);
+const rReal = calcularPropension(rosa.perfil);
+check("a quien su familia mantiene NO se le recomienda proteger su ingreso",
+  !rReal.recomendaciones.some((r) => /Seguro de Vida$/.test(r.nombre)),
+  `→ ${rReal.recomendaciones.map((r) => r.nombre).join(", ") || "ninguna"}`);
+// De presencia, no de ausencia: tiene que recomendar OTRA cosa, no quedarse en blanco.
+check("y sí se le recomienda lo que de verdad le sirve", rReal.recomendaciones.length > 0);
+
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);
