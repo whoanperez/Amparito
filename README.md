@@ -6,24 +6,27 @@ determinista; el modelo de lenguaje conversa y redacta, no decide.
 
 Next.js 14 (App Router) · TypeScript · Claude Haiku vía Anthropic SDK · SQLite/Turso.
 
-## 👉 Empieza aquí — [**qué problema resuelve, sin tecnicismos**](docs/como-funciona.md)
+## 👉 Empieza aquí — [**qué problema resuelve, sin tecnicismos**](https://amparito-zeta.vercel.app/como-funciona)
 
 Hoy, comprar un seguro por el canal digital termina en *"muy pronto te contactaremos"* y un correo
-que anuncia contacto en **máximo 3 días hábiles**. Ese documento muestra el proceso actual con
-capturas reales, lo compara con lo que hace Amparito y explica la arquitectura en palabras.
+que anuncia contacto en **máximo 3 días hábiles**. Esa página muestra el proceso actual con capturas
+reales, lo compara con lo que hace Amparito, enseña la solución funcionando y explica la
+arquitectura en palabras.
 
-**Ese enlace se abre aquí mismo, sin salir de GitHub.** Las otras dos versiones del mismo contenido:
+▶ [**Ver el video**](https://www.loom.com/share/3a776d547fc347a8aef9760d202e106d) ·
+💬 [**Probar la conversación**](https://amparito-zeta.vercel.app/chat)
+
+El mismo contenido, en otros dos formatos:
 
 | Versión | Cómo se abre |
 |---|---|
-| [`docs/como-funciona.md`](docs/como-funciona.md) | Un clic. GitHub la renderiza, con imágenes y diagramas |
-| [amparito-zeta.vercel.app/como-funciona](https://amparito-zeta.vercel.app/como-funciona) | Un clic. La misma con el diseño completo |
+| [`docs/como-funciona.md`](docs/como-funciona.md) | Un clic, sin salir de GitHub |
 | [`docs/como-funciona.html`](docs/como-funciona.html) | **Hay que descargarla** («Download raw file») y abrirla con doble clic. Un solo archivo, con las imágenes dentro: sirve sin conexión y para enviar por correo |
 
 > Las tres salen de la misma fuente (`app/como-funciona/contenido.ts`) y se regeneran con
-> `npm run doc:como-funciona`. Y ojo con un detalle que confunde: **GitHub no renderiza HTML**. Hacer
-> clic en un `.html` —o en un `.tsx`— muestra el código fuente, no la página. Por eso la primera de
-> la lista es Markdown.
+> `npm run doc:como-funciona`. Ojo con un detalle que confunde: **GitHub no renderiza HTML**. Hacer
+> clic en un `.html` —o en un `.tsx`— muestra el código fuente, no la página; por eso la versión
+> descargable hay que descargarla de verdad.
 
 Lo que sigue es la documentación técnica: dónde están las compuertas y qué garantiza cada una.
 
@@ -308,15 +311,17 @@ lib/
   tools.ts                 9 tools; punto único de ejecución y de registro
   auditoria.ts             traza de decisiones
 data/                      catálogo, pesos, estadísticas derivadas, sample sintético
-public/como-funciona/      capturas del proceso actual (el nombre de la persona va tapado)
+public/como-funciona/      capturas del proceso actual (con el nombre de la persona tapado) y de la solución
 scripts/                   cargadores, 21 gates y el eval
 docs/reto/                 especificación, hallazgos, guion, C4
 ```
 
 ## Documentación
 
-- [**`docs/como-funciona.md`**](docs/como-funciona.md) — el antes y el después del proceso, con
-  capturas reales, y la arquitectura en palabras. Empieza por aquí si no vas a leer código
+- [**`/como-funciona`**](https://amparito-zeta.vercel.app/como-funciona) — el antes y el después del
+  proceso, la solución en pantallas reales y la arquitectura en palabras. Empieza por aquí si no vas
+  a leer código. También en [`docs/como-funciona.md`](docs/como-funciona.md) para leerla dentro de
+  GitHub
 - [`15-especificacion-ejecucion.md`](docs/reto/15-especificacion-ejecucion.md) — el QUÉ y el CÓMO:
   capacidades definidas por conducta observable y los bloques que las construyeron
 - [`13-hallazgos-y-prioridades.md`](docs/reto/13-hallazgos-y-prioridades.md) — hallazgos con su
