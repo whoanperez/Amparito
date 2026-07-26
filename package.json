@@ -9,7 +9,8 @@
     "start": "next start",
     "eval": "npx tsx scripts/eval-conversacion.ts",
     "gates": "npx tsx scripts/gates.ts",
-    "seed-demo": "npx tsx scripts/seed-demo-afiliados.ts"
+    "seed-demo": "npx tsx scripts/seed-demo-afiliados.ts",
+    "doc:como-funciona": "npx tsx scripts/generar-como-funciona.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
