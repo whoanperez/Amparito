@@ -162,6 +162,8 @@ async function main() {
     // Y con la verificación resuelta, ahí sí.
     const yaVerificado = abrir(r.estado)!;
     yaVerificado.identidad.verificada = true;
+    // Y con la confirmación ya mostrada: entre verificar y recomendar hay un turno más (B15·8).
+    yaVerificado.dichoUnaVez.mostroSegmento = true;
     const { d: dv, llamadas: lv } = deps([dice("Bienvenida, Carolina.")], { resolver });
     await ejecutarTurno({ messages: [{ role: "user", content: "12/03/2005" }], estado: sellar(yaVerificado) }, dv);
     const juntoV = (lv[0].system as Array<{ text: string }>).map((b) => b.text).join("\n\n");

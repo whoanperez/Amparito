@@ -10,7 +10,7 @@
 import { detectarNombre } from "../lib/afiliados/deteccion";
 import { soloCiudad } from "../lib/estado/reducir";
 import "./_env";
-import { identidadDe, identidadVerificada, nombreDePrueba } from "./_identidad";
+import { identidadDe, identidadVerificada, identidadConfirmada, nombreDePrueba } from "./_identidad";
 
 let ok = true;
 const check = (label: string, cond: boolean) => {
@@ -77,9 +77,19 @@ async function main() {
     check("y le pide un dato que solo ella sabría",
       /fecha de expedición/i.test(r.contexto));
 
+    /*
+     * Desde B15·8 hay un turno más entre verificar y recomendar: el que le DEVUELVE lo que
+     * Colsubsidio tiene de ella para que lo corrija. Verificar sin eso no le devolvía nada — pedía
+     * un dato, ella lo daba, y lo siguiente que veía era un panel de recomendaciones.
+     */
     const v = await identidadVerificada(`soy ${nombreReal}`);
-    check("tras confirmar, el contexto dice cómo saludar", v.contexto.includes("Bienvenid"));
-    check("y ahí sí llega el segmento verificado", v.contexto.includes("SEGMENTO VERIFICADO"));
+    check("tras verificar, el turno es para devolverle lo que sabemos",
+      /DEVUÉLVELE LO QUE SABEMOS/.test(v.contexto));
+    check("y ahí todavía NO se llama al motor", !v.contexto.includes("SEGMENTO VERIFICADO"));
+
+    const c = await identidadConfirmada(`soy ${nombreReal}`);
+    check("tras confirmar, el contexto dice cómo saludar", c.contexto.includes("Bienvenid"));
+    check("y ahí sí llega el segmento verificado", c.contexto.includes("SEGMENTO VERIFICADO"));
   } else {
     check("se encontró un afiliado real para la prueba", false);
   }

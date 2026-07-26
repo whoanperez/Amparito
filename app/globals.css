@@ -189,7 +189,26 @@ a { text-decoration: none; color: inherit; }
 .foot small { font-size: 12px; line-height: 1.6; color: #9a9a9a; max-width: 640px; }
 
 /* ============ Chat ============ */
-.chat-shell { max-width: 760px; margin: 0 auto; padding: 20px 16px 120px; }
+/*
+ * El hueco de abajo lo MIDE el componente (`--alto-barra`), no un número mágico.
+ *
+ * Decía 120px. La barra de entrada es fija y en móvil mide bastante más —input + el aviso legal,
+ * que ocupa seis líneas—, así que TAPABA el contenido: la tercera pastilla de personas quedaba
+ * cortada por la mitad, y es la que lleva al arranque caliente. Un número fijo no puede seguir a
+ * un bloque de texto que envuelve distinto en cada ancho.
+ *
+ * Y `margin-top: auto` en las burbujas mata el otro defecto: 266px de blanco entre el contenido y
+ * la barra cuando la conversación es corta, que se leía como "esto no cargó". La conversación
+ * crece desde abajo, como en cualquier chat.
+ */
+.chat-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 16px calc(var(--alto-barra, 120px) + 16px);
+  display: flex;
+  flex-direction: column;
+  min-height: 72vh;
+}
 .chat-title { display: flex; align-items: center; gap: 12px; padding: 14px 4px 20px; }
 .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--amarillo); color: var(--tinta); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
 .chat-title h2 { font-size: 18px; font-weight: 700; }
@@ -199,7 +218,7 @@ a { text-decoration: none; color: inherit; }
 .chat-title .advisor-btn:hover { border-color: var(--azul); background: #f2f8ff; }
 .chat-title .advisor-btn:disabled { opacity: .5; cursor: default; }
 @media (max-width: 480px) { .chat-title .advisor-btn { font-size: 0; padding: 8px 11px; } .chat-title .advisor-btn::before { content: "☎"; font-size: 16px; } }
-.msgs { display: flex; flex-direction: column; gap: 12px; }
+.msgs { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
 .msg { max-width: 82%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; background: var(--azul); color: var(--blanco); border-bottom-right-radius: 4px; }
 .msg.bot { align-self: flex-start; background: var(--blanco); border: 1px solid var(--borde); border-bottom-left-radius: 4px; }

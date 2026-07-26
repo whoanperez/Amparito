@@ -20,6 +20,7 @@
  */
 import type { Perfil } from "./types";
 import { MASCOTAS, VEHICULOS, VIVIENDA, menciona as mencionaTermino } from "../vocabulario";
+import { ordenarPorImpacto } from "./prioridad";
 
 export type Origen = "base" | "declarado" | "inferido";
 
@@ -666,11 +667,21 @@ export function resumenEvidencia(
     enr.sin_ingresos !== undefined;
 
   const sabe: string[] = [];
-  const falta: string[] = [];
-  (vehiculos.length ? sabe : falta).push(vehiculos.length ? `vehículo = ${vehiculos.join(", ")}` : "vehículo");
+  /*
+   * Lo que falta va ORDENADO por cuánto puede mover el motor, no como una lista plana.
+   *
+   * En un flujo real Amparito gastó una de sus dos preguntas en "¿la bici es para pasear o para
+   * competir?", que no cambia el resultado en ningún caso. El prompt le pide preguntar "lo de
+   * mayor valor" y el modelo no tenía con qué saberlo: los pesos viven en un JSON que él no ve.
+   */
+  const falta: Array<{ etiqueta: string; feature: string }> = [];
+  if (vehiculos.length) sabe.push(`vehículo = ${vehiculos.join(", ")}`);
+  else falta.push({ etiqueta: "en qué se mueve", feature: "enriquecido.tiene_vehiculo" });
   if (contóDependientes) sabe.push("quién depende de su ingreso");
-  else if (!sabeDependientes) falta.push("quién depende de su ingreso");
-  (hablóDeVivienda ? sabe : falta).push("vivienda");
+  else if (!sabeDependientes) falta.push({ etiqueta: "quién depende de su ingreso", feature: "enriquecido.dependientes" });
+  if (hablóDeVivienda) sabe.push("vivienda");
+  else falta.push({ etiqueta: "su vivienda", feature: "enriquecido.vivienda" });
+  if (!mascotas.length) falta.push({ etiqueta: "si tiene mascota", feature: "enriquecido.tiene_mascota" });
   if (mascotas.length) sabe.push(`mascota = ${mascotas.join(", ")}`);
   if (hablóDeIngreso) sabe.push("su situación de ingreso");
 
@@ -682,6 +693,8 @@ export function resumenEvidencia(
    * conversacional a propósito — decir "tú me contaste que tienes 36 a 45" sería falso, y afirmar
    * de más sobre la base es justo lo que el validador existe para impedir.
    */
+  const ordenados = ordenarPorImpacto(falta, (f) => f.feature).map((f) => f.etiqueta);
+
   const org = perfilPrevio?._origen ?? {};
   const base = opciones.segmentoBase ?? {};
   const ETIQUETAS: Array<[keyof Perfil & keyof SegmentoBase, string]> = [
@@ -715,9 +728,11 @@ export function resumenEvidencia(
     lineaEdad,
     falta.length
       ? puedePreguntar
-        ? `Falta por saber: ${falta.join("; ")}. Pregunta solo lo de mayor valor y una cosa por turno.`
-        : `Falta por saber: ${falta.join("; ")} — pero NO abras preguntas de perfilamiento aquí: ya ` +
-          `hay recomendación en pantalla. Si algo falta de verdad, se afina cuando ella lo mencione.`
+        ? `Falta por saber, DE MÁS A MENOS DECISIVO para el motor: ${ordenados.join("; ")}.\n` +
+          `Empieza por el primero. Una cosa por turno, y nada que no esté en esa lista: preguntar ` +
+          `algo que no mueve el resultado gasta un turno y no decide nada.`
+        : `Falta por saber: ${ordenados.join("; ")} — pero NO abras preguntas de perfilamiento aquí: ` +
+          `ya hay recomendación en pantalla. Si algo falta de verdad, se afina cuando ella lo mencione.`
       : puedePreguntar
         ? `No necesitas preguntar nada más: recomienda ya.`
         : null,

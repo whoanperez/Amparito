@@ -198,6 +198,14 @@ export interface EstadoConversacion {
     saludo: boolean;
     pidioCiudad: boolean;
     pidioNombreCompleto: boolean;
+    /**
+     * ¿Ya le devolvió lo que Colsubsidio tiene de ella, para que lo confirme?
+     *
+     * Sin esto, verificar la identidad no le devuelve NADA: pide un dato, ella lo da, y lo
+     * siguiente que ve es un panel de recomendaciones. El momento pide lo contrario — mostrarle lo
+     * que se sabe de ella y darle la oportunidad de corregirlo.
+     */
+    mostroSegmento: boolean;
   };
 }
 
@@ -210,7 +218,7 @@ export function estadoInicial(): EstadoConversacion {
     perfil: {},
     descartes: [],
     veredicto: null,
-    dichoUnaVez: { saludo: false, pidioCiudad: false, pidioNombreCompleto: false },
+    dichoUnaVez: { saludo: false, pidioCiudad: false, pidioNombreCompleto: false, mostroSegmento: false },
   };
 }
 

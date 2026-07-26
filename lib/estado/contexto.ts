@@ -45,6 +45,35 @@ function reconocido(e: EstadoConversacion): string {
   );
 }
 
+/**
+ * El primer turno después de confirmar que es ella: se le devuelve lo que Colsubsidio tiene.
+ *
+ * En HUMANO y en tres líneas, no como ficha de datos. La diferencia importa: "sostienes sola tu
+ * hogar" es algo que ella puede corregir; "mujer, 36 a 45, monoparental, categoría A" es un
+ * expediente, y recitarlo es justo lo que el prompt prohíbe.
+ */
+function primerTurnoReconocida(e: EstadoConversacion): string {
+  const seg = e.identidad.segmento ?? {};
+  const primerNombre = (e.identidad.nombre ?? "").split(" ")[0];
+  const saludo = seg.GENERO === "F" ? "Bienvenida" : seg.GENERO === "M" ? "Bienvenido" : "Bienvenido(a)";
+  const lineas = [
+    seg.SEGMENTO_GRUPO_FAMILIAR ? `su grupo familiar (${seg.SEGMENTO_GRUPO_FAMILIAR})` : null,
+    seg.RANGO_EDAD ? `su rango de edad (${seg.RANGO_EDAD})` : null,
+    seg.CATEGORIA ? `su categoría de afiliación (${seg.CATEGORIA})` : null,
+  ].filter(Boolean);
+
+  return (
+    `## CONFIRMÓ QUE ES ELLA — DEVUÉLVELE LO QUE SABEMOS, ANTES DE RECOMENDAR\n` +
+    `Este turno NO es para recomendar y NO llames a calcular_propension todavía.\n` +
+    `Salúdala con "${saludo}, ${primerNombre}" y muéstrale, en TRES LÍNEAS CORTAS y en humano, lo ` +
+    `que Colsubsidio tiene de ella para no preguntárselo: ${lineas.join("; ")}.\n` +
+    `Tradúcelo a cómo vive, no a cómo está clasificada: "sostienes sola tu hogar" en vez de ` +
+    `"monoparental", "entre 36 y 45" en vez de "rango 36 a 45 años". NUNCA como ficha de datos.\n` +
+    `Cierra preguntando si está bien así o si algo cambió. Es una invitación a corregir, no un ` +
+    `permiso para avanzar: si dice que sí, o si simplemente sigue contándote algo, avanzas.`
+  );
+}
+
 function ambiguo(e: EstadoConversacion): string {
   const { n, comun } = e.identidad.ambiguo ?? { n: 0 };
   return (
@@ -182,6 +211,18 @@ function identidad(e: EstadoConversacion): string | null {
           : ``)
       );
     }
+    /*
+     * ── El turno que faltaba: devolverle lo que sabemos ─────────────────────
+     *
+     * Verificar no le devolvía nada. Le pedía un dato, ella lo daba, y lo siguiente que veía era
+     * un panel de recomendaciones — con toda la información de golpe y sin que nadie le hubiera
+     * confirmado que era ella.
+     *
+     * Confirmar NO es pedir permiso, y por eso convive con la regla de RECONOCIDO que prohíbe
+     * "pedir confirmación antes de recomendar": aquello prohíbe pedir venia para avanzar; esto es
+     * devolverle su información para que pueda corregirla. Son cosas distintas.
+     */
+    if (!e.dichoUnaVez.mostroSegmento) return primerTurnoReconocida(e);
     return reconocido(e);
   }
 

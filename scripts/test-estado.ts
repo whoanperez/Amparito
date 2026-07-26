@@ -210,6 +210,31 @@ titulo("La identidad reconocida se congela");
   check("tras confirmar, queda verificada", e.identidad.verificada);
 
   /*
+   * ── El turno que faltaba (B15 · 8) ────────────────────────────────────────
+   *
+   * Verificar no le devolvía NADA: pedía un dato, ella lo daba, y lo siguiente que veía era un
+   * panel de recomendaciones. Ahora el turno siguiente le devuelve lo que Colsubsidio tiene, en
+   * humano, para que pueda corregirlo — y solo después se recomienda.
+   */
+  const trasVerificar = { ...e, dichoUnaVez: { ...e.dichoUnaVez, mostroSegmento: false } };
+  const ctxConfirmar = contextoDeEstado(trasVerificar) ?? "";
+  check("tras verificar, el turno es para devolverle lo que sabemos",
+    /DEVUÉLVELE LO QUE SABEMOS/.test(ctxConfirmar));
+  check("  …con sus datos, en humano y no como ficha", /grupo familiar \(Monoparental\)/.test(ctxConfirmar));
+  check("  …y le prohíbe llamar al motor todavía", /NO llames a calcular_propension/.test(ctxConfirmar));
+  check("  …y pide confirmación como invitación a corregir, no como permiso",
+    /invitación a corregir, no un/.test(ctxConfirmar));
+  check("  …así que el segmento aún no viaja como bloque del motor",
+    !ctxConfirmar.includes("SEGMENTO VERIFICADO"));
+
+  /*
+   * Se gasta al OCURRIR, no al aceptarse: si esperara un "sí" explícito, quien conteste otra cosa
+   * —"vale, y tengo una moto"— se quedaría atrapado confirmando.
+   */
+  check("y el turno de confirmación se gasta solo", e.dichoUnaVez.mostroSegmento);
+  check("después ya llega el segmento", (contextoDeEstado(e) ?? "").includes("SEGMENTO VERIFICADO"));
+
+  /*
    * La fuga que este paso cierra, comprobada sobre el contexto que de verdad viaja al modelo. No es
    * una regla de prompt pidiéndole discreción: es que el dato NO ESTÁ. No se puede revelar lo que
    * no se recibe.

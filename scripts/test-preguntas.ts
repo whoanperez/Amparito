@@ -11,6 +11,7 @@
  *     En la conversación real preguntó dos veces por los dependientes y dos por el uso del carro.
  */
 import { contarPreguntas, esDobleCanon } from "../lib/prompts";
+import { impactoDe } from "../lib/engine/prioridad";
 import { resumenEvidencia } from "../lib/engine/sanear";
 
 let ok = true;
@@ -76,6 +77,35 @@ const vacio = resumenEvidencia("hola") ?? "";
 check("con una conversación vacía dice que no sabe nada",
   /no sabes nada|no te ha contado nada/i.test(vacio));
 check("sin texto no devuelve nada", resumenEvidencia("") === null);
+
+/* ── las preguntas se ordenan por lo que deciden (B15 · 6) ────────────────── */
+/*
+ * En un flujo real Amparito gastó una de sus dos preguntas en "¿la bici es para pasear o para
+ * competir?". Medido contra el motor: los cuatro casos, incluido no preguntar, dan el mismo
+ * resultado. El prompt le pide "pregunta lo de MAYOR VALOR" y el modelo no tenía con qué saberlo:
+ * los pesos viven en un JSON que él no ve.
+ */
+console.log("\n===== Lo que falta va ordenado por lo que decide =====");
+
+// Sale de los pesos reales, así que no hay nada que sincronizar a mano.
+check(`el vehículo es lo que más mueve el motor (${impactoDe("enriquecido.tiene_vehiculo")})`,
+  impactoDe("enriquecido.tiene_vehiculo") === 50);
+check("y los dependientes mueven menos que la vivienda",
+  impactoDe("enriquecido.dependientes") < impactoDe("enriquecido.vivienda"));
+// Lo importante: un campo que no está en ninguna regla NO decide nada, y así lo dice.
+check("un campo que no aparece en ninguna regla vale cero",
+  impactoDe("enriquecido.uso_de_la_bici") === 0);
+
+const r6 = resumenEvidencia("me compré una bicicleta de montaña", undefined, { puedePreguntar: true }) ?? "";
+check("el bloque dice que la lista está ordenada", /MÁS A MENOS DECISIVO/.test(r6));
+const lista = (r6.match(/DECISIVO para el motor: ([^\n]+)\./) ?? [])[1] ?? "";
+const pos = (t: string) => lista.indexOf(t);
+check(`y la vivienda va antes que los dependientes, como dicen los pesos (${lista})`,
+  pos("vivienda") >= 0 && pos("vivienda") < pos("depende"));
+// De PRESENCIA: no basta con que el orden sea correcto, tiene que decirle que no pregunte fuera
+// de ahí — que es lo que gastó el turno.
+check("y le prohíbe preguntar lo que no está en la lista",
+  /nada que no esté en esa lista/.test(r6));
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);
 process.exit(ok ? 0 : 1);
