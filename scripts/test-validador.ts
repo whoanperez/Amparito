@@ -164,6 +164,23 @@ async function coberturas() {
   check("y sin clausulado no inventa hallazgos",
     coberturasContradichas("te cubre la guerra", { coberturas: [], exclusiones: [] }).length === 0);
 
+  /*
+   * DOS PRODUCTOS EN UN TURNO ("compárame los dos"). Si el turno se quedara con el último
+   * clausulado, una frase sobre el primero se contrastaría contra las exclusiones del otro: "el de
+   * mascotas incluye responsabilidad civil" se marcaba porque el SOAT excluye la RC. Unir las dos
+   * listas falla hacia NO marcar, que es el lado correcto para una guarda que poda texto.
+   */
+  const soat = (await executeTool("get_product_details", { productId: "soat_mundial" }, {})).result as typeof d;
+  const mascotas = (await executeTool("get_product_details", { productId: "mascotas_seguro_bolivar" }, {})).result as typeof d;
+  const frase = "El de mascotas incluye responsabilidad civil.";
+  check("con un solo clausulado, la comparación entre productos se marcaría mal",
+    coberturasContradichas(frase, { coberturas: soat.coberturas, exclusiones: soat.exclusiones }).length > 0);
+  check("uniendo los dos clausulados del turno, ya no",
+    coberturasContradichas(frase, {
+      coberturas: [...mascotas.coberturas, ...soat.coberturas],
+      exclusiones: [...mascotas.exclusiones, ...soat.exclusiones],
+    }).length === 0);
+
   const h = coberturasContradichas("Y también te cubre si hay una guerra civil.", c)[0];
   check("el hallazgo cita la exclusión concreta del clausulado", /EXCLUYE/.test(h?.motivo ?? ""));
   check("y la frase que hay que quitar",

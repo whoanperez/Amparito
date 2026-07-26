@@ -322,13 +322,21 @@ export async function ejecutarTurno(entrada: EntradaTurno, deps: DepsTurno): Pro
         descartes = conPerfil.descartado_por_falta_de_evidencia ?? [];
       }
 
-      // El clausulado, por el mismo criterio: se lee por los CAMPOS y no por el nombre de la tool,
-      // para que no haya que acordarse de añadir la siguiente que lo devuelva.
+      /*
+       * El clausulado, por el mismo criterio: se lee por los CAMPOS y no por el nombre de la tool,
+       * para que no haya que acordarse de añadir la siguiente que lo devuelva.
+       *
+       * Y se ACUMULA, no se reemplaza. Si en un turno se piden dos productos —"compárame los
+       * dos"—, quedarse con el último hacía que una frase sobre el primero se contrastara contra
+       * las exclusiones del otro: comprobado, "el de mascotas incluye responsabilidad civil" se
+       * marcaba porque el SOAT excluye la RC. Unir las dos listas falla hacia NO marcar, que es el
+       * lado correcto para una guarda que poda texto.
+       */
       const conClausulado = result as { coberturas?: unknown; exclusiones?: unknown };
       if (Array.isArray(conClausulado?.coberturas) && Array.isArray(conClausulado?.exclusiones)) {
         clausulado = {
-          coberturas: conClausulado.coberturas.map(String),
-          exclusiones: conClausulado.exclusiones.map(String),
+          coberturas: [...(clausulado?.coberturas ?? []), ...conClausulado.coberturas.map(String)],
+          exclusiones: [...(clausulado?.exclusiones ?? []), ...conClausulado.exclusiones.map(String)],
         };
       }
       return {
