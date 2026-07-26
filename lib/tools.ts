@@ -313,6 +313,7 @@ async function ejecutar(
       // verifica nada en runtime, así que el motor creía cualquier cosa que mandara el modelo.
       const { perfil, descartes } = sanearPerfil(input.perfil, ctx);
       const prop = calcularPropension(perfil);
+      const nos = nosHonestos(prop);
       // El resultado que ve el modelo (para redactar) y el evento que ve la UI son el mismo objeto.
       // Los descartes van SOLO al modelo (no a la UI): le dicen qué no pudo usar y por qué, para
       // que pueda preguntarlo en vez de improvisarlo.
@@ -334,8 +335,8 @@ async function ejecutar(
            */
           // El material del NO honesto, que hasta ahora el modelo tenía que deducir de mirar tres
           // campos distintos. Ver `lib/engine/nos.ts`.
-          nos_honestos: nosHonestos(prop),
-          instruccion_nos: instruccionDeNos(nosHonestos(prop)),
+          nos_honestos: nos,
+          instruccion_nos: instruccionDeNos(nos),
           instruccion_peer: prop.peer
             ? undefined
             : "No hay prueba social verificada para este perfil: NO afirmes ni aproximes ningún " +

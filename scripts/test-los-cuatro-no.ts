@@ -108,6 +108,20 @@ console.log("\n===== El NO sale de un hecho, no de una frase hecha =====");
   const nos = nosHonestos(r);
   check("con prueba social verificada, el NO ya no es 'no lo sé'",
     !!r.peer && !nos.some((n) => n.tipo === "no_lo_se"));
+
+  /*
+   * Y el NO no puede depender de cómo esté REDACTADO el motivo. La primera versión miraba si el
+   * texto decía "asesor" o "declaración": bastaba reescribir ese copy para que el NO desapareciera
+   * en silencio. Ahora se decide por el hecho estructural del catálogo, así que reescribir la
+   * prosa no lo apaga.
+   */
+  const conOtraProsa: typeof r = {
+    ...r,
+    descartados: (r.descartados ?? []).map((d) => ({ ...d, motivo: "Este texto se reescribió por completo." })),
+  };
+  check("y sobrevive a que alguien reescriba el motivo",
+    nosHonestos(conOtraProsa).some((n) => n.tipo === "no_te_lo_puedo_vender"),
+    `→ ${nosHonestos(conOtraProsa).map((n) => n.tipo).join(", ")}`);
 }
 
 console.log(`\n${ok ? "✅ GATE OK" : "❌ GATE FALLÓ"}`);

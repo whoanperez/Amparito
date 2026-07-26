@@ -20,6 +20,7 @@
  * de referencia, y las palabras siguen siendo del modelo.
  */
 import type { PropensionResult } from "./types";
+import { getProduct } from "../catalog";
 
 export type TipoNo = "ya_lo_tienes" | "hoy_no_te_sirve" | "no_lo_se" | "no_te_lo_puedo_vender";
 
@@ -48,10 +49,18 @@ export function nosHonestos(r: PropensionResult): NoHonesto[] {
     nos.push({ tipo: "hoy_no_te_sirve", porque: r.no_venta.motivo });
   }
 
-  // 3 · No te lo puedo vender por aquí. Un producto con señal real que el chat no puede cerrar:
-  //     es un NO concreto sobre algo que ella podría querer, no una excusa general.
+  /*
+   * 3 · No te lo puedo vender por aquí. Un producto con señal real que el chat no puede cerrar: es
+   *     un NO concreto sobre algo que ella podría querer, no una excusa general.
+   *
+   *     Se decide por el HECHO estructural del catálogo (`requiere_asesoria`), no por un regex
+   *     sobre la prosa del motivo. La primera versión miraba si el texto decía "asesor" o
+   *     "declaración": bastaba con que alguien reescribiera ese copy para que el NO desapareciera
+   *     en silencio, sin que ningún gate se enterara. Es el mismo defecto que llevo arreglando
+   *     todo el bloque, esta vez escrito por mí.
+   */
   for (const d of r.descartados ?? []) {
-    if (/asesor|declaraci[óo]n|estudio/i.test(d.motivo)) {
+    if (getProduct(d.id)?.requiere_asesoria) {
       nos.push({ tipo: "no_te_lo_puedo_vender", porque: `${d.nombre}: ${d.motivo}` });
     }
   }
